@@ -1,0 +1,98 @@
+{% extends "debate/base.html" %}
+
+{% block title %}パート進行 | PDA Debate Practice{% endblock %}
+
+{% block body %}
+<section class="glass-card rounded-2xl p-5 md:p-6 mb-6">
+  <p class="text-xs font-semibold text-brand uppercase tracking-wide mb-1">Motion</p>
+  <h2 class="text-lg font-bold text-slate-800 leading-snug">{{ session.motion }}</h2>
+  <div class="flex flex-wrap items-center gap-2 mt-3 text-xs text-slate-500">
+    <span>Session: {{ session.session_id[:8] }}…</span>
+    <span>&middot;</span>
+    <span id="overall-progress-label"></span>
+  </div>
+  <div class="mt-3 grid grid-cols-6 gap-1.5">
+    {% for part in part_order %}
+    <div class="h-1.5 rounded-full step-dot" data-step-part="{{ part }}"></div>
+    {% endfor %}
+  </div>
+</section>
+
+<div id="stale-recording-banner" class="hidden glass-card rounded-xl p-4 mb-4 border-amber-300 text-sm text-amber-800">
+  ページの再読み込みにより録音が中断されたパートがあります。該当パートは自動的にリセットされました。
+</div>
+
+<div class="space-y-4" id="parts-list">
+  {% for part in session.parts %}
+  {% set meta = part_meta[part.part] %}
+  <article
+    class="glass-card rounded-2xl p-5 md:p-6 part-card"
+    data-part="{{ part.part }}"
+    data-status="{{ part.status }}"
+    data-time-limit="{{ part.time_limit_sec }}"
+    data-elapsed="{{ part.elapsed_sec if part.elapsed_sec is not none else '' }}"
+  >
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="flex items-start gap-3">
+        <div class="w-12 h-12 rounded-xl bg-brand/10 text-brand-dark flex items-center justify-center font-extrabold text-sm shrink-0">
+          {{ part.part }}
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h3 class="font-bold text-slate-800">{{ meta.label }}</h3>
+            <span class="status-pill side-badge-{{ part.side }}">{{ part.side }}</span>
+            <span class="status-pill status-{{ part.status }}" data-status-pill>
+              {{ status_labels.get(part.status, part.status) }}
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">{{ meta.role }}</p>
+        </div>
+      </div>
+      <div class="text-right shrink-0">
+        <div class="timer-display text-2xl font-bold text-slate-700" data-timer>--:--</div>
+        <div class="text-xs text-slate-400">制限 {{ (part.time_limit_sec // 60) }}分{{ '%02d' % (part.time_limit_sec % 60) if part.time_limit_sec % 60 else '' }}</div>
+      </div>
+    </div>
+
+    <div class="guide-box rounded-xl px-4 py-3 mt-4">
+      <p class="text-[0.68rem] font-bold text-brand-dark uppercase tracking-wide mb-1">定型表現ガイド</p>
+      <p class="text-sm text-slate-700 leading-relaxed">{{ meta.guide }}</p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 mt-4">
+      <button type="button" class="btn-record px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold shadow hover:bg-brand-dark transition-colors">
+        ● 録音開始
+      </button>
+      <button type="button" class="btn-stop hidden px-4 py-2 rounded-lg bg-rose-600 text-white text-sm font-semibold shadow hover:bg-rose-700 transition-colors">
+        <span class="rec-dot inline-block mr-1 align-middle"></span>停止してアップロード
+      </button>
+      <button type="button" class="btn-review px-4 py-2 rounded-lg border border-brand/40 text-brand-dark text-sm font-semibold hover:bg-brand/5 transition-colors">
+        文字起こしを確認
+      </button>
+      <button type="button" class="btn-reset px-4 py-2 rounded-lg border border-slate-200 text-slate-500 text-sm font-semibold hover:bg-slate-50 transition-colors">
+        やり直す
+      </button>
+      <span class="btn-uploading hidden text-xs text-amber-600 font-semibold">アップロード・文字起こし中...</span>
+      <span class="part-error text-xs text-rose-600 font-medium hidden"></span>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+
+<section id="all-done-section" class="glass-card rounded-2xl p-6 mt-6 hidden text-center">
+  <p class="text-2xl mb-2">🎉</p>
+  <h3 class="font-bold text-slate-800 mb-1">6パートすべて確定しました</h3>
+  <p class="text-sm text-slate-500 mb-4">ジャッジ機能は次のステップで実装予定です。</p>
+  <button type="button" disabled class="px-5 py-2.5 rounded-xl bg-slate-200 text-slate-500 text-sm font-bold cursor-not-allowed">
+    ジャッジ結果を見る（準備中）
+  </button>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.DEBATE_SESSION_ID = {{ session.session_id | tojson }};
+  window.DEBATE_STATUS_LABELS = {{ status_labels | tojson }};
+</script>
+<script src="{{ url_for('static', filename='debate/js/progress.js') }}"></script>
+{% endblock %}
