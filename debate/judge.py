@@ -264,20 +264,21 @@ def run_judge(session: dict) -> dict:
     if not client:
         raise RuntimeError("OPENAI_API_KEYが設定されていないため、ジャッジを実行できません。")
 
-    from debate.config import JUDGE_MODEL
+    from debate.settings import resolve_judge_model
 
+    judge_model = resolve_judge_model()
     payload = build_judge_payload(session)
     user_content = json.dumps(payload, ensure_ascii=False, indent=2)
 
     kwargs: dict = {
-        "model": JUDGE_MODEL,
+        "model": judge_model,
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
             {"role": "user", "content": user_content},
         ],
     }
-    if not _is_reasoning_model(JUDGE_MODEL):
+    if not _is_reasoning_model(judge_model):
         kwargs["temperature"] = 0.2
 
     started = time.monotonic()
@@ -285,7 +286,7 @@ def run_judge(session: dict) -> dict:
         completion = client.chat.completions.create(**kwargs)
     except Exception as exc:
         elapsed = time.monotonic() - started
-        logger.warning("Judge request failed after %.1fs (model=%s): %s", elapsed, JUDGE_MODEL, exc)
+        logger.warning("Judge request failed after %.1fs (model=%s): %s", elapsed, judge_model, exc)
         raise
 
     elapsed = time.monotonic() - started
@@ -295,6 +296,6 @@ def run_judge(session: dict) -> dict:
 
     data = _parse_json_object(raw)
     result = _normalize_result(data)
-    result["model"] = JUDGE_MODEL
-    logger.info("Judge finished in %.1fs (model=%s, winner=%s)", elapsed, JUDGE_MODEL, result.get("winner"))
+    result["model"] = judge_model
+    logger.info("Judge finished in %.1fs (model=%s, winner=%s)", elapsed, judge_model, result.get("winner"))
     return result

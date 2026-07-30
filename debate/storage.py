@@ -124,6 +124,7 @@ def list_sessions(limit: int = 10) -> list[dict]:
                 "total_parts": len(parts),
                 "judge_status": judge_result.get("status", "idle"),
                 "judge_winner": judge_result.get("winner"),
+                "judge_model": judge_result.get("model", ""),
                 "judge_transcription_mode": judge_result.get("transcription_mode", ""),
             }
         )

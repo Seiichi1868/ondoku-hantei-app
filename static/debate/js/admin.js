@@ -8,10 +8,11 @@ const lockMessage = document.getElementById("lock-message");
 const settingsPanel = document.getElementById("settings-panel");
 const statusMessage = document.getElementById("status-message");
 const pageBgLayer = document.getElementById("page-bg-layer");
-const bgCurrentLabel = document.getElementById("bg-current-label");
 const bgPicker = document.getElementById("bg-picker");
 const bgOpacitySlider = document.getElementById("bg-opacity-slider");
 const bgOpacityValue = document.getElementById("bg-opacity-value");
+const judgeModelPicker = document.getElementById("judge-model-picker");
+const judgeModelCurrent = document.getElementById("judge-model-current");
 const sessionsList = document.getElementById("sessions-list");
 const sessionsCount = document.getElementById("sessions-count");
 const sessionsRefreshBtn = document.getElementById("sessions-refresh-btn");
@@ -20,6 +21,7 @@ const transcriptionModePicker = document.getElementById("transcription-mode-pick
 let unlocked = false;
 let saveTimer = null;
 let currentBackgroundId = null;
+let currentJudgeModelMode = "4o";
 
 function getStoredPassword() {
   try {
@@ -70,17 +72,68 @@ function getBackgroundOpacityFromSlider() {
   return Number.isFinite(percent) ? percent / 100 : 0.32;
 }
 
-function applyBackground(bgId, imageUrl, label) {
+function applyBackground(bgId, imageUrl) {
   currentBackgroundId = bgId;
   if (pageBgLayer && imageUrl) {
     pageBgLayer.style.backgroundImage = `url("${imageUrl}")`;
   }
-  if (bgCurrentLabel && label) {
-    bgCurrentLabel.textContent = label;
-  }
   document.querySelectorAll(".bg-pick-btn").forEach((btn) => {
     btn.classList.toggle("bg-pick-btn-active", btn.dataset.bgId === bgId);
   });
+}
+
+function clampRatingLevel(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(5, Math.round(n)));
+}
+
+function renderJudgeModelRatingRow(label, level) {
+  const filled = clampRatingLevel(level);
+  const segments = Array.from({ length: 5 }, (_, index) => {
+    const filledClass = index < filled ? " is-filled" : "";
+    return `<span class="debate-mode-rating-seg${filledClass}"></span>`;
+  }).join("");
+  return `<span class="debate-mode-rating-row">
+    <span class="debate-mode-rating-label">${label}</span>
+    <span class="debate-mode-rating-bar" aria-label="${label} ${filled}/5">${segments}</span>
+  </span>`;
+}
+
+function renderJudgeModelOptions(modes, selectedMode) {
+  if (!judgeModelPicker || !Array.isArray(modes) || !modes.length) return;
+  judgeModelPicker.innerHTML = modes
+    .map((mode) => {
+      const id = escapeHtml(mode.id || "");
+      const title = escapeHtml(mode.model || mode.label || id);
+      const checked = id === selectedMode ? " checked" : "";
+      return `<label class="debate-mode-option debate-mode-option--compact">
+        <input type="radio" name="judge_model_mode" value="${id}"${checked} />
+        <span class="debate-mode-option-body">
+          <span class="debate-mode-option-title">${title}</span>
+          <span class="debate-mode-ratings">
+            ${renderJudgeModelRatingRow("コスパ", mode.cost_performance)}
+            ${renderJudgeModelRatingRow("性能", mode.performance)}
+          </span>
+        </span>
+      </label>`;
+    })
+    .join("");
+}
+
+function applyJudgeModelMode(mode, activeModel) {
+  currentJudgeModelMode = mode || "4o";
+  if (judgeModelCurrent) {
+    judgeModelCurrent.textContent = activeModel || "—";
+  }
+  judgeModelPicker?.querySelectorAll('input[name="judge_model_mode"]').forEach((input) => {
+    input.checked = input.value === currentJudgeModelMode;
+  });
+}
+
+function getSelectedJudgeModelMode() {
+  const checked = judgeModelPicker?.querySelector('input[name="judge_model_mode"]:checked');
+  return checked?.value || currentJudgeModelMode || "4o";
 }
 
 async function fetchSettings() {
@@ -118,15 +171,18 @@ function collectPayload() {
     background_id: currentBackgroundId,
     background_opacity: getBackgroundOpacityFromSlider(),
     transcription_mode: getSelectedTranscriptionMode(),
+    judge_model_mode: getSelectedJudgeModelMode(),
   };
 }
 
 async function loadSettingsIntoUI() {
   const data = await fetchSettings();
   const activeBtn = bgPicker?.querySelector(`.bg-pick-btn[data-bg-id="${data.background_id}"]`);
-  applyBackground(data.background_id, activeBtn?.dataset.bgImage, data.background_label || activeBtn?.title);
+  applyBackground(data.background_id, activeBtn?.dataset.bgImage);
   applyBackgroundOpacity(data.background_opacity ?? 0.32);
   applyTranscriptionMode(data.transcription_mode ?? "batch");
+  renderJudgeModelOptions(data.judge_model_modes || [], data.judge_model_mode || "4o");
+  applyJudgeModelMode(data.judge_model_mode || "4o", data.judge_model);
 }
 
 function scheduleSave() {
@@ -136,9 +192,10 @@ function scheduleSave() {
     try {
       const saved = await saveSettings(collectPayload());
       const activeBtn = bgPicker?.querySelector(`.bg-pick-btn[data-bg-id="${saved.background_id}"]`);
-      applyBackground(saved.background_id, activeBtn?.dataset.bgImage, saved.background_label || activeBtn?.title);
+      applyBackground(saved.background_id, activeBtn?.dataset.bgImage);
       applyBackgroundOpacity(saved.background_opacity ?? 0.32);
       applyTranscriptionMode(saved.transcription_mode ?? "batch");
+      applyJudgeModelMode(saved.judge_model_mode || "4o", saved.judge_model);
       statusMessage.textContent = "保存しました";
     } catch (err) {
       statusMessage.textContent = "";
@@ -191,9 +248,11 @@ function renderSessions(sessions) {
       let judgeLabel = "";
       if (s.judge_status === "done") {
         const modeLabel = judgeLabelMap[s.judge_transcription_mode] || "";
+        const modelLabel = s.judge_model ? escapeHtml(s.judge_model) : "";
         judgeLabel =
           `<span class="text-indigo-600 font-semibold">判定: ${escapeHtml(s.judge_winner || "-")}勝利</span>` +
-          (modeLabel ? ` <span class="text-slate-400">(${modeLabel})</span>` : "");
+          (modelLabel ? ` <span class="text-slate-400">(${modelLabel})</span>` : "") +
+          (modeLabel ? ` <span class="text-slate-400">[${modeLabel}]</span>` : "");
       } else if (s.judge_status === "judging") {
         judgeLabel = `<span class="text-amber-600">ジャッジ実行中…</span>`;
       } else if (s.judge_status === "error") {
@@ -343,7 +402,12 @@ passwordInput?.addEventListener("keydown", (e) => {
 bgPicker?.addEventListener("click", (e) => {
   const btn = e.target.closest(".bg-pick-btn");
   if (!btn || !unlocked) return;
-  applyBackground(btn.dataset.bgId, btn.dataset.bgImage, btn.title);
+  applyBackground(btn.dataset.bgId, btn.dataset.bgImage);
+  scheduleSave();
+});
+
+judgeModelPicker?.addEventListener("change", () => {
+  if (!unlocked) return;
   scheduleSave();
 });
 

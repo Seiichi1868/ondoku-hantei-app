@@ -21,10 +21,48 @@ WHISPER_MODEL = os.environ.get("DEBATE_WHISPER_MODEL", "whisper-1")
 WHISPER_TIMEOUT_SEC = float(os.environ.get("DEBATE_WHISPER_TIMEOUT_SEC", "45"))
 WHISPER_MAX_RETRIES = int(os.environ.get("DEBATE_WHISPER_MAX_RETRIES", "1"))
 
-# ジャッジ機能用モデル。gpt-4o-mini等の軽量モデルは6パート分の論点フロー追跡
-# （standing/knocked_down/extended判定）の精度が不安定になりやすいため、
-# 既定はgpt-4oとする。精度が不十分な場合はDEBATE_JUDGE_MODELで上位モデルに切り替える。
-JUDGE_MODEL = os.environ.get("DEBATE_JUDGE_MODEL", "gpt-4o")
+# ジャッジモデルの選択肢（管理画面から切り替え。gpt-4oをベンチマークとしてコスパ比較用）
+JUDGE_MODEL_OPTIONS: dict[str, dict[str, str | int]] = {
+    "4o-mini": {
+        "label": "gpt-4o-mini",
+        "model": "gpt-4o-mini",
+        "cost_performance": 5,
+        "performance": 3,
+    },
+    "5.4-nano": {
+        "label": "gpt-5.4-nano",
+        "model": "gpt-5.4-nano",
+        "cost_performance": 5,
+        "performance": 2,
+    },
+    "5-mini": {
+        "label": "gpt-5-mini",
+        "model": "gpt-5-mini",
+        "cost_performance": 4,
+        "performance": 3,
+    },
+    "5.4-mini": {
+        "label": "gpt-5.4-mini",
+        "model": "gpt-5.4-mini",
+        "cost_performance": 3,
+        "performance": 4,
+    },
+    "4o": {
+        "label": "gpt-4o",
+        "model": "gpt-4o",
+        "cost_performance": 2,
+        "performance": 4,
+    },
+    "5.4": {
+        "label": "gpt-5.4",
+        "model": "gpt-5.4",
+        "cost_performance": 1,
+        "performance": 5,
+    },
+}
+DEFAULT_JUDGE_MODEL_MODE = "4o"
+# 環境変数でモデルIDを直接指定する場合（管理画面設定より優先）
+JUDGE_MODEL_OVERRIDE = os.environ.get("DEBATE_JUDGE_MODEL", "").strip()
 JUDGE_TIMEOUT_SEC = float(os.environ.get("DEBATE_JUDGE_TIMEOUT_SEC", "90"))
 JUDGE_MAX_RETRIES = int(os.environ.get("DEBATE_JUDGE_MAX_RETRIES", "1"))
 # ジャッジが "judging" のまま長時間止まっている場合にエラー扱いへ復旧するまでの秒数

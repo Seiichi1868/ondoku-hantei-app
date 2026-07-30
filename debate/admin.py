@@ -6,10 +6,12 @@ from flask import Blueprint, jsonify, render_template, request
 from debate.settings import (
     BACKGROUND_PRESETS,
     DEFAULT_BACKGROUND_OPACITY,
+    JUDGE_MODEL_OPTIONS,
     TRANSCRIPTION_MODES,
     _clamp_opacity,
     load_settings,
     resolve_background,
+    resolve_judge_model,
     update_settings,
 )
 from debate.storage import delete_session, list_sessions
@@ -39,7 +41,18 @@ def admin_page():
 def admin_settings():
     if request.method == "GET":
         settings = load_settings()
-        return jsonify({"ok": True, **settings, **resolve_background(settings.get("background_id"))})
+        judge_mode = settings.get("judge_model_mode", "4o")
+        return jsonify(
+            {
+                "ok": True,
+                **settings,
+                **resolve_background(settings.get("background_id")),
+                "judge_model": resolve_judge_model(judge_mode),
+                "judge_model_modes": [
+                    {"id": key, **JUDGE_MODEL_OPTIONS[key]} for key in JUDGE_MODEL_OPTIONS
+                ],
+            }
+        )
 
     payload = request.get_json(silent=True) or {}
     if not _password_ok(payload):
@@ -56,13 +69,39 @@ def admin_settings():
         mode = str(payload.get("transcription_mode") or "")
         if mode in TRANSCRIPTION_MODES:
             updates["transcription_mode"] = mode
+    if "judge_model_mode" in payload:
+        judge_mode = str(payload.get("judge_model_mode") or "")
+        if judge_mode in JUDGE_MODEL_OPTIONS:
+            updates["judge_model_mode"] = judge_mode
 
     if not updates:
         settings = load_settings()
-        return jsonify({"ok": True, **settings, **resolve_background(settings.get("background_id"))})
+        judge_mode = settings.get("judge_model_mode", "4o")
+        return jsonify(
+            {
+                "ok": True,
+                **settings,
+                **resolve_background(settings.get("background_id")),
+                "judge_model": resolve_judge_model(judge_mode),
+                "judge_model_modes": [
+                    {"id": key, **JUDGE_MODEL_OPTIONS[key]} for key in JUDGE_MODEL_OPTIONS
+                ],
+            }
+        )
 
     saved = update_settings(**updates)
-    return jsonify({"ok": True, **saved, **resolve_background(saved.get("background_id"))})
+    judge_mode = saved.get("judge_model_mode", "4o")
+    return jsonify(
+        {
+            "ok": True,
+            **saved,
+            **resolve_background(saved.get("background_id")),
+            "judge_model": resolve_judge_model(judge_mode),
+            "judge_model_modes": [
+                {"id": key, **JUDGE_MODEL_OPTIONS[key]} for key in JUDGE_MODEL_OPTIONS
+            ],
+        }
+    )
 
 
 # ── 保存済みセッション一覧（途中まで進めたディベートの再開・削除） ──────
