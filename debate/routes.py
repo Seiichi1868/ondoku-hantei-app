@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from flask import Blueprint, jsonify, render_template, request, send_from_directory, url_for
+from flask import Blueprint, after_this_request, jsonify, render_template, request, send_from_directory, url_for
 from werkzeug.utils import secure_filename
 
 from debate.config import (
@@ -39,6 +39,28 @@ logger = logging.getLogger(__name__)
 debate_bp = Blueprint("debate", __name__, url_prefix="/debate")
 
 JST = timezone(timedelta(hours=9))
+
+# 本番は gunicorn + gevent（monkey.patch_all）。通常の threading.Thread は greenlet 化され、
+# Whisper の同期 HTTP がイベントループ／ワーカー全体を塞ぎうる。
+# gevent.threadpool は本物の OS スレッドで実行するため、リクエスト処理を止めない。
+_transcription_pool = None
+_transcription_pool_lock = threading.Lock()
+
+
+def _get_transcription_pool():
+    global _transcription_pool
+    with _transcription_pool_lock:
+        if _transcription_pool is not None:
+            return _transcription_pool
+        try:
+            from gevent.threadpool import ThreadPool
+
+            _transcription_pool = ThreadPool(4)
+            logger.info("Using gevent.threadpool.ThreadPool for Whisper jobs")
+        except Exception:  # noqa: BLE001 - ローカル開発等で gevent が無い場合のフォールバック
+            logger.warning("gevent.threadpool unavailable; falling back to threading.Thread")
+            _transcription_pool = None
+        return _transcription_pool
 
 
 def _background_context() -> dict:
@@ -179,12 +201,30 @@ def _run_transcription_job(session_id: str, part: str, file_path: Path) -> None:
 
 
 def _start_transcription_job(session_id: str, part: str, file_path: Path) -> None:
+    pool = _get_transcription_pool()
+    if pool is not None:
+        pool.spawn(_run_transcription_job, session_id, part, file_path)
+        return
     thread = threading.Thread(
         target=_run_transcription_job,
         args=(session_id, part, file_path),
         daemon=True,
     )
     thread.start()
+
+
+def _kickoff_transcription_after_response(session_id: str, part: str, file_path: Path) -> None:
+    """HTTP レスポンス返却後に文字起こしを起動し、アップロード応答を遅らせない。"""
+
+    @after_this_request
+    def _start(response):
+        try:
+            _start_transcription_job(session_id, part, file_path)
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "Failed to kick off transcription job for session=%s part=%s", session_id, part
+            )
+        return response
 
 
 @debate_bp.route("/api/sessions/<session_id>/parts/<part>/audio", methods=["POST"])
@@ -235,13 +275,13 @@ def upload_part_audio(session_id, part):
                 part_data["elapsed_sec"] = None
 
         # 文字起こし（Whisper）は時間がかかりうるため、ここでは待たずに
-        # バックグラウンドで実行し、アップロード自体はすぐに完了させる。
+        # レスポンス返却後に OS スレッドで実行する。
         # これにより、このパートの文字起こしが終わる前でも次のパートの録音を開始できる。
         part_data["status"] = "transcribing"
         save_session(session)
         response_data = dict(part_data)
 
-    _start_transcription_job(session_id, part, file_path)
+    _kickoff_transcription_after_response(session_id, part, file_path)
     return jsonify(response_data), 202
 
 
@@ -268,7 +308,7 @@ def retranscribe_part(session_id, part):
         save_session(session)
         response_data = dict(part_data)
 
-    _start_transcription_job(session_id, part, file_path)
+    _kickoff_transcription_after_response(session_id, part, file_path)
     return jsonify(response_data), 202
 
 

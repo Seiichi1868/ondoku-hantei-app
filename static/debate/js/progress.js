@@ -267,6 +267,13 @@
       stopBtn.classList.remove("hidden");
     } else if (status === "transcribing") {
       uploadingLabel.classList.remove("hidden");
+      // 文字起こし中でも確認画面へは入れる（完了待ち／手動入力／再試行のため）
+      reviewBtn.classList.remove("hidden");
+      reviewBtn.textContent = "進捗を見る";
+      if (elapsed !== null) {
+        timerEl.textContent = formatSeconds(elapsed);
+        timerEl.classList.toggle("text-rose-600", elapsed > timeLimit);
+      }
     } else if (status === "needs_review") {
       reviewBtn.classList.remove("hidden");
       resetBtn.classList.remove("hidden");
@@ -418,6 +425,11 @@
     }
     cardState.set(part, state);
     hideLiveMonitor(card);
+
+    // アップロード／文字起こし完了を待たず、停止直後に他パートの録音を解禁する。
+    // （以前は uploadAudio の応答待ちの間ずっとロックが残り、次パートに進めなかった）
+    activeRecordingPart = null;
+    setRecordButtonsDisabled(part, false);
 
     card.dataset.status = "transcribing";
     renderCard(card);
