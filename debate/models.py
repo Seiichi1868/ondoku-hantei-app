@@ -33,9 +33,17 @@ def new_part(part: str) -> dict:
 
 
 def new_judge_result() -> dict:
-    """ジャッジ機能は未実装のため、スキーマ準拠の空の器のみ用意する。"""
+    """ジャッジ結果の空の器（status: idle→judging→done/error）。"""
     return {
+        "status": "idle",
+        "error": "",
+        "model": "",
+        "transcription_mode": "",
+        "started_at": None,
+        "judged_at": None,
+        "argument_flow": [],
         "winner": None,
+        "standing_point_count": {"gov": 0, "opp": 0},
         "scores": {
             "content": {"reasoning": None, "examples": None, "relevance": None},
             "method": {
@@ -43,7 +51,6 @@ def new_judge_result() -> dict:
                 "flow_consistency": None,
                 "role_fulfillment": None,
             },
-            "time_management": {"gov_compliance": None, "opp_compliance": None},
         },
         "overall_feedback": "",
         "part_feedback": [{"part": part, "comment": ""} for part in PART_ORDER],

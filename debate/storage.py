@@ -112,6 +112,7 @@ def list_sessions(limit: int = 10) -> list[dict]:
             jst = timezone(timedelta(hours=9))
             updated_at = datetime.fromtimestamp(mtime, tz=jst).isoformat(timespec="seconds")
 
+        judge_result = data.get("judge_result") or {}
         summaries.append(
             {
                 "session_id": data.get("session_id"),
@@ -121,6 +122,9 @@ def list_sessions(limit: int = 10) -> list[dict]:
                 "confirmed_parts": confirmed,
                 "in_progress_parts": in_progress,
                 "total_parts": len(parts),
+                "judge_status": judge_result.get("status", "idle"),
+                "judge_winner": judge_result.get("winner"),
+                "judge_transcription_mode": judge_result.get("transcription_mode", ""),
             }
         )
     return summaries

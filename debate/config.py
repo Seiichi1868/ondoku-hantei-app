@@ -13,7 +13,6 @@ DATA_DIR = Path(
 SESSIONS_DIR = DATA_DIR / "sessions"
 AUDIO_DIR = DATA_DIR / "audio"
 
-# ジャッジ機能は別ステップで実装するため、ここでは文字起こし用モデルのみ定義する。
 WHISPER_MODEL = os.environ.get("DEBATE_WHISPER_MODEL", "whisper-1")
 
 # OpenAI SDKの既定タイムアウトは10分（かつ既定で2回リトライ＝最悪30分待ち）と長すぎるため、
@@ -21,6 +20,15 @@ WHISPER_MODEL = os.environ.get("DEBATE_WHISPER_MODEL", "whisper-1")
 # エラーとして返せるようにする。
 WHISPER_TIMEOUT_SEC = float(os.environ.get("DEBATE_WHISPER_TIMEOUT_SEC", "45"))
 WHISPER_MAX_RETRIES = int(os.environ.get("DEBATE_WHISPER_MAX_RETRIES", "1"))
+
+# ジャッジ機能用モデル。gpt-4o-mini等の軽量モデルは6パート分の論点フロー追跡
+# （standing/knocked_down/extended判定）の精度が不安定になりやすいため、
+# 既定はgpt-4oとする。精度が不十分な場合はDEBATE_JUDGE_MODELで上位モデルに切り替える。
+JUDGE_MODEL = os.environ.get("DEBATE_JUDGE_MODEL", "gpt-4o")
+JUDGE_TIMEOUT_SEC = float(os.environ.get("DEBATE_JUDGE_TIMEOUT_SEC", "90"))
+JUDGE_MAX_RETRIES = int(os.environ.get("DEBATE_JUDGE_MAX_RETRIES", "1"))
+# ジャッジが "judging" のまま長時間止まっている場合にエラー扱いへ復旧するまでの秒数
+JUDGE_STUCK_SEC = int(os.environ.get("DEBATE_JUDGE_STUCK_SEC", "180"))
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # Whisper API の上限に合わせる
 ALLOWED_AUDIO_EXTENSIONS = {"webm", "wav", "mp3", "m4a", "ogg", "mp4", "mpeg", "mpga"}

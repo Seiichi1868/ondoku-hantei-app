@@ -4,8 +4,7 @@
   1. GET  /debate                                          … ①論題入力画面
   2. GET  /debate/session/<id>                              … ②パート進行画面（録音+タイマー+ガイド文）
   3. GET  /debate/session/<id>/parts/<part>/review          … ③文字起こし確認画面
-
-ジャッジ機能（仕様書 3.）はこのスケルトンには含めない。
+  4. GET  /debate/session/<id>/judge                        … ④ジャッジ結果画面
 """
 import logging
 import mimetypes
@@ -21,6 +20,7 @@ from debate.config import (
     ALLOWED_AUDIO_EXTENSIONS,
     AUDIO_DIR,
     DEFAULT_MOTIONS,
+    JUDGE_STUCK_SEC,
     MAX_AUDIO_BYTES,
     PART_GUIDES,
     PART_LABELS,
@@ -29,7 +29,8 @@ from debate.config import (
     STATUS_LABELS,
     ensure_dirs,
 )
-from debate.models import new_session, now_iso
+from debate.judge_jobs import start_judge_job
+from debate.models import new_judge_result, new_session, now_iso
 from debate.settings import load_settings, resolve_background
 from debate.storage import get_part, get_session_lock, list_sessions, load_session, save_session
 from debate.transcription_jobs import start_transcription_job
@@ -124,6 +125,22 @@ def _part_meta() -> dict:
         }
         for part in PART_ORDER
     }
+
+
+def _transcription_mode_summary(session: dict) -> str:
+    """6パートのtranscription_modeが一致していれば"batch"/"realtime"、
+    混在していれば"mixed"を返す（後でモード別の判定結果を比較できるようにするため）。
+    """
+    modes = {
+        part_data.get("transcription_mode")
+        for part_data in session.get("parts", [])
+        if part_data.get("transcription_mode")
+    }
+    if len(modes) == 1:
+        return next(iter(modes))
+    if len(modes) > 1:
+        return "mixed"
+    return ""
 
 
 def _resolve_extension(filename: str, mimetype: str | None) -> str:
@@ -447,6 +464,90 @@ def reset_part(session_id, part):
         )
         save_session(session)
         return jsonify(part_data)
+
+
+# ── ④ジャッジ結果画面 ──────────────────────────────────────
+def _unconfirmed_parts(session: dict) -> list[str]:
+    return [
+        part_data["part"]
+        for part_data in session.get("parts", [])
+        if part_data.get("status") != "confirmed" or not str(part_data.get("transcript_edited") or "").strip()
+    ]
+
+
+@debate_bp.route("/api/sessions/<session_id>/judge", methods=["POST"])
+def start_judge(session_id):
+    """6パートすべて確定済みであればジャッジ実行をバックグラウンドで開始する。"""
+    with get_session_lock(session_id):
+        session = load_session(session_id)
+        if not session:
+            return jsonify({"error": "セッションが見つかりません。"}), 404
+
+        missing = _unconfirmed_parts(session)
+        if missing:
+            return (
+                jsonify(
+                    {
+                        "error": f"すべてのパートを確定してから実行してください（未確定: {', '.join(missing)}）。"
+                    }
+                ),
+                400,
+            )
+
+        judge_result = new_judge_result()
+        judge_result["status"] = "judging"
+        judge_result["started_at"] = now_iso()
+        judge_result["transcription_mode"] = _transcription_mode_summary(session)
+        session["judge_result"] = judge_result
+        save_session(session)
+
+    start_judge_job(session_id)
+    return jsonify(judge_result), 202
+
+
+@debate_bp.route("/api/sessions/<session_id>/judge", methods=["GET"])
+def get_judge_result(session_id):
+    """ジャッジ結果画面からのポーリング用の軽量エンドポイント。"""
+    session = load_session(session_id)
+    if not session:
+        return jsonify({"error": "セッションが見つかりません。"}), 404
+
+    judge_result = session.get("judge_result") or new_judge_result()
+
+    if judge_result.get("status") == "judging":
+        elapsed = _seconds_since(judge_result.get("started_at"))
+        if elapsed is not None and elapsed > JUDGE_STUCK_SEC:
+            with get_session_lock(session_id):
+                session = load_session(session_id)
+                if session:
+                    judge_result = session.get("judge_result") or {}
+                    if judge_result.get("status") == "judging":
+                        judge_result["status"] = "error"
+                        judge_result["error"] = (
+                            "ジャッジの処理がタイムアウトしました。もう一度実行してください。"
+                        )
+                        session["judge_result"] = judge_result
+                        save_session(session)
+
+    return jsonify(judge_result)
+
+
+@debate_bp.route("/session/<session_id>/judge")
+def judge_screen(session_id):
+    session = load_session(session_id)
+    if not session:
+        return render_template(
+            "debate/not_found.html", session_id=session_id, **_background_context()
+        ), 404
+
+    return render_template(
+        "debate/judge.html",
+        session=session,
+        part_meta=_part_meta(),
+        part_order=PART_ORDER,
+        unconfirmed_parts=_unconfirmed_parts(session),
+        **_background_context(),
+    )
 
 
 @debate_bp.route("/audio/<session_id>/<path:filename>")

@@ -916,5 +916,29 @@
 
   saveExitBtn?.addEventListener("click", handleSaveExitClick);
 
+  // ── ジャッジ実行（6パート確定後に表示されるボタン） ─────────────
+  const runJudgeBtn = document.getElementById("run-judge-btn");
+  const runJudgeError = document.getElementById("run-judge-error");
+
+  runJudgeBtn?.addEventListener("click", async () => {
+    runJudgeBtn.disabled = true;
+    runJudgeBtn.textContent = "ジャッジを開始しています...";
+    if (runJudgeError) runJudgeError.classList.add("hidden");
+
+    try {
+      const res = await fetch(`/debate/api/sessions/${SESSION_ID}/judge`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "ジャッジの開始に失敗しました。");
+      window.location.href = `/debate/session/${SESSION_ID}/judge`;
+    } catch (err) {
+      runJudgeBtn.disabled = false;
+      runJudgeBtn.textContent = "ジャッジを実行";
+      if (runJudgeError) {
+        runJudgeError.textContent = err.message;
+        runJudgeError.classList.remove("hidden");
+      }
+    }
+  });
+
   refreshOverallProgress();
 })();

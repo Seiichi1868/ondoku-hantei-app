@@ -187,6 +187,19 @@ function renderSessions(sessions) {
         : `<span>${s.confirmed_parts}/${s.total_parts} 確定</span>` +
           (s.in_progress_parts ? ` ・ <span class="text-amber-600">${s.in_progress_parts} 進行中</span>` : "");
 
+      const judgeLabelMap = { batch: "モードA", realtime: "モードB", mixed: "混在" };
+      let judgeLabel = "";
+      if (s.judge_status === "done") {
+        const modeLabel = judgeLabelMap[s.judge_transcription_mode] || "";
+        judgeLabel =
+          `<span class="text-indigo-600 font-semibold">判定: ${escapeHtml(s.judge_winner || "-")}勝利</span>` +
+          (modeLabel ? ` <span class="text-slate-400">(${modeLabel})</span>` : "");
+      } else if (s.judge_status === "judging") {
+        judgeLabel = `<span class="text-amber-600">ジャッジ実行中…</span>`;
+      } else if (s.judge_status === "error") {
+        judgeLabel = `<span class="text-rose-600">ジャッジ失敗</span>`;
+      }
+
       return `
         <div class="rounded-xl border border-slate-100 bg-white/70 px-4 py-3 hover:border-brand/30 transition-colors">
           <div class="flex flex-wrap items-start justify-between gap-3">
@@ -196,6 +209,7 @@ function renderSessions(sessions) {
                 <span><span class="font-semibold text-slate-400">日付</span> ${escapeHtml(dt.date)}</span>
                 <span><span class="font-semibold text-slate-400">時刻</span> ${escapeHtml(dt.time)}</span>
                 <span>${progressLabel}</span>
+                ${judgeLabel ? `<span>${judgeLabel}</span>` : ""}
               </div>
             </div>
             <div class="flex shrink-0 items-center gap-2">
