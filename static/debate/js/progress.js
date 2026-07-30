@@ -1,10 +1,14 @@
 (() => {
   const SESSION_ID = window.DEBATE_SESSION_ID;
   const STATUS_LABELS = window.DEBATE_STATUS_LABELS || {};
+  const CONFIGURED_MODE = window.DEBATE_TRANSCRIPTION_MODE || "batch";
   const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
+  const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const SPEECH_SUPPORTED = Boolean(SpeechRecognitionImpl);
 
   const cards = Array.from(document.querySelectorAll(".part-card"));
   const staleBanner = document.getElementById("stale-recording-banner");
+  const modeFallbackBanner = document.getElementById("mode-fallback-banner");
   const allDoneSection = document.getElementById("all-done-section");
   const overallLabel = document.getElementById("overall-progress-label");
   const saveExitBtn = document.getElementById("save-exit-btn");
@@ -12,8 +16,36 @@
 
   /** @type {string|null} いま録音中のパート（これ以外の not_started パートだけ録音ボタンを無効化） */
   let activeRecordingPart = null;
+  let modeFallbackWarned = false;
 
   const cardState = new Map();
+
+  function getEffectiveMode() {
+    if (CONFIGURED_MODE === "realtime" && !SPEECH_SUPPORTED) {
+      if (!modeFallbackWarned) {
+        modeFallbackWarned = true;
+        modeFallbackBanner?.classList.remove("hidden");
+      }
+      return "batch";
+    }
+    return CONFIGURED_MODE;
+  }
+
+  function applyTranscriptionModeUI() {
+    const mode = getEffectiveMode();
+    const stopLabel = mode === "realtime" ? "停止して確定" : "停止してアップロード";
+    document.querySelectorAll("[data-stop-label]").forEach((el) => {
+      el.textContent = stopLabel;
+    });
+    document.querySelectorAll("[data-live-monitor-note]").forEach((el) => {
+      el.textContent =
+        mode === "realtime"
+          ? "※ リアルタイム文字起こしモードです。発話内容がそのまま transcript_raw として保存されます。"
+          : "※ 録音中の確認用の参考表示です（音量とブラウザのライブ認識）。保存される文字起こしはこの後Whisperで別途生成されます。";
+    });
+  }
+
+  applyTranscriptionModeUI();
 
   // ── 時間経過の合図音（残り1分:1回／残り30秒:2回／制限到達後:連打） ──────
   let audioCtx = null;
@@ -136,7 +168,6 @@
     const captionBox = card.querySelector("[data-live-caption]");
     if (!captionBox) return null;
 
-    const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionImpl) {
       captionBox.innerHTML =
         '<span class="text-slate-400">このブラウザはライブ文字起こし表示に対応していません（録音自体は通常どおり行えます）。</span>';
@@ -183,6 +214,71 @@
       stop() {
         stopped = true;
         try { recognition.stop(); } catch (_) { /* ignore */ }
+      },
+    };
+  }
+
+  /** リアルタイム文字起こしモード用: 認識結果を transcript_raw として保存する */
+  function setupRealtimeTranscription(card) {
+    const captionBox = card.querySelector("[data-live-caption]");
+    if (!captionBox || !SpeechRecognitionImpl) return null;
+
+    const recognition = new SpeechRecognitionImpl();
+    recognition.lang = "en-US";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    let finalTranscript = "";
+    let interimTranscript = "";
+    let stopped = false;
+
+    const rebuildFromResults = (event) => {
+      const finalParts = [];
+      const interimParts = [];
+      for (let i = 0; i < event.results.length; i += 1) {
+        const chunk = event.results[i][0].transcript.trim();
+        if (!chunk) continue;
+        if (event.results[i].isFinal) finalParts.push(chunk);
+        else interimParts.push(chunk);
+      }
+      finalTranscript = finalParts.join(" ").trim();
+      interimTranscript = interimParts.join(" ").trim();
+    };
+
+    const renderCaption = () => {
+      const combined = `${finalTranscript} ${interimTranscript}`.trim();
+      captionBox.textContent =
+        combined || "（発話するとここに認識したテキストが表示されます）";
+    };
+
+    recognition.addEventListener("result", (event) => {
+      rebuildFromResults(event);
+      renderCaption();
+    });
+
+    recognition.addEventListener("error", () => {
+      // 無音区間などは無視して継続
+    });
+
+    recognition.addEventListener("end", () => {
+      if (!stopped) {
+        try { recognition.start(); } catch (_) { /* ignore */ }
+      }
+    });
+
+    try {
+      recognition.start();
+    } catch (_) {
+      return null;
+    }
+
+    return {
+      stop() {
+        stopped = true;
+        try { recognition.stop(); } catch (_) { /* ignore */ }
+      },
+      getTranscript() {
+        return `${finalTranscript} ${interimTranscript}`.trim();
       },
     };
   }
@@ -323,45 +419,9 @@
     refreshOverallProgress();
   }
 
-  function startClientTimer(card) {
-    const part = card.dataset.part;
-    const timeLimit = Number(card.dataset.timeLimit || 0);
-    const timerEl = card.querySelector("[data-timer]");
-    const startedAt = Date.now();
-
-    const state = cardState.get(part) || {};
-    state.cuesFired = { oneMin: false, thirtySec: false };
-    state.alarmIntervalId = null;
-    cardState.set(part, state);
-
-    const intervalId = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const remaining = timeLimit - elapsed;
-      timerEl.textContent = formatSeconds(elapsed);
-      timerEl.classList.toggle("text-rose-600", remaining < 0);
-
-      const s = cardState.get(part) || {};
-      if (!s.cuesFired.oneMin && remaining <= 60 && remaining > 30) {
-        s.cuesFired.oneMin = true;
-        playBeepSequence(1);
-      }
-      if (!s.cuesFired.thirtySec && remaining <= 30 && remaining > 0) {
-        s.cuesFired.thirtySec = true;
-        playBeepSequence(2);
-      }
-      if (remaining <= 0 && !s.alarmIntervalId) {
-        playBeepSequence(2);
-        s.alarmIntervalId = setInterval(() => playBeepSequence(2), 1000);
-      }
-      cardState.set(part, s);
-    }, 500);
-
-    state.intervalId = intervalId;
-    cardState.set(part, state);
-  }
-
   function stopClientTimer(part) {
     const state = cardState.get(part) || {};
+    state.timerGeneration = (state.timerGeneration || 0) + 1;
     if (state.intervalId) {
       clearInterval(state.intervalId);
       state.intervalId = null;
@@ -373,10 +433,63 @@
     cardState.set(part, state);
   }
 
+  function stopAllClientTimers() {
+    cards.forEach((card) => stopClientTimer(card.dataset.part));
+  }
+
+  function startClientTimer(card) {
+    const part = card.dataset.part;
+    stopClientTimer(part);
+
+    const timeLimit = Number(card.dataset.timeLimit || 0);
+    const timerEl = card.querySelector("[data-timer]");
+    const startedAt = Date.now();
+
+    const state = cardState.get(part) || {};
+    const generation = (state.timerGeneration || 0) + 1;
+    state.timerGeneration = generation;
+    state.cuesFired = { oneMin: false, thirtySec: false };
+    state.alarmIntervalId = null;
+
+    const intervalId = setInterval(() => {
+      const s = cardState.get(part) || {};
+      if (s.timerGeneration !== generation) return;
+
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const remaining = timeLimit - elapsed;
+      timerEl.textContent = formatSeconds(elapsed);
+      timerEl.classList.toggle("text-rose-600", remaining < 0);
+
+      if (!s.cuesFired.oneMin && remaining <= 60 && remaining > 30) {
+        s.cuesFired.oneMin = true;
+        playBeepSequence(1);
+      }
+      if (!s.cuesFired.thirtySec && remaining <= 30 && remaining > 0) {
+        s.cuesFired.thirtySec = true;
+        playBeepSequence(2);
+      }
+      if (remaining <= 0 && !s.alarmIntervalId) {
+        playBeepSequence(2);
+        s.alarmIntervalId = setInterval(() => {
+          const current = cardState.get(part) || {};
+          if (current.timerGeneration !== generation) return;
+          playBeepSequence(2);
+        }, 1000);
+      }
+      cardState.set(part, s);
+    }, 500);
+
+    state.intervalId = intervalId;
+    cardState.set(part, state);
+  }
+
   async function handleRecordClick(card) {
     const part = card.dataset.part;
     if (activeRecordingPart) return;
     setError(card, "");
+
+    const mode = getEffectiveMode();
+    const isRealtime = mode === "realtime";
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError(card, "このブラウザはマイク録音に対応していません。");
@@ -402,58 +515,140 @@
       return;
     }
 
-    const mimeType = pickMimeType();
-    const recorder = mimeType
-      ? new MediaRecorder(stream, { mimeType })
-      : new MediaRecorder(stream);
-    const chunks = [];
-
-    recorder.addEventListener("dataavailable", (e) => {
-      if (e.data && e.data.size > 0) chunks.push(e.data);
-    });
-
-    recorder.addEventListener("stop", () => {
-      stream.getTracks().forEach((t) => t.stop());
-      const blob = new Blob(chunks, { type: mimeType || "audio/webm" });
-      uploadAudio(card, blob, mimeType || "audio/webm");
-    });
+    stopAllClientTimers();
 
     activeRecordingPart = part;
     updateRecordButtonStates();
 
     const state = cardState.get(part) || {};
-    state.recorder = recorder;
+    state.recordingMode = mode;
+    state.mediaStream = stream;
     state.volumeMeter = setupVolumeMeter(card, stream);
-    state.liveCaption = setupLiveCaption(card);
-    cardState.set(part, state);
-
     showLiveMonitor(card);
+
+    if (isRealtime) {
+      state.realtimeTranscription = setupRealtimeTranscription(card);
+      if (!state.realtimeTranscription) {
+        stream.getTracks().forEach((t) => t.stop());
+        activeRecordingPart = null;
+        updateRecordButtonStates();
+        setError(card, "リアルタイム文字起こしを開始できませんでした。ページを再読み込みしてお試しください。");
+        return;
+      }
+      state.recorder = null;
+    } else {
+      const mimeType = pickMimeType();
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+      const chunks = [];
+
+      recorder.addEventListener("dataavailable", (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      });
+
+      recorder.addEventListener("stop", () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunks, { type: mimeType || "audio/webm" });
+        uploadAudio(card, blob, mimeType || "audio/webm");
+      });
+
+      state.recorder = recorder;
+      state.liveCaption = setupLiveCaption(card);
+      recorder.start();
+    }
+
+    cardState.set(part, state);
 
     card.dataset.status = "recording";
     renderCard(card);
     startClientTimer(card);
-
-    recorder.start();
   }
 
-  function handleStopClick(card) {
-    const part = card.dataset.part;
+  function cleanupRecordingResources(card, part) {
     const state = cardState.get(part) || {};
-    if (!state.recorder || state.recorder.state === "inactive") return;
-
     stopClientTimer(part);
     if (state.volumeMeter) {
       state.volumeMeter.stop();
       state.volumeMeter = null;
     }
+    if (state.mediaStream && !state.recorder) {
+      state.mediaStream.getTracks().forEach((t) => t.stop());
+      state.mediaStream = null;
+    }
     if (state.liveCaption) {
       state.liveCaption.stop();
       state.liveCaption = null;
     }
+    if (state.realtimeTranscription) {
+      state.realtimeTranscription.stop();
+      state.realtimeTranscription = null;
+    }
     cardState.set(part, state);
     hideLiveMonitor(card);
+  }
 
-    // 停止直後に他パートの録音を解禁（アップロード／文字起こし完了は待たない）
+  async function submitRealtimeTranscript(card, transcriptRaw) {
+    const part = card.dataset.part;
+
+    try {
+      const res = await fetch(`/debate/api/sessions/${SESSION_ID}/parts/${part}/transcript`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript_raw: transcriptRaw }),
+      });
+      const data = await res.json();
+
+      activeRecordingPart = null;
+      updateRecordButtonStates();
+
+      if (!res.ok) {
+        card.dataset.status = "needs_review";
+        renderCard(card);
+        setError(card, data.error || "文字起こしの保存に失敗しました。");
+        return;
+      }
+
+      card.dataset.status = data.status || "needs_review";
+      card.dataset.elapsed = data.elapsed_sec ?? "";
+      if (data.end_time) card.dataset.endTime = data.end_time;
+      setError(card, data.transcript_error || "");
+      renderCard(card);
+    } catch (err) {
+      activeRecordingPart = null;
+      updateRecordButtonStates();
+      card.dataset.status = "needs_review";
+      renderCard(card);
+      setError(card, "文字起こしの保存に失敗しました。ネットワークをご確認のうえ、やり直してください。");
+    }
+  }
+
+  function handleStopClick(card) {
+    const part = card.dataset.part;
+    const state = cardState.get(part) || {};
+    const mode = state.recordingMode || getEffectiveMode();
+
+    if (mode === "realtime") {
+      if (!state.realtimeTranscription) return;
+
+      const transcriptRaw = state.realtimeTranscription.getTranscript();
+      cleanupRecordingResources(card, part);
+
+      activeRecordingPart = null;
+      updateRecordButtonStates();
+
+      card.dataset.status = "transcribing";
+      card.dataset.endTime = new Date().toISOString();
+      renderCard(card);
+
+      submitRealtimeTranscript(card, transcriptRaw);
+      return;
+    }
+
+    if (!state.recorder || state.recorder.state === "inactive") return;
+
+    cleanupRecordingResources(card, part);
+
     activeRecordingPart = null;
     updateRecordButtonStates();
 

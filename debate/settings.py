@@ -24,9 +24,12 @@ BACKGROUND_PRESETS = {
 DEFAULT_BACKGROUND_ID = "forest"
 DEFAULT_BACKGROUND_OPACITY = 0.32
 
+TRANSCRIPTION_MODES = ("batch", "realtime")
+
 DEFAULT_SETTINGS = {
     "background_id": DEFAULT_BACKGROUND_ID,
     "background_opacity": DEFAULT_BACKGROUND_OPACITY,
+    "transcription_mode": "batch",
 }
 
 
@@ -49,6 +52,10 @@ def _normalize(raw: dict | None) -> dict:
 
     if "background_opacity" in raw:
         data["background_opacity"] = _clamp_opacity(raw.get("background_opacity"))
+
+    mode = raw.get("transcription_mode")
+    if mode in TRANSCRIPTION_MODES:
+        data["transcription_mode"] = mode
 
     return data
 

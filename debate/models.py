@@ -22,6 +22,7 @@ def new_part(part: str) -> dict:
         "transcript_raw": "",
         "transcript_edited": "",
         "transcript_error": "",
+        "transcription_mode": "",
         "transcribe_retry_at": None,
         "start_time": None,
         "end_time": None,

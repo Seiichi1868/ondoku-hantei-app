@@ -28,6 +28,10 @@
   </div>
 </section>
 
+<div id="mode-fallback-banner" class="hidden glass-card rounded-xl p-4 mb-4 border-amber-300 text-sm text-amber-800">
+  このブラウザはリアルタイム文字起こし（Web Speech API）に対応していません。録音＋Whisper文字起こし（モードA）で続行します。
+</div>
+
 <div id="stale-recording-banner" class="hidden glass-card rounded-xl p-4 mb-4 border-amber-300 text-sm text-amber-800">
   ページの再読み込みにより録音が中断されたパートがあります。該当パートは自動的にリセットされました。
 </div>
@@ -83,7 +87,7 @@
       <div class="live-caption-box mt-2" data-live-caption>
         <span class="text-slate-400">（発話するとここに認識したテキストが表示されます）</span>
       </div>
-      <p class="text-[0.65rem] text-slate-400 mt-1">
+      <p class="text-[0.65rem] text-slate-400 mt-1" data-live-monitor-note>
         ※ 録音中の確認用の参考表示です（音量とブラウザのライブ認識）。保存される文字起こしはこの後Whisperで別途生成されます。
       </p>
     </div>
@@ -93,7 +97,7 @@
         ● 録音開始
       </button>
       <button type="button" class="btn-stop hidden px-4 py-2 rounded-lg bg-rose-600 text-white text-sm font-semibold shadow hover:bg-rose-700 transition-colors">
-        <span class="rec-dot inline-block mr-1 align-middle"></span>停止してアップロード
+        <span class="rec-dot inline-block mr-1 align-middle"></span><span data-stop-label>停止してアップロード</span>
       </button>
       <button type="button" class="btn-review px-4 py-2 rounded-lg border border-brand/40 text-brand-dark text-sm font-semibold hover:bg-brand/5 transition-colors">
         文字起こしを確認
@@ -126,6 +130,7 @@
 <script>
   window.DEBATE_SESSION_ID = {{ session.session_id | tojson }};
   window.DEBATE_STATUS_LABELS = {{ status_labels | tojson }};
+  window.DEBATE_TRANSCRIPTION_MODE = {{ transcription_mode | tojson }};
 </script>
-<script src="{{ url_for('static', filename='debate/js/progress.js', v='20260730b') }}"></script>
+<script src="{{ url_for('static', filename='debate/js/progress.js', v='20260730c') }}"></script>
 {% endblock %}

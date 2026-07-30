@@ -111,6 +111,7 @@ def _background_context() -> dict:
     return {
         "background": background,
         "background_opacity": settings.get("background_opacity"),
+        "transcription_mode": settings.get("transcription_mode", "batch"),
     }
 
 
@@ -292,11 +293,48 @@ def upload_part_audio(session_id, part):
                 part_data["elapsed_sec"] = None
 
         part_data["status"] = "transcribing"
+        part_data["transcription_mode"] = "batch"
         save_session(session)
         response_data = dict(part_data)
 
     start_transcription_job(session_id, part, file_path)
     return jsonify(response_data), 202
+
+
+@debate_bp.route("/api/sessions/<session_id>/parts/<part>/transcript", methods=["POST"])
+def submit_part_transcript(session_id, part):
+    """リアルタイム文字起こしモード: Web Speech API の結果を直接保存する。"""
+    payload = request.get_json(silent=True) or {}
+    transcript_raw = str(payload.get("transcript_raw") or "").strip()
+
+    with get_session_lock(session_id):
+        session = load_session(session_id)
+        if not session:
+            return jsonify({"error": "セッションが見つかりません。"}), 404
+        part_data = get_part(session, part)
+        if not part_data:
+            return jsonify({"error": f"不明なパート: {part}"}), 400
+
+        end_time = datetime.now(JST)
+        part_data["end_time"] = end_time.isoformat(timespec="seconds")
+        part_data["transcript_raw"] = transcript_raw
+        part_data["transcript_edited"] = transcript_raw
+        part_data["transcript_error"] = (
+            "" if transcript_raw else "文字起こし結果が空です。やり直すか、確認画面で手動入力してください。"
+        )
+        part_data["transcription_mode"] = "realtime"
+        part_data["transcribe_retry_at"] = None
+
+        if part_data.get("start_time"):
+            try:
+                start_dt = datetime.fromisoformat(part_data["start_time"])
+                part_data["elapsed_sec"] = max(0, round((end_time - start_dt).total_seconds()))
+            except ValueError:
+                part_data["elapsed_sec"] = None
+
+        part_data["status"] = "needs_review"
+        save_session(session)
+        return jsonify(part_data)
 
 
 @debate_bp.route("/api/sessions/<session_id>/parts/<part>/retranscribe", methods=["POST"])
@@ -399,6 +437,7 @@ def reset_part(session_id, part):
                 "transcript_raw": "",
                 "transcript_edited": "",
                 "transcript_error": "",
+                "transcription_mode": "",
                 "transcribe_retry_at": None,
                 "start_time": None,
                 "end_time": None,

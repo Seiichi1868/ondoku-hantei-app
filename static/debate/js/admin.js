@@ -15,6 +15,7 @@ const bgOpacityValue = document.getElementById("bg-opacity-value");
 const sessionsList = document.getElementById("sessions-list");
 const sessionsCount = document.getElementById("sessions-count");
 const sessionsRefreshBtn = document.getElementById("sessions-refresh-btn");
+const transcriptionModePicker = document.getElementById("transcription-mode-picker");
 
 let unlocked = false;
 let saveTimer = null;
@@ -99,11 +100,24 @@ async function saveSettings(payload) {
   return data;
 }
 
+function getSelectedTranscriptionMode() {
+  const checked = transcriptionModePicker?.querySelector('input[name="transcription_mode"]:checked');
+  return checked?.value === "realtime" ? "realtime" : "batch";
+}
+
+function applyTranscriptionMode(mode) {
+  const value = mode === "realtime" ? "realtime" : "batch";
+  transcriptionModePicker?.querySelectorAll('input[name="transcription_mode"]').forEach((input) => {
+    input.checked = input.value === value;
+  });
+}
+
 function collectPayload() {
   return {
     admin_password: passwordInput.value.trim(),
     background_id: currentBackgroundId,
     background_opacity: getBackgroundOpacityFromSlider(),
+    transcription_mode: getSelectedTranscriptionMode(),
   };
 }
 
@@ -112,6 +126,7 @@ async function loadSettingsIntoUI() {
   const activeBtn = bgPicker?.querySelector(`.bg-pick-btn[data-bg-id="${data.background_id}"]`);
   applyBackground(data.background_id, activeBtn?.dataset.bgImage, data.background_label || activeBtn?.title);
   applyBackgroundOpacity(data.background_opacity ?? 0.32);
+  applyTranscriptionMode(data.transcription_mode ?? "batch");
 }
 
 function scheduleSave() {
@@ -123,6 +138,7 @@ function scheduleSave() {
       const activeBtn = bgPicker?.querySelector(`.bg-pick-btn[data-bg-id="${saved.background_id}"]`);
       applyBackground(saved.background_id, activeBtn?.dataset.bgImage, saved.background_label || activeBtn?.title);
       applyBackgroundOpacity(saved.background_opacity ?? 0.32);
+      applyTranscriptionMode(saved.transcription_mode ?? "batch");
       statusMessage.textContent = "保存しました";
     } catch (err) {
       statusMessage.textContent = "";
@@ -320,6 +336,11 @@ bgPicker?.addEventListener("click", (e) => {
 bgOpacitySlider?.addEventListener("input", () => {
   if (!unlocked) return;
   applyBackgroundOpacity(getBackgroundOpacityFromSlider());
+  scheduleSave();
+});
+
+transcriptionModePicker?.addEventListener("change", () => {
+  if (!unlocked) return;
   scheduleSave();
 });
 

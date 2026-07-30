@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, render_template, request
 from debate.settings import (
     BACKGROUND_PRESETS,
     DEFAULT_BACKGROUND_OPACITY,
+    TRANSCRIPTION_MODES,
     _clamp_opacity,
     load_settings,
     resolve_background,
@@ -51,6 +52,10 @@ def admin_settings():
             updates["background_id"] = bg_id
     if "background_opacity" in payload:
         updates["background_opacity"] = _clamp_opacity(payload.get("background_opacity"))
+    if "transcription_mode" in payload:
+        mode = str(payload.get("transcription_mode") or "")
+        if mode in TRANSCRIPTION_MODES:
+            updates["transcription_mode"] = mode
 
     if not updates:
         settings = load_settings()
