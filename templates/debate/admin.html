@@ -26,15 +26,13 @@
 <div id="settings-panel" class="hidden space-y-4">
   <p id="status-message" class="text-sm text-emerald-700 font-medium min-h-[1.25rem]" aria-live="polite"></p>
 
-  <section class="glass-card rounded-2xl p-5 md:p-6">
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-      <h2 class="font-bold text-slate-800">ジャッジ用AIモデル</h2>
-      <span id="judge-model-current" class="text-xs text-brand font-semibold">—</span>
-    </div>
-    <p class="text-xs text-slate-500 mb-4">
-      gpt-4oをベンチマークとして、コストと性能のバランスを比較できます。判定結果には使用モデルが記録されます。
+  <section class="glass-card rounded-2xl p-4 md:p-5">
+    <h2 class="text-sm font-bold text-slate-800 mb-2">ジャッジ用AIモデル</h2>
+    <div id="judge-model-picker" class="debate-mode-options debate-mode-options--ai"></div>
+    <p class="text-[0.65rem] text-slate-500 mt-1.5">
+      現在: <strong id="judge-model-current" class="text-brand font-semibold">—</strong>
+      <span class="text-slate-400">（gpt-4oをベンチマークにコスパ比較）</span>
     </p>
-    <div id="judge-model-picker" class="debate-mode-options"></div>
   </section>
 
   <section class="glass-card rounded-2xl p-5 md:p-6">
@@ -107,5 +105,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='debate/js/admin.js', v='20260730d') }}"></script>
+<script src="{{ url_for('static', filename='debate/js/admin.js', v='20260730e') }}"></script>
 {% endblock %}

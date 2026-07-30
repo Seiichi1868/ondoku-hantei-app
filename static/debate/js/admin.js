@@ -107,7 +107,7 @@ function renderJudgeModelOptions(modes, selectedMode) {
       const id = escapeHtml(mode.id || "");
       const title = escapeHtml(mode.model || mode.label || id);
       const checked = id === selectedMode ? " checked" : "";
-      return `<label class="debate-mode-option debate-mode-option--compact">
+      return `<label class="debate-mode-option debate-mode-option--compact debate-mode-option--rated">
         <input type="radio" name="judge_model_mode" value="${id}"${checked} />
         <span class="debate-mode-option-body">
           <span class="debate-mode-option-title">${title}</span>
