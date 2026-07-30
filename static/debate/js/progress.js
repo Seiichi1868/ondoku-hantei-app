@@ -61,6 +61,130 @@
     return "webm";
   }
 
+  // ── 録音中のライブ確認表示（音量メーター／参考文字起こし） ───────
+  // どちらも「録音が止まっていないか」を確認するための表示専用の機能で、
+  // 保存される文字起こしデータ（Whisper API）には一切影響しない。
+
+  function showLiveMonitor(card) {
+    const monitor = card.querySelector("[data-live-monitor]");
+    if (monitor) monitor.classList.remove("hidden");
+  }
+
+  function hideLiveMonitor(card) {
+    const monitor = card.querySelector("[data-live-monitor]");
+    if (monitor) monitor.classList.add("hidden");
+    const bar = card.querySelector("[data-volume-bar]");
+    if (bar) bar.style.width = "0%";
+    const captionBox = card.querySelector("[data-live-caption]");
+    if (captionBox) {
+      captionBox.innerHTML =
+        '<span class="text-slate-400">（発話するとここに認識したテキストが表示されます）</span>';
+    }
+  }
+
+  function setupVolumeMeter(card, stream) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const bar = card.querySelector("[data-volume-bar]");
+    if (!AudioCtx || !bar) return null;
+
+    let ctx;
+    try {
+      ctx = new AudioCtx();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.6;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let rafId = null;
+
+      const tick = () => {
+        analyser.getByteTimeDomainData(dataArray);
+        let sumSquares = 0;
+        for (let i = 0; i < dataArray.length; i += 1) {
+          const v = (dataArray[i] - 128) / 128;
+          sumSquares += v * v;
+        }
+        const rms = Math.sqrt(sumSquares / dataArray.length);
+        const level = Math.min(1, rms * 4); // マイクの一般的な入力レベルに合わせた感度調整
+        bar.style.width = `${Math.round(level * 100)}%`;
+        rafId = requestAnimationFrame(tick);
+      };
+      tick();
+
+      return {
+        stop() {
+          if (rafId) cancelAnimationFrame(rafId);
+          try { source.disconnect(); } catch (_) { /* ignore */ }
+          try { analyser.disconnect(); } catch (_) { /* ignore */ }
+          try { ctx.close(); } catch (_) { /* ignore */ }
+          bar.style.width = "0%";
+        },
+      };
+    } catch (err) {
+      if (ctx) {
+        try { ctx.close(); } catch (_) { /* ignore */ }
+      }
+      return null;
+    }
+  }
+
+  function setupLiveCaption(card) {
+    const captionBox = card.querySelector("[data-live-caption]");
+    if (!captionBox) return null;
+
+    const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionImpl) {
+      captionBox.innerHTML =
+        '<span class="text-slate-400">このブラウザはライブ文字起こし表示に対応していません（録音自体は通常どおり行えます）。</span>';
+      return null;
+    }
+
+    const recognition = new SpeechRecognitionImpl();
+    recognition.lang = "en-US";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    let finalText = "";
+    let stopped = false;
+
+    recognition.addEventListener("result", (event) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const chunk = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += `${chunk} `;
+        else interim += chunk;
+      }
+      const combined = `${finalText}${interim}`.trim();
+      captionBox.textContent =
+        combined || "（発話するとここに認識したテキストが表示されます）";
+    });
+
+    recognition.addEventListener("error", () => {
+      // 表示専用機能のため、認識エラー（無音区間など）は無視して継続する
+    });
+
+    recognition.addEventListener("end", () => {
+      if (!stopped) {
+        try { recognition.start(); } catch (_) { /* ignore */ }
+      }
+    });
+
+    try {
+      recognition.start();
+    } catch (_) {
+      /* ignore */
+    }
+
+    return {
+      stop() {
+        stopped = true;
+        try { recognition.stop(); } catch (_) { /* ignore */ }
+      },
+    };
+  }
+
   function formatSeconds(totalSeconds) {
     const sec = Math.max(0, Math.floor(totalSeconds || 0));
     const m = Math.floor(sec / 60);
@@ -265,7 +389,11 @@
 
     const state = cardState.get(part) || {};
     state.recorder = recorder;
+    state.volumeMeter = setupVolumeMeter(card, stream);
+    state.liveCaption = setupLiveCaption(card);
     cardState.set(part, state);
+
+    showLiveMonitor(card);
 
     card.dataset.status = "recording";
     renderCard(card);
@@ -280,6 +408,17 @@
     if (!state.recorder || state.recorder.state === "inactive") return;
 
     stopClientTimer(part);
+    if (state.volumeMeter) {
+      state.volumeMeter.stop();
+      state.volumeMeter = null;
+    }
+    if (state.liveCaption) {
+      state.liveCaption.stop();
+      state.liveCaption = null;
+    }
+    cardState.set(part, state);
+    hideLiveMonitor(card);
+
     card.dataset.status = "transcribing";
     renderCard(card);
     state.recorder.stop();

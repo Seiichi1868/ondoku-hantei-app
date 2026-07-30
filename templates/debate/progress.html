@@ -61,6 +61,21 @@
       <p class="text-sm text-slate-700 leading-relaxed">{{ meta.guide }}</p>
     </div>
 
+    <div class="hidden mt-4" data-live-monitor>
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-semibold text-slate-500 shrink-0">音量</span>
+        <div class="volume-meter flex-1" data-volume-meter>
+          <div class="volume-meter-bar" data-volume-bar></div>
+        </div>
+      </div>
+      <div class="live-caption-box mt-2" data-live-caption>
+        <span class="text-slate-400">（発話するとここに認識したテキストが表示されます）</span>
+      </div>
+      <p class="text-[0.65rem] text-slate-400 mt-1">
+        ※ 録音中の確認用の参考表示です（音量とブラウザのライブ認識）。保存される文字起こしはこの後Whisperで別途生成されます。
+      </p>
+    </div>
+
     <div class="flex flex-wrap items-center gap-2 mt-4">
       <button type="button" class="btn-record px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold shadow hover:bg-brand-dark transition-colors">
         ● 録音開始

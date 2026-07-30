@@ -57,6 +57,33 @@ body {
   font-feature-settings: "tnum";
 }
 
+/* ── 録音中のライブ確認表示（音量メーター／参考文字起こし） ─────── */
+.volume-meter {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.25);
+  overflow: hidden;
+}
+.volume-meter-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #34d399, #fbbf24, #ef4444);
+  transition: width 0.08s linear;
+}
+.live-caption-box {
+  min-height: 2.75rem;
+  max-height: 6rem;
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.6rem;
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #334155;
+}
+
 .motion-chip {
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
