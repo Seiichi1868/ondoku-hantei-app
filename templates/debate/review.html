@@ -51,6 +51,16 @@
   </details>
   {% endif %}
 
+  <div id="transcribing-banner" class="hidden mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700 font-medium">
+    バックグラウンドで文字起こしを処理しています…完了すると自動的に表示が更新されます。
+  </div>
+
+  {% if part.transcript_error %}
+  <p id="transcript-error-note" class="mb-3 text-xs text-rose-600 font-medium">
+    前回の文字起こしでエラーが発生しました: {{ part.transcript_error }}
+  </p>
+  {% endif %}
+
   <label for="transcript-edited" class="block text-sm font-semibold text-slate-700 mb-1.5">
     文字起こし内容（確認・軽微修正できます）
   </label>
@@ -68,6 +78,12 @@
       class="px-5 py-2.5 rounded-xl bg-brand text-white text-sm font-bold shadow hover:bg-brand-dark transition-colors">
       保存して確定
     </button>
+    {% if part.audio_url %}
+    <button id="retranscribe-btn" type="button"
+      class="px-5 py-2.5 rounded-xl border border-brand/40 text-brand-dark text-sm font-bold hover:bg-brand/5 transition-colors">
+      文字起こしを再試行
+    </button>
+    {% endif %}
     <button id="redo-btn" type="button"
       class="px-5 py-2.5 rounded-xl border border-rose-200 text-rose-600 text-sm font-bold hover:bg-rose-50 transition-colors">
       録音をやり直す
@@ -84,6 +100,7 @@
 <script>
   window.DEBATE_SESSION_ID = {{ session.session_id | tojson }};
   window.DEBATE_PART = {{ part.part | tojson }};
+  window.DEBATE_PART_STATUS = {{ part.status | tojson }};
 </script>
 <script src="{{ url_for('static', filename='debate/js/review.js') }}"></script>
 {% endblock %}

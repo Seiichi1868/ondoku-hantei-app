@@ -424,6 +424,85 @@
     state.recorder.stop();
   }
 
+  // ── 文字起こし完了待ちのポーリング ──────────────────────────
+  // アップロード自体はすぐ終わるが、Whisperによる文字起こしはバックグラウンドで
+  // 進行するため、完了（status !== "transcribing"）まで軽量APIで定期確認する。
+  // これにより、このパートの文字起こしを待たずに次のパートの録音を開始できる。
+
+  // サーバー側のWhisperタイムアウト＋リトライは通常でも1〜2分程度で決着する想定。
+  // それを大きく超えても "transcribing" のままの場合は、サーバー再起動等で
+  // バックグラウンド処理が失われた可能性があるため、手動操作できるようにする。
+  const STUCK_TRANSCRIBE_MS = 3 * 60 * 1000;
+
+  function isTranscriptionStuck(endTimeIso) {
+    if (!endTimeIso) return false;
+    const endedAt = new Date(endTimeIso).getTime();
+    if (Number.isNaN(endedAt)) return false;
+    return Date.now() - endedAt > STUCK_TRANSCRIBE_MS;
+  }
+
+  function handleStuckTranscription(card) {
+    // サーバー側は "transcribing" のままの可能性があるが、
+    // レビュー画面へは進めるようにして手動での再試行・入力を可能にする。
+    card.dataset.status = "needs_review";
+    renderCard(card);
+    setError(
+      card,
+      "文字起こしの処理に時間がかかっています。「文字起こしを確認」から手動入力するか、再試行できます。"
+    );
+  }
+
+  function startStatusPolling(card) {
+    const part = card.dataset.part;
+    const state = cardState.get(part) || {};
+    if (state.pollIntervalId) return;
+
+    state.pollIntervalId = setInterval(async () => {
+      try {
+        const res = await fetch(`/debate/api/sessions/${SESSION_ID}/parts/${part}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.status) return;
+
+        if (data.status === "transcribing") {
+          if (isTranscriptionStuck(data.end_time)) {
+            stopStatusPolling(part);
+            handleStuckTranscription(card);
+          }
+          return;
+        }
+
+        if (data.status !== card.dataset.status) {
+          card.dataset.status = data.status;
+          card.dataset.elapsed = data.elapsed_sec ?? "";
+          renderCard(card);
+        }
+
+        stopStatusPolling(part);
+        if (data.transcript_error) {
+          setError(
+            card,
+            `文字起こしに失敗しました（${data.transcript_error}）。「文字起こしを確認」から手動入力するか再試行できます。`
+          );
+        } else {
+          setError(card, "");
+        }
+      } catch (_) {
+        // ネットワーク不調時は次回のポーリングで再試行する
+      }
+    }, 3000);
+    cardState.set(part, state);
+  }
+
+  function stopStatusPolling(part) {
+    const state = cardState.get(part) || {};
+    if (state.pollIntervalId) {
+      clearInterval(state.pollIntervalId);
+      state.pollIntervalId = null;
+    }
+    cardState.set(part, state);
+  }
+
   async function uploadAudio(card, blob, mimeType) {
     const part = card.dataset.part;
     const formData = new FormData();
@@ -436,20 +515,28 @@
       });
       const data = await res.json();
 
+      // アップロードが完了した時点でロックを解除する（文字起こしの完了は待たない）。
+      // これにより、バックグラウンドで文字起こしが進んでいる間も次のパートに進める。
       activeRecordingPart = null;
       setRecordButtonsDisabled(part, false);
 
-      const partData = data.part || data;
-      card.dataset.status = partData.status || "needs_review";
-      card.dataset.elapsed = partData.elapsed_sec ?? "";
-      renderCard(card);
-
       if (!res.ok) {
-        setError(card, data.error || "文字起こしに失敗しました。文字起こし確認画面から手動で入力できます。");
+        const partData = data.part || data;
+        card.dataset.status = partData.status || "needs_review";
+        card.dataset.elapsed = partData.elapsed_sec ?? "";
+        renderCard(card);
+        setError(card, data.error || "アップロードに失敗しました。文字起こし確認画面から手動で入力できます。");
         return;
       }
 
-      window.location.href = `/debate/session/${SESSION_ID}/parts/${part}/review`;
+      card.dataset.status = data.status || "transcribing";
+      card.dataset.elapsed = data.elapsed_sec ?? "";
+      setError(card, "");
+      renderCard(card);
+
+      if (card.dataset.status === "transcribing") {
+        startStatusPolling(card);
+      }
     } catch (err) {
       activeRecordingPart = null;
       setRecordButtonsDisabled(part, false);
@@ -513,6 +600,29 @@
       resetStaleRecording(card);
     } else {
       renderCard(card);
+      if (card.dataset.status === "transcribing") {
+        if (isTranscriptionStuck(card.dataset.endTime)) {
+          handleStuckTranscription(card);
+        } else {
+          // ページ再読み込み後もバックグラウンドの文字起こし完了をポーリングで確認し続ける
+          startStatusPolling(card);
+        }
+      } else if (card.dataset.transcriptError) {
+        // 前回アクセス時に文字起こしが失敗していた場合、再読み込み後も分かるようにする
+        setError(
+          card,
+          `文字起こしに失敗しました（${card.dataset.transcriptError}）。「文字起こしを確認」から手動入力するか再試行できます。`
+        );
+      }
+    }
+  });
+
+  // 録音中にページを閉じる／再読み込みすると音声が失われるため注意喚起する
+  // （録音以外の操作は逐次サーバーへ保存されるため、閉じても続きから再開できる）
+  window.addEventListener("beforeunload", (event) => {
+    if (activeRecordingPart) {
+      event.preventDefault();
+      event.returnValue = "";
     }
   });
 

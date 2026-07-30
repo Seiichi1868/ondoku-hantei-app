@@ -54,6 +54,25 @@
         class="w-full max-w-sm accent-indigo-600">
     </div>
   </section>
+
+  <section class="glass-card rounded-2xl p-5 md:p-6">
+    <div class="flex items-center justify-between gap-2 mb-4">
+      <h2 class="font-bold text-slate-800">保存済みセッション</h2>
+      <div class="flex items-center gap-2">
+        <span id="sessions-count" class="text-xs text-slate-400"></span>
+        <button id="sessions-refresh-btn" type="button"
+          class="text-xs px-2.5 py-1 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+          更新
+        </button>
+      </div>
+    </div>
+    <p class="text-xs text-slate-500 mb-3">
+      途中まで進めたディベートを選んで再開できます。各パートは自動保存されているため、いつでも中断・再開できます。
+    </p>
+    <div id="sessions-list" class="space-y-2">
+      <p class="text-sm text-slate-400">読み込み中...</p>
+    </div>
+  </section>
 </div>
 {% endblock %}
 

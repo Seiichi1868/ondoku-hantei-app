@@ -21,6 +21,7 @@ def new_part(part: str) -> dict:
         "audio_url": "",
         "transcript_raw": "",
         "transcript_edited": "",
+        "transcript_error": "",
         "start_time": None,
         "end_time": None,
         "time_limit_sec": defaults["time_limit_sec"],

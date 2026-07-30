@@ -16,6 +16,12 @@ AUDIO_DIR = DATA_DIR / "audio"
 # ジャッジ機能は別ステップで実装するため、ここでは文字起こし用モデルのみ定義する。
 WHISPER_MODEL = os.environ.get("DEBATE_WHISPER_MODEL", "whisper-1")
 
+# OpenAI SDKの既定タイムアウトは10分（かつ既定で2回リトライ＝最悪30分待ち）と長すぎるため、
+# ここで明示的に短いタイムアウトとリトライ回数を設定し、詰まった場合も数分以内に
+# エラーとして返せるようにする。
+WHISPER_TIMEOUT_SEC = float(os.environ.get("DEBATE_WHISPER_TIMEOUT_SEC", "45"))
+WHISPER_MAX_RETRIES = int(os.environ.get("DEBATE_WHISPER_MAX_RETRIES", "1"))
+
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # Whisper API の上限に合わせる
 ALLOWED_AUDIO_EXTENSIONS = {"webm", "wav", "mp3", "m4a", "ogg", "mp4", "mpeg", "mpga"}
 

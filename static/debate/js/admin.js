@@ -12,6 +12,9 @@ const bgCurrentLabel = document.getElementById("bg-current-label");
 const bgPicker = document.getElementById("bg-picker");
 const bgOpacitySlider = document.getElementById("bg-opacity-slider");
 const bgOpacityValue = document.getElementById("bg-opacity-value");
+const sessionsList = document.getElementById("sessions-list");
+const sessionsCount = document.getElementById("sessions-count");
+const sessionsRefreshBtn = document.getElementById("sessions-refresh-btn");
 
 let unlocked = false;
 let saveTimer = null;
@@ -128,6 +131,103 @@ function scheduleSave() {
   }, 300);
 }
 
+// ── 保存済みセッション一覧（再開・削除） ─────────────────────
+function escapeHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function formatSessionDate(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  } catch (_) {
+    return iso;
+  }
+}
+
+function renderSessions(sessions) {
+  if (!sessionsList) return;
+  if (sessionsCount) sessionsCount.textContent = `${sessions.length}件`;
+
+  if (!sessions.length) {
+    sessionsList.innerHTML = '<p class="text-sm text-slate-400">保存されたセッションはありません。</p>';
+    return;
+  }
+
+  sessionsList.innerHTML = sessions
+    .map((s) => {
+      const done = s.confirmed_parts === s.total_parts && s.total_parts > 0;
+      return `
+        <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white/70 px-4 py-3 hover:border-brand/30 transition-colors">
+          <a href="/debate/session/${encodeURIComponent(s.session_id)}" class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium text-slate-700">${escapeHtml(s.motion)}</p>
+            <p class="text-xs text-slate-400 mt-0.5">
+              ${escapeHtml(formatSessionDate(s.created_at))} ・
+              <span class="${done ? "text-emerald-600 font-semibold" : ""}">${s.confirmed_parts}/${s.total_parts} パート完了</span>
+            </p>
+          </a>
+          <a href="/debate/session/${encodeURIComponent(s.session_id)}"
+            class="shrink-0 text-xs px-3 py-1.5 rounded-full bg-brand/10 text-brand-dark font-semibold hover:bg-brand/20 transition-colors">
+            再開
+          </a>
+          <button type="button" class="btn-delete-session shrink-0 text-xs px-3 py-1.5 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
+            data-session-id="${s.session_id}">
+            削除
+          </button>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+async function loadSessions() {
+  if (!sessionsList || !unlocked) return;
+  const password = getStoredPassword() || passwordInput.value.trim();
+  sessionsList.innerHTML = '<p class="text-sm text-slate-400">読み込み中...</p>';
+  try {
+    const res = await fetch(`/debate/admin/api/sessions?admin_password=${encodeURIComponent(password)}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "セッション一覧の取得に失敗しました");
+    renderSessions(data.sessions || []);
+  } catch (err) {
+    sessionsList.innerHTML = `<p class="text-sm text-rose-600">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+sessionsRefreshBtn?.addEventListener("click", loadSessions);
+
+sessionsList?.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".btn-delete-session");
+  if (!btn || !unlocked) return;
+
+  const sessionId = btn.dataset.sessionId;
+  if (!window.confirm("このセッションの録音・文字起こしデータを完全に削除します。よろしいですか？")) return;
+
+  btn.disabled = true;
+  btn.textContent = "削除中...";
+  try {
+    const password = getStoredPassword() || passwordInput.value.trim();
+    const res = await fetch(`/debate/admin/api/sessions/${encodeURIComponent(sessionId)}/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ admin_password: password }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "削除に失敗しました");
+    await loadSessions();
+  } catch (err) {
+    statusMessage.textContent = "";
+    showLockMessage(err.message);
+    btn.disabled = false;
+    btn.textContent = "削除";
+  }
+});
+
 async function tryUnlock() {
   hideLockMessage();
   const password = passwordInput.value.trim();
@@ -152,6 +252,7 @@ async function tryUnlock() {
     saveUnlockState(password);
     applyUnlockUI();
     await loadSettingsIntoUI();
+    await loadSessions();
     statusMessage.textContent = "管理設定を解除しました";
   } catch (err) {
     showLockMessage(err.message);
@@ -181,6 +282,7 @@ async function restoreUnlockFromStorage() {
 
     applyUnlockUI();
     await loadSettingsIntoUI();
+    await loadSessions();
   } catch (_) {
     // 保存済み解除の復元に失敗した場合はロック画面のまま
   }

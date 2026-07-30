@@ -1,4 +1,4 @@
-"""Debate app 管理画面 Blueprint（背景・透過率の設定のみ）。"""
+"""Debate app 管理画面 Blueprint（背景・透過率の設定、保存済みセッションの一覧・削除）。"""
 import os
 
 from flask import Blueprint, jsonify, render_template, request
@@ -11,6 +11,7 @@ from debate.settings import (
     resolve_background,
     update_settings,
 )
+from debate.storage import delete_session, list_sessions
 
 debate_admin_bp = Blueprint("debate_admin", __name__, url_prefix="/debate/admin")
 
@@ -57,3 +58,23 @@ def admin_settings():
 
     saved = update_settings(**updates)
     return jsonify({"ok": True, **saved, **resolve_background(saved.get("background_id"))})
+
+
+# ── 保存済みセッション一覧（途中まで進めたディベートの再開・削除） ──────
+@debate_admin_bp.route("/api/sessions", methods=["GET"])
+def admin_list_sessions():
+    if not _password_ok(request.args.to_dict()):
+        return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
+    return jsonify({"ok": True, "sessions": list_sessions(limit=500)})
+
+
+@debate_admin_bp.route("/api/sessions/<session_id>/delete", methods=["POST"])
+def admin_delete_session(session_id):
+    payload = request.get_json(silent=True) or {}
+    if not _password_ok(payload):
+        return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
+
+    deleted = delete_session(session_id)
+    if not deleted:
+        return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
+    return jsonify({"ok": True})
