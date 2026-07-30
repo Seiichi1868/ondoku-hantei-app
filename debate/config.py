@@ -23,12 +23,12 @@ ALLOWED_AUDIO_EXTENSIONS = {"webm", "wav", "mp3", "m4a", "ogg", "mp4", "mpeg", "
 PART_ORDER = ["PM", "LO", "MG", "MO", "LOR", "PMR"]
 
 PART_DEFS = {
-    "PM": {"side": "Gov", "part_order": 1, "time_limit_sec": 300},
-    "LO": {"side": "Opp", "part_order": 2, "time_limit_sec": 300},
-    "MG": {"side": "Gov", "part_order": 3, "time_limit_sec": 300},
-    "MO": {"side": "Opp", "part_order": 4, "time_limit_sec": 300},
-    "LOR": {"side": "Opp", "part_order": 5, "time_limit_sec": 180},
-    "PMR": {"side": "Gov", "part_order": 6, "time_limit_sec": 180},
+    "PM": {"side": "Gov", "part_order": 1, "time_limit_sec": 210},
+    "LO": {"side": "Opp", "part_order": 2, "time_limit_sec": 210},
+    "MG": {"side": "Gov", "part_order": 3, "time_limit_sec": 210},
+    "MO": {"side": "Opp", "part_order": 4, "time_limit_sec": 210},
+    "LOR": {"side": "Opp", "part_order": 5, "time_limit_sec": 150},
+    "PMR": {"side": "Gov", "part_order": 6, "time_limit_sec": 150},
 }
 
 PART_LABELS = {

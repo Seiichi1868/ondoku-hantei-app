@@ -50,7 +50,9 @@
       </div>
       <div class="text-right shrink-0">
         <div class="timer-display text-2xl font-bold text-slate-700" data-timer>--:--</div>
-        <div class="text-xs text-slate-400">制限 {{ (part.time_limit_sec // 60) }}分{{ '%02d' % (part.time_limit_sec % 60) if part.time_limit_sec % 60 else '' }}</div>
+        <div class="text-xs text-slate-400">
+          制限 {{ part.time_limit_sec // 60 }}分{% if part.time_limit_sec % 60 %}{{ '%02d' % (part.time_limit_sec % 60) }}秒{% endif %}
+        </div>
       </div>
     </div>
 

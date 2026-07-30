@@ -13,6 +13,40 @@
 
   const cardState = new Map();
 
+  // ── 時間経過の合図音（残り1分:1回／残り30秒:2回／制限到達後:連打） ──────
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return null;
+      audioCtx = new AudioCtx();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playBeep(delaySec = 0, freq = 880, duration = 0.14, volume = 0.35) {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const startTime = ctx.currentTime + delaySec;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.02);
+  }
+
+  function playBeepSequence(count, interval = 0.22) {
+    for (let i = 0; i < count; i += 1) {
+      playBeep(i * interval);
+    }
+  }
+
   function pickMimeType() {
     if (!window.MediaRecorder) return "";
     for (const type of MIME_CANDIDATES) {
@@ -137,13 +171,33 @@
     const timerEl = card.querySelector("[data-timer]");
     const startedAt = Date.now();
 
+    const state = cardState.get(part) || {};
+    state.cuesFired = { oneMin: false, thirtySec: false };
+    state.alarmIntervalId = null;
+    cardState.set(part, state);
+
     const intervalId = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const remaining = timeLimit - elapsed;
       timerEl.textContent = formatSeconds(elapsed);
-      timerEl.classList.toggle("text-rose-600", elapsed > timeLimit);
+      timerEl.classList.toggle("text-rose-600", remaining < 0);
+
+      const s = cardState.get(part) || {};
+      if (!s.cuesFired.oneMin && remaining <= 60 && remaining > 30) {
+        s.cuesFired.oneMin = true;
+        playBeepSequence(1);
+      }
+      if (!s.cuesFired.thirtySec && remaining <= 30 && remaining > 0) {
+        s.cuesFired.thirtySec = true;
+        playBeepSequence(2);
+      }
+      if (remaining <= 0 && !s.alarmIntervalId) {
+        playBeepSequence(2);
+        s.alarmIntervalId = setInterval(() => playBeepSequence(2), 1000);
+      }
+      cardState.set(part, s);
     }, 500);
 
-    const state = cardState.get(part) || {};
     state.intervalId = intervalId;
     cardState.set(part, state);
   }
@@ -153,8 +207,12 @@
     if (state.intervalId) {
       clearInterval(state.intervalId);
       state.intervalId = null;
-      cardState.set(part, state);
     }
+    if (state.alarmIntervalId) {
+      clearInterval(state.alarmIntervalId);
+      state.alarmIntervalId = null;
+    }
+    cardState.set(part, state);
   }
 
   async function handleRecordClick(card) {

@@ -64,3 +64,38 @@ body {
   background: rgba(79, 70, 229, 0.08);
   border-color: rgba(79, 70, 229, 0.35);
 }
+
+/* ── 管理画面：背景プリセット ─────────────────────────────── */
+.bg-pick-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem;
+  border-radius: 0.6rem;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.bg-pick-btn:hover {
+  border-color: rgba(79, 70, 229, 0.35);
+}
+.bg-pick-btn-active {
+  border-color: #4338ca;
+  box-shadow: 0 0 0 1px rgba(67, 56, 202, 0.25);
+}
+.bg-pick-thumb {
+  display: block;
+  width: 4.5rem;
+  height: 2.75rem;
+  border-radius: 0.4rem;
+  background-size: cover;
+  background-position: center;
+}
+.bg-pick-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1;
+}

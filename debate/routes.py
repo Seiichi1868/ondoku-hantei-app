@@ -29,6 +29,7 @@ from debate.config import (
     ensure_dirs,
 )
 from debate.models import new_session
+from debate.settings import load_settings, resolve_background
 from debate.storage import get_part, list_sessions, load_session, save_session
 from debate.transcription import transcribe_audio
 
@@ -37,6 +38,15 @@ logger = logging.getLogger(__name__)
 debate_bp = Blueprint("debate", __name__, url_prefix="/debate")
 
 JST = timezone(timedelta(hours=9))
+
+
+def _background_context() -> dict:
+    settings = load_settings()
+    background = resolve_background(settings.get("background_id"))
+    return {
+        "background": background,
+        "background_opacity": settings.get("background_opacity"),
+    }
 
 
 def _part_meta() -> dict:
@@ -66,6 +76,7 @@ def index():
         "debate/index.html",
         default_motions=DEFAULT_MOTIONS,
         recent_sessions=list_sessions(limit=8),
+        **_background_context(),
     )
 
 
@@ -98,13 +109,16 @@ def get_session_api(session_id):
 def progress_screen(session_id):
     session = load_session(session_id)
     if not session:
-        return render_template("debate/not_found.html", session_id=session_id), 404
+        return render_template(
+            "debate/not_found.html", session_id=session_id, **_background_context()
+        ), 404
     return render_template(
         "debate/progress.html",
         session=session,
         part_meta=_part_meta(),
         part_order=PART_ORDER,
         status_labels=STATUS_LABELS,
+        **_background_context(),
     )
 
 
@@ -195,15 +209,20 @@ def upload_part_audio(session_id, part):
 def review_screen(session_id, part):
     session = load_session(session_id)
     if not session:
-        return render_template("debate/not_found.html", session_id=session_id), 404
+        return render_template(
+            "debate/not_found.html", session_id=session_id, **_background_context()
+        ), 404
     part_data = get_part(session, part)
     if not part_data:
-        return render_template("debate/not_found.html", session_id=session_id), 404
+        return render_template(
+            "debate/not_found.html", session_id=session_id, **_background_context()
+        ), 404
     return render_template(
         "debate/review.html",
         session=session,
         part=part_data,
         meta=_part_meta()[part],
+        **_background_context(),
     )
 
 
