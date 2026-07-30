@@ -7,8 +7,10 @@
   const staleBanner = document.getElementById("stale-recording-banner");
   const allDoneSection = document.getElementById("all-done-section");
   const overallLabel = document.getElementById("overall-progress-label");
+  const saveExitBtn = document.getElementById("save-exit-btn");
+  const saveToast = document.getElementById("save-toast");
 
-  /** @type {string|null} 同時に1パートしか録音できないようにするロック */
+  /** @type {string|null} いま録音中のパート（これ以外の not_started パートだけ録音ボタンを無効化） */
   let activeRecordingPart = null;
 
   const cardState = new Map();
@@ -203,6 +205,36 @@
     el.classList.remove("hidden");
   }
 
+  function showSaveToast(message) {
+    if (!saveToast) return;
+    saveToast.textContent = message;
+    saveToast.classList.remove("hidden");
+    setTimeout(() => saveToast.classList.add("hidden"), 4000);
+  }
+
+  function showPartSaveMsg(card, message) {
+    const el = card.querySelector(".part-save-msg");
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove("hidden");
+    setTimeout(() => {
+      el.classList.add("hidden");
+      el.textContent = "";
+    }, 3000);
+  }
+
+  /** 録音中以外は not_started パートの録音ボタンを常に有効にする */
+  function updateRecordButtonStates() {
+    cards.forEach((card) => {
+      const btn = card.querySelector(".btn-record");
+      if (!btn || card.dataset.status !== "not_started") return;
+      const locked = activeRecordingPart !== null;
+      btn.disabled = locked;
+      btn.classList.toggle("opacity-40", locked);
+      btn.classList.toggle("cursor-not-allowed", locked);
+    });
+  }
+
   function refreshOverallProgress() {
     const total = cards.length;
     const confirmed = cards.filter((c) => c.dataset.status === "confirmed").length;
@@ -222,16 +254,7 @@
     });
 
     allDoneSection.classList.toggle("hidden", confirmed !== total);
-  }
-
-  function setRecordButtonsDisabled(exceptPart, disabled) {
-    cards.forEach((card) => {
-      if (card.dataset.part === exceptPart) return;
-      const btn = card.querySelector(".btn-record");
-      btn.disabled = disabled;
-      btn.classList.toggle("opacity-40", disabled);
-      btn.classList.toggle("cursor-not-allowed", disabled);
-    });
+    updateRecordButtonStates();
   }
 
   function renderCard(card) {
@@ -243,6 +266,7 @@
     const recordBtn = card.querySelector(".btn-record");
     const stopBtn = card.querySelector(".btn-stop");
     const reviewBtn = card.querySelector(".btn-review");
+    const saveBtn = card.querySelector(".btn-save");
     const resetBtn = card.querySelector(".btn-reset");
     const uploadingLabel = card.querySelector(".btn-uploading");
     const pill = card.querySelector("[data-status-pill]");
@@ -254,6 +278,7 @@
     recordBtn.classList.add("hidden");
     stopBtn.classList.add("hidden");
     reviewBtn.classList.add("hidden");
+    if (saveBtn) saveBtn.classList.add("hidden");
     resetBtn.classList.add("hidden");
     uploadingLabel.classList.add("hidden");
 
@@ -267,9 +292,9 @@
       stopBtn.classList.remove("hidden");
     } else if (status === "transcribing") {
       uploadingLabel.classList.remove("hidden");
-      // 文字起こし中でも確認画面へは入れる（完了待ち／手動入力／再試行のため）
       reviewBtn.classList.remove("hidden");
       reviewBtn.textContent = "進捗を見る";
+      if (saveBtn) saveBtn.classList.remove("hidden");
       if (elapsed !== null) {
         timerEl.textContent = formatSeconds(elapsed);
         timerEl.classList.toggle("text-rose-600", elapsed > timeLimit);
@@ -277,6 +302,7 @@
     } else if (status === "needs_review") {
       reviewBtn.classList.remove("hidden");
       resetBtn.classList.remove("hidden");
+      if (saveBtn) saveBtn.classList.remove("hidden");
       reviewBtn.textContent = "文字起こしを確認";
       if (elapsed !== null) {
         timerEl.textContent = formatSeconds(elapsed);
@@ -285,6 +311,7 @@
     } else if (status === "confirmed") {
       reviewBtn.classList.remove("hidden");
       resetBtn.classList.remove("hidden");
+      if (saveBtn) saveBtn.classList.remove("hidden");
       reviewBtn.textContent = "文字起こしを見る";
       if (elapsed !== null) {
         timerEl.textContent = formatSeconds(elapsed);
@@ -392,7 +419,7 @@
     });
 
     activeRecordingPart = part;
-    setRecordButtonsDisabled(part, true);
+    updateRecordButtonStates();
 
     const state = cardState.get(part) || {};
     state.recorder = recorder;
@@ -426,25 +453,19 @@
     cardState.set(part, state);
     hideLiveMonitor(card);
 
-    // アップロード／文字起こし完了を待たず、停止直後に他パートの録音を解禁する。
-    // （以前は uploadAudio の応答待ちの間ずっとロックが残り、次パートに進めなかった）
+    // 停止直後に他パートの録音を解禁（アップロード／文字起こし完了は待たない）
     activeRecordingPart = null;
-    setRecordButtonsDisabled(part, false);
+    updateRecordButtonStates();
 
     card.dataset.status = "transcribing";
+    card.dataset.endTime = new Date().toISOString();
     renderCard(card);
     state.recorder.stop();
   }
 
   // ── 文字起こし完了待ちのポーリング ──────────────────────────
-  // アップロード自体はすぐ終わるが、Whisperによる文字起こしはバックグラウンドで
-  // 進行するため、完了（status !== "transcribing"）まで軽量APIで定期確認する。
-  // これにより、このパートの文字起こしを待たずに次のパートの録音を開始できる。
-
-  // サーバー側のWhisperタイムアウト＋リトライは通常でも1〜2分程度で決着する想定。
-  // それを大きく超えても "transcribing" のままの場合は、サーバー再起動等で
-  // バックグラウンド処理が失われた可能性があるため、手動操作できるようにする。
-  const STUCK_TRANSCRIBE_MS = 3 * 60 * 1000;
+  const STUCK_TRANSCRIBE_MS = 90 * 1000;
+  const UPLOAD_TIMEOUT_MS = 120 * 1000;
 
   function isTranscriptionStuck(endTimeIso) {
     if (!endTimeIso) return false;
@@ -487,6 +508,8 @@
         if (data.status !== card.dataset.status) {
           card.dataset.status = data.status;
           card.dataset.elapsed = data.elapsed_sec ?? "";
+          if (data.end_time) card.dataset.endTime = data.end_time;
+          if (data.transcript_error) card.dataset.transcriptError = data.transcript_error;
           renderCard(card);
         }
 
@@ -520,17 +543,20 @@
     const formData = new FormData();
     formData.append("audio", blob, `${part}.${extensionFor(mimeType)}`);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+
     try {
       const res = await fetch(`/debate/api/sessions/${SESSION_ID}/parts/${part}/audio`, {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const data = await res.json();
 
-      // アップロードが完了した時点でロックを解除する（文字起こしの完了は待たない）。
-      // これにより、バックグラウンドで文字起こしが進んでいる間も次のパートに進める。
       activeRecordingPart = null;
-      setRecordButtonsDisabled(part, false);
+      updateRecordButtonStates();
 
       if (!res.ok) {
         const partData = data.part || data;
@@ -543,6 +569,7 @@
 
       card.dataset.status = data.status || "transcribing";
       card.dataset.elapsed = data.elapsed_sec ?? "";
+      if (data.end_time) card.dataset.endTime = data.end_time;
       setError(card, "");
       renderCard(card);
 
@@ -550,11 +577,64 @@
         startStatusPolling(card);
       }
     } catch (err) {
+      clearTimeout(timeoutId);
       activeRecordingPart = null;
-      setRecordButtonsDisabled(part, false);
+      updateRecordButtonStates();
       card.dataset.status = "needs_review";
       renderCard(card);
-      setError(card, "アップロードに失敗しました。ネットワークをご確認のうえ、やり直してください。");
+      const msg =
+        err.name === "AbortError"
+          ? "アップロードがタイムアウトしました。ネットワークをご確認のうえ、やり直してください。"
+          : "アップロードに失敗しました。ネットワークをご確認のうえ、やり直してください。";
+      setError(card, msg);
+    }
+  }
+
+  async function handleSavePartClick(card) {
+    const part = card.dataset.part;
+    const btn = card.querySelector(".btn-save");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "保存中...";
+    }
+    try {
+      const res = await fetch(`/debate/api/sessions/${SESSION_ID}/parts/${part}/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "保存に失敗しました。");
+      showPartSaveMsg(card, "保存しました");
+      showSaveToast(`${part} パートを保存しました。管理画面から再開できます。`);
+    } catch (err) {
+      setError(card, err.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "保存";
+      }
+    }
+  }
+
+  async function handleSaveExitClick() {
+    if (activeRecordingPart) {
+      showSaveToast("録音中は保存できません。停止してからお試しください。");
+      return;
+    }
+    saveExitBtn.disabled = true;
+    saveExitBtn.textContent = "保存中...";
+    try {
+      const res = await fetch(`/debate/api/sessions/${SESSION_ID}/checkpoint`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "保存に失敗しました。");
+      window.location.href = "/debate/";
+    } catch (err) {
+      showSaveToast(err.message);
+      saveExitBtn.disabled = false;
+      saveExitBtn.textContent = "保存して中断";
     }
   }
 
@@ -606,6 +686,7 @@
     card.querySelector(".btn-stop").addEventListener("click", () => handleStopClick(card));
     card.querySelector(".btn-reset").addEventListener("click", () => handleResetClick(card));
     card.querySelector(".btn-review").addEventListener("click", () => handleReviewClick(card));
+    card.querySelector(".btn-save")?.addEventListener("click", () => handleSavePartClick(card));
 
     if (card.dataset.status === "recording") {
       // ページ再読み込みでMediaRecorderの実体は失われているため、サーバー側もリセットする
@@ -637,6 +718,8 @@
       event.returnValue = "";
     }
   });
+
+  saveExitBtn?.addEventListener("click", handleSaveExitClick);
 
   refreshOverallProgress();
 })();

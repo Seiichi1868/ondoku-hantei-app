@@ -139,14 +139,17 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;");
 }
 
-function formatSessionDate(iso) {
-  if (!iso) return "";
+function splitDateTime(iso) {
+  if (!iso) return { date: "—", time: "—" };
   try {
     const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    if (Number.isNaN(d.getTime())) return { date: iso, time: "" };
+    return {
+      date: d.toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" }),
+      time: d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    };
   } catch (_) {
-    return iso;
+    return { date: iso, time: "" };
   }
 }
 
@@ -159,30 +162,43 @@ function renderSessions(sessions) {
     return;
   }
 
-  sessionsList.innerHTML = sessions
+  const rows = sessions
     .map((s) => {
+      const dt = splitDateTime(s.updated_at || s.created_at);
       const done = s.confirmed_parts === s.total_parts && s.total_parts > 0;
+      const progressLabel = done
+        ? `<span class="text-emerald-600 font-semibold">完了</span>`
+        : `<span>${s.confirmed_parts}/${s.total_parts} 確定</span>` +
+          (s.in_progress_parts ? ` ・ <span class="text-amber-600">${s.in_progress_parts} 進行中</span>` : "");
+
       return `
-        <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white/70 px-4 py-3 hover:border-brand/30 transition-colors">
-          <a href="/debate/session/${encodeURIComponent(s.session_id)}" class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-slate-700">${escapeHtml(s.motion)}</p>
-            <p class="text-xs text-slate-400 mt-0.5">
-              ${escapeHtml(formatSessionDate(s.created_at))} ・
-              <span class="${done ? "text-emerald-600 font-semibold" : ""}">${s.confirmed_parts}/${s.total_parts} パート完了</span>
-            </p>
-          </a>
-          <a href="/debate/session/${encodeURIComponent(s.session_id)}"
-            class="shrink-0 text-xs px-3 py-1.5 rounded-full bg-brand/10 text-brand-dark font-semibold hover:bg-brand/20 transition-colors">
-            再開
-          </a>
-          <button type="button" class="btn-delete-session shrink-0 text-xs px-3 py-1.5 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
-            data-session-id="${s.session_id}">
-            削除
-          </button>
+        <div class="rounded-xl border border-slate-100 bg-white/70 px-4 py-3 hover:border-brand/30 transition-colors">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium text-slate-800">${escapeHtml(s.motion)}</p>
+              <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                <span><span class="font-semibold text-slate-400">日付</span> ${escapeHtml(dt.date)}</span>
+                <span><span class="font-semibold text-slate-400">時刻</span> ${escapeHtml(dt.time)}</span>
+                <span>${progressLabel}</span>
+              </div>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <a href="/debate/session/${encodeURIComponent(s.session_id)}"
+                class="text-xs px-3 py-1.5 rounded-full bg-brand/10 text-brand-dark font-semibold hover:bg-brand/20 transition-colors">
+                再開
+              </a>
+              <button type="button" class="btn-delete-session text-xs px-3 py-1.5 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
+                data-session-id="${escapeHtml(s.session_id)}">
+                削除
+              </button>
+            </div>
+          </div>
         </div>
       `;
     })
     .join("");
+
+  sessionsList.innerHTML = rows;
 }
 
 async function loadSessions() {
@@ -219,6 +235,7 @@ sessionsList?.addEventListener("click", async (e) => {
     });
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || "削除に失敗しました");
+    statusMessage.textContent = "セッションを削除しました";
     await loadSessions();
   } catch (err) {
     statusMessage.textContent = "";

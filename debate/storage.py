@@ -39,6 +39,9 @@ def get_session_lock(session_id: str) -> threading.Lock:
 
 
 def save_session(session: dict) -> dict:
+    from debate.models import now_iso
+
+    session["updated_at"] = now_iso()
     ensure_dirs()
     path = _session_path(session["session_id"])
     with _lock:
@@ -82,13 +85,14 @@ def delete_session(session_id: str) -> bool:
 
 
 def list_sessions(limit: int = 10) -> list[dict]:
-    """論題入力画面に表示する最近のセッション一覧（続きから再開できるように）。"""
+    """保存済みセッション一覧（論題入力画面・管理画面用）。"""
     ensure_dirs()
     files = sorted(SESSIONS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
 
     summaries = []
     for path in files[:limit]:
         try:
+            mtime = path.stat().st_mtime
             with path.open(encoding="utf-8") as handle:
                 data = json.load(handle)
         except (json.JSONDecodeError, OSError):
@@ -96,12 +100,26 @@ def list_sessions(limit: int = 10) -> list[dict]:
 
         parts = data.get("parts", [])
         confirmed = sum(1 for part in parts if part.get("status") == "confirmed")
+        in_progress = sum(
+            1
+            for part in parts
+            if part.get("status") in ("recording", "transcribing", "needs_review")
+        )
+        updated_at = data.get("updated_at") or data.get("created_at") or ""
+        if not updated_at and mtime:
+            from datetime import datetime, timedelta, timezone
+
+            jst = timezone(timedelta(hours=9))
+            updated_at = datetime.fromtimestamp(mtime, tz=jst).isoformat(timespec="seconds")
+
         summaries.append(
             {
                 "session_id": data.get("session_id"),
                 "motion": data.get("motion"),
                 "created_at": data.get("created_at"),
+                "updated_at": updated_at,
                 "confirmed_parts": confirmed,
+                "in_progress_parts": in_progress,
                 "total_parts": len(parts),
             }
         )

@@ -9,12 +9,12 @@
 """
 import logging
 import mimetypes
-import threading
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from flask import Blueprint, after_this_request, jsonify, render_template, request, send_from_directory, url_for
+from flask import Blueprint, jsonify, render_template, request, send_from_directory, url_for
 from werkzeug.utils import secure_filename
 
 from debate.config import (
@@ -29,10 +29,10 @@ from debate.config import (
     STATUS_LABELS,
     ensure_dirs,
 )
-from debate.models import new_session
+from debate.models import new_session, now_iso
 from debate.settings import load_settings, resolve_background
 from debate.storage import get_part, get_session_lock, list_sessions, load_session, save_session
-from debate.transcription import transcribe_audio
+from debate.transcription_jobs import start_transcription_job
 
 logger = logging.getLogger(__name__)
 
@@ -40,27 +40,69 @@ debate_bp = Blueprint("debate", __name__, url_prefix="/debate")
 
 JST = timezone(timedelta(hours=9))
 
-# 本番は gunicorn + gevent（monkey.patch_all）。通常の threading.Thread は greenlet 化され、
-# Whisper の同期 HTTP がイベントループ／ワーカー全体を塞ぎうる。
-# gevent.threadpool は本物の OS スレッドで実行するため、リクエスト処理を止めない。
-_transcription_pool = None
-_transcription_pool_lock = threading.Lock()
+# 文字起こしがこの秒数を超えて "transcribing" のままなら、サーバー側で復旧する
+TRANSCRIBE_STUCK_SEC = int(os.environ.get("DEBATE_TRANSCRIBE_STUCK_SEC", "90"))
 
 
-def _get_transcription_pool():
-    global _transcription_pool
-    with _transcription_pool_lock:
-        if _transcription_pool is not None:
-            return _transcription_pool
-        try:
-            from gevent.threadpool import ThreadPool
+def _seconds_since(iso_timestamp: str | None) -> float | None:
+    if not iso_timestamp:
+        return None
+    try:
+        dt = datetime.fromisoformat(iso_timestamp)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=JST)
+        return (datetime.now(JST) - dt).total_seconds()
+    except ValueError:
+        return None
 
-            _transcription_pool = ThreadPool(4)
-            logger.info("Using gevent.threadpool.ThreadPool for Whisper jobs")
-        except Exception:  # noqa: BLE001 - ローカル開発等で gevent が無い場合のフォールバック
-            logger.warning("gevent.threadpool unavailable; falling back to threading.Thread")
-            _transcription_pool = None
-        return _transcription_pool
+
+def _audio_path(session_id: str, audio_url: str) -> Path | None:
+    if not audio_url:
+        return None
+    path = AUDIO_DIR / session_id / Path(audio_url).name
+    return path if path.is_file() else None
+
+
+def _recover_stuck_transcription(session_id: str, part: str, part_data: dict) -> dict:
+    """transcribing が長時間止まっているパートを needs_review に落とす（1回だけ再試行）。"""
+    elapsed = _seconds_since(part_data.get("end_time"))
+    if elapsed is None or elapsed < TRANSCRIBE_STUCK_SEC:
+        return part_data
+
+    with get_session_lock(session_id):
+        session = load_session(session_id)
+        if not session:
+            return part_data
+        current = get_part(session, part)
+        if not current or current.get("status") != "transcribing":
+            return current or part_data
+
+        retry_at = current.get("transcribe_retry_at")
+        file_path = _audio_path(session_id, current.get("audio_url", ""))
+        if not retry_at and file_path:
+            current["transcribe_retry_at"] = now_iso()
+            save_session(session)
+            start_transcription_job(session_id, part, file_path)
+            logger.warning(
+                "Re-queued stuck transcription session=%s part=%s elapsed=%.0fs",
+                session_id,
+                part,
+                elapsed,
+            )
+            return current
+
+        current["status"] = "needs_review"
+        current["transcript_error"] = (
+            "文字起こしが完了しませんでした。「文字起こしを確認」から再試行するか、手動で入力してください。"
+        )
+        save_session(session)
+        logger.warning(
+            "Recovered stuck transcription session=%s part=%s elapsed=%.0fs",
+            session_id,
+            part,
+            elapsed,
+        )
+        return current
 
 
 def _background_context() -> dict:
@@ -163,68 +205,42 @@ def start_part(session_id, part):
         return jsonify(part_data)
 
 
-def _run_transcription_job(session_id: str, part: str, file_path: Path) -> None:
-    """バックグラウンドスレッドでWhisper文字起こしを実行し、完了後にセッションへ反映する。
-
-    アップロードのリクエスト処理をここで待たせないことで、
-    次のパートの録音をすぐに開始できるようにする。
-    """
-    error_message = ""
-    transcript = ""
-    try:
-        transcript = transcribe_audio(file_path)
-    except RuntimeError as exc:
-        error_message = str(exc)
-    except Exception as exc:  # noqa: BLE001 - Whisper呼び出しは多様な例外を投げうるため
-        logger.exception(
-            "Whisper transcription failed for session=%s part=%s: %s", session_id, part, exc
-        )
-        error_message = f"文字起こしに失敗しました（{type(exc).__name__}）。ネットワーク状況をご確認のうえ再試行してください。"
-
+@debate_bp.route("/api/sessions/<session_id>/checkpoint", methods=["POST"])
+def checkpoint_session(session_id):
+    """進行状況を明示的に保存（自動保存の確認用）。"""
     with get_session_lock(session_id):
         session = load_session(session_id)
         if not session:
-            return
-        part_data = get_part(session, part)
-        # 処理中にリセット等で状態が変わっていた場合は、古い結果で上書きしない
-        if not part_data or part_data.get("status") != "transcribing":
-            return
-
-        if error_message:
-            part_data["transcript_error"] = error_message
-        else:
-            part_data["transcript_raw"] = transcript
-            part_data["transcript_edited"] = transcript
-            part_data["transcript_error"] = ""
-        part_data["status"] = "needs_review"
+            return jsonify({"error": "セッションが見つかりません。"}), 404
         save_session(session)
+        return jsonify(
+            {
+                "ok": True,
+                "session_id": session_id,
+                "updated_at": session.get("updated_at"),
+                "motion": session.get("motion"),
+            }
+        )
 
 
-def _start_transcription_job(session_id: str, part: str, file_path: Path) -> None:
-    pool = _get_transcription_pool()
-    if pool is not None:
-        pool.spawn(_run_transcription_job, session_id, part, file_path)
-        return
-    thread = threading.Thread(
-        target=_run_transcription_job,
-        args=(session_id, part, file_path),
-        daemon=True,
-    )
-    thread.start()
+@debate_bp.route("/api/sessions/<session_id>/parts/<part>/save", methods=["POST"])
+def save_part_progress(session_id, part):
+    """パート単位で進捗を保存（確定前でも中断・再開できるようにする）。"""
+    payload = request.get_json(silent=True) or {}
+    with get_session_lock(session_id):
+        session = load_session(session_id)
+        if not session:
+            return jsonify({"error": "セッションが見つかりません。"}), 404
+        part_data = get_part(session, part)
+        if not part_data:
+            return jsonify({"error": f"不明なパート: {part}"}), 400
 
+        if part_data.get("status") in ("needs_review", "confirmed"):
+            if "transcript_edited" in payload:
+                part_data["transcript_edited"] = str(payload.get("transcript_edited", ""))
 
-def _kickoff_transcription_after_response(session_id: str, part: str, file_path: Path) -> None:
-    """HTTP レスポンス返却後に文字起こしを起動し、アップロード応答を遅らせない。"""
-
-    @after_this_request
-    def _start(response):
-        try:
-            _start_transcription_job(session_id, part, file_path)
-        except Exception:  # noqa: BLE001
-            logger.exception(
-                "Failed to kick off transcription job for session=%s part=%s", session_id, part
-            )
-        return response
+        save_session(session)
+        return jsonify({"ok": True, "part": part_data, "updated_at": session.get("updated_at")})
 
 
 @debate_bp.route("/api/sessions/<session_id>/parts/<part>/audio", methods=["POST"])
@@ -266,6 +282,7 @@ def upload_part_audio(session_id, part):
         part_data["transcript_raw"] = ""
         part_data["transcript_edited"] = ""
         part_data["transcript_error"] = ""
+        part_data["transcribe_retry_at"] = None
 
         if part_data.get("start_time"):
             try:
@@ -274,14 +291,11 @@ def upload_part_audio(session_id, part):
             except ValueError:
                 part_data["elapsed_sec"] = None
 
-        # 文字起こし（Whisper）は時間がかかりうるため、ここでは待たずに
-        # レスポンス返却後に OS スレッドで実行する。
-        # これにより、このパートの文字起こしが終わる前でも次のパートの録音を開始できる。
         part_data["status"] = "transcribing"
         save_session(session)
         response_data = dict(part_data)
 
-    _kickoff_transcription_after_response(session_id, part, file_path)
+    start_transcription_job(session_id, part, file_path)
     return jsonify(response_data), 202
 
 
@@ -298,17 +312,17 @@ def retranscribe_part(session_id, part):
         if not part_data.get("audio_url"):
             return jsonify({"error": "音声データがないため再文字起こしできません。録音からやり直してください。"}), 400
 
-        filename = Path(part_data["audio_url"]).name
-        file_path = AUDIO_DIR / session_id / filename
-        if not file_path.is_file():
+        file_path = _audio_path(session_id, part_data["audio_url"])
+        if not file_path:
             return jsonify({"error": "音声ファイルが見つかりません。録音からやり直してください。"}), 404
 
         part_data["status"] = "transcribing"
         part_data["transcript_error"] = ""
+        part_data["transcribe_retry_at"] = None
         save_session(session)
         response_data = dict(part_data)
 
-    _kickoff_transcription_after_response(session_id, part, file_path)
+    start_transcription_job(session_id, part, file_path)
     return jsonify(response_data), 202
 
 
@@ -321,6 +335,10 @@ def get_part_api(session_id, part):
     part_data = get_part(session, part)
     if not part_data:
         return jsonify({"error": f"不明なパート: {part}"}), 400
+
+    if part_data.get("status") == "transcribing":
+        part_data = _recover_stuck_transcription(session_id, part, part_data)
+
     return jsonify(part_data)
 
 
@@ -381,6 +399,7 @@ def reset_part(session_id, part):
                 "transcript_raw": "",
                 "transcript_edited": "",
                 "transcript_error": "",
+                "transcribe_retry_at": None,
                 "start_time": None,
                 "end_time": None,
                 "elapsed_sec": None,

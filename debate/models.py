@@ -22,6 +22,7 @@ def new_part(part: str) -> dict:
         "transcript_raw": "",
         "transcript_edited": "",
         "transcript_error": "",
+        "transcribe_retry_at": None,
         "start_time": None,
         "end_time": None,
         "time_limit_sec": defaults["time_limit_sec"],
@@ -58,6 +59,7 @@ def new_session(motion: str, speaker_name: str = "") -> dict:
         "session_id": str(uuid.uuid4()),
         "motion": motion.strip(),
         "created_at": now_iso(),
+        "updated_at": now_iso(),
         "parts": parts,
         "judge_result": new_judge_result(),
     }

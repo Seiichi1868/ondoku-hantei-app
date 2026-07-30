@@ -74,7 +74,14 @@
         href="{{ url_for('debate.progress_screen', session_id=s.session_id) }}"
         class="flex items-center justify-between rounded-xl border border-slate-100 bg-white/70 px-4 py-3 text-sm hover:border-brand/40 hover:bg-indigo-50/60 transition-colors"
       >
-        <span class="truncate pr-4 text-slate-700">{{ s.motion }}</span>
+        <div class="min-w-0 pr-4">
+          <p class="truncate text-slate-700">{{ s.motion }}</p>
+          {% if s.updated_at or s.created_at %}
+          <p class="text-[0.68rem] text-slate-400 mt-0.5">
+            最終保存: {{ (s.updated_at or s.created_at)[:10] }} {{ (s.updated_at or s.created_at)[11:16] }}
+          </p>
+          {% endif %}
+        </div>
         <span class="shrink-0 text-xs font-semibold text-slate-500">
           {{ s.confirmed_parts }}/{{ s.total_parts }} パート完了
         </span>
