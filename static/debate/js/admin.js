@@ -264,40 +264,34 @@ function renderSessions(sessions) {
         ? `<span class="text-violet-600 font-semibold">コピー</span>`
         : "";
 
+      const metaParts = [
+        `<span>${escapeHtml(dt.date)} ${escapeHtml(dt.time)}</span>`,
+        `<span>${progressLabel}</span>`,
+      ];
+      if (copyBadge) metaParts.push(`<span>${copyBadge}</span>`);
+      if (judgeLabel) metaParts.push(`<span>${judgeLabel}</span>`);
+
       return `
-        <div class="rounded-xl border border-slate-100 bg-white/70 px-4 py-3 hover:border-brand/30 transition-colors" data-session-id="${escapeHtml(s.session_id)}">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium text-slate-800">${escapeHtml(s.motion)}</p>
-              <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                <span><span class="font-semibold text-slate-400">日付</span> ${escapeHtml(dt.date)}</span>
-                <span><span class="font-semibold text-slate-400">時刻</span> ${escapeHtml(dt.time)}</span>
-                <span>${progressLabel}</span>
-                ${copyBadge ? `<span>${copyBadge}</span>` : ""}
-                ${judgeLabel ? `<span>${judgeLabel}</span>` : ""}
-              </div>
-              <label class="mt-2 block">
-                <span class="text-[0.65rem] font-semibold text-slate-400">備考</span>
-                <input type="text" class="session-notes-input mt-0.5 w-full rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand/30"
-                  data-session-id="${escapeHtml(s.session_id)}"
-                  value="${escapeHtml(s.admin_notes || "")}"
-                  maxlength="200"
-                  placeholder="例: Luna比較用コピー / 2026-07-31 実験">
-              </label>
-            </div>
-            <div class="flex shrink-0 items-center gap-2">
+        <div class="session-row-compact" data-session-id="${escapeHtml(s.session_id)}">
+          <div class="session-row-compact__grid">
+            <p class="session-row-compact__title" title="${escapeHtml(s.motion)}">${escapeHtml(s.motion)}</p>
+            <div class="session-row-compact__actions">
               <a href="/debate/session/${encodeURIComponent(s.session_id)}"
-                class="text-xs px-3 py-1.5 rounded-full bg-brand/10 text-brand-dark font-semibold hover:bg-brand/20 transition-colors">
-                再開
-              </a>
-              <button type="button" class="btn-copy-session text-xs px-3 py-1.5 rounded-full border border-violet-200 text-violet-700 hover:bg-violet-50 transition-colors"
-                data-session-id="${escapeHtml(s.session_id)}">
-                コピー
-              </button>
-              <button type="button" class="btn-delete-session text-xs px-3 py-1.5 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
-                data-session-id="${escapeHtml(s.session_id)}">
-                削除
-              </button>
+                class="session-row-compact__btn session-row-compact__btn--resume">再開</a>
+              <button type="button" class="session-row-compact__btn session-row-compact__btn--copy btn-copy-session"
+                data-session-id="${escapeHtml(s.session_id)}">コピー</button>
+              <button type="button" class="session-row-compact__btn session-row-compact__btn--delete btn-delete-session"
+                data-session-id="${escapeHtml(s.session_id)}">削除</button>
+            </div>
+            <div class="session-row-compact__meta">
+              ${metaParts.join('<span class="session-row-compact__meta-sep">·</span>')}
+              <span class="session-row-compact__meta-sep">·</span>
+              <span class="session-row-compact__notes-label">備考</span>
+              <input type="text" class="session-notes-input session-row-compact__notes-input"
+                data-session-id="${escapeHtml(s.session_id)}"
+                value="${escapeHtml(s.admin_notes || "")}"
+                maxlength="200"
+                placeholder="Luna比較用など">
             </div>
           </div>
         </div>
