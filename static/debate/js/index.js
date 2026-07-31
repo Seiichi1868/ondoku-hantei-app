@@ -8,16 +8,30 @@
   }
 
   const form = document.getElementById("motion-form");
+  const motionPicker = document.getElementById("motion-picker");
   const motionInput = document.getElementById("motion-input");
-  const speakerInput = document.getElementById("speaker-name-input");
   const startBtn = document.getElementById("start-btn");
   const errorBox = document.getElementById("form-error");
 
-  document.querySelectorAll(".motion-chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      motionInput.value = chip.dataset.motion || "";
+  const presetMotions = motionPicker
+    ? Array.from(motionPicker.options)
+        .map((option) => option.value.trim())
+        .filter(Boolean)
+    : [];
+
+  motionPicker?.addEventListener("change", () => {
+    const selected = motionPicker.value.trim();
+    if (selected) {
+      motionInput.value = selected;
       motionInput.focus();
-    });
+    }
+  });
+
+  motionInput?.addEventListener("input", () => {
+    if (!motionPicker) return;
+    const current = motionInput.value.trim();
+    const matched = presetMotions.find((motion) => motion === current);
+    motionPicker.value = matched || "";
   });
 
   function showError(message) {
@@ -31,7 +45,7 @@
 
     const motion = motionInput.value.trim();
     if (!motion) {
-      showError("論題を入力してください。");
+      showError("論題を選ぶか、入力してください。");
       return;
     }
 
@@ -42,10 +56,7 @@
       const response = await fetch("/debate/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          motion,
-          speaker_name: speakerInput.value.trim(),
-        }),
+        body: JSON.stringify({ motion }),
       });
       const data = await response.json();
 

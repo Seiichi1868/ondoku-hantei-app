@@ -69,15 +69,31 @@
 </div>
 
 <section class="glass-card rounded-2xl p-6 md:p-8">
-  <h2 class="text-xl font-bold text-brand-dark mb-1">① 論題（Motion）を入力してください</h2>
+  <h2 class="text-xl font-bold text-brand-dark mb-1">① 論題（Motion）を選ぶか入力してください</h2>
   <p class="text-sm text-slate-500 mb-6">
     PDA形式の6パート（PM → LO → MG → MO → LOR → PMR）を1人で順番に練習します。
   </p>
 
   <form id="motion-form" class="space-y-5">
     <div>
+      <label for="motion-picker" class="block text-sm font-semibold text-slate-700 mb-1.5">
+        お題から選ぶ
+      </label>
+      <select
+        id="motion-picker"
+        class="w-full rounded-xl border border-indigo-200 bg-white/80 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
+      >
+        <option value="">— お題を選んでください —</option>
+        {% for motion in default_motions %}
+        <option value="{{ motion }}">{{ motion }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
       <label for="motion-input" class="block text-sm font-semibold text-slate-700 mb-1.5">
         論題 <span class="text-rose-500">*</span>
+        <span class="text-xs font-normal text-slate-400 ml-1">（お題を選ぶと自動入力。編集・直接入力も可）</span>
       </label>
       <textarea
         id="motion-input"
@@ -88,33 +104,6 @@
         placeholder="This House believes that ..."
         class="w-full rounded-xl border border-indigo-200 bg-white/80 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
       ></textarea>
-    </div>
-
-    <div>
-      <p class="text-xs font-semibold text-slate-500 mb-2">サンプル論題から選ぶ</p>
-      <div class="flex flex-wrap gap-2">
-        {% for motion in default_motions %}
-        <button
-          type="button"
-          class="motion-chip text-xs px-3 py-1.5 rounded-full border border-indigo-100 bg-white/70 text-slate-600 text-left"
-          data-motion="{{ motion }}"
-        >{{ motion }}</button>
-        {% endfor %}
-      </div>
-    </div>
-
-    <div>
-      <label for="speaker-name-input" class="block text-sm font-semibold text-slate-700 mb-1.5">
-        お名前（任意）
-      </label>
-      <input
-        id="speaker-name-input"
-        name="speaker_name"
-        type="text"
-        maxlength="50"
-        placeholder="例：Taro"
-        class="w-full md:w-64 rounded-xl border border-indigo-200 bg-white/80 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
-      >
     </div>
 
     <div id="form-error" class="hidden text-sm text-rose-600 font-medium"></div>
@@ -162,5 +151,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='debate/js/index.js', v='20260731a') }}"></script>
+<script src="{{ url_for('static', filename='debate/js/index.js', v='20260731g') }}"></script>
 {% endblock %}

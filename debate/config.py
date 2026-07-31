@@ -89,6 +89,23 @@ DEFAULT_MOTIONS = [
     "This House believes that after-school club activities in schools should be abolished",
     "This House believes that homework should be abolished",
     "This House would ban smartphones for students under 16",
+    "This House believes that school uniforms should be abolished",
+    "This House would make English classes optional in Japanese high schools",
+    "This House believes that students should be allowed to choose their own teachers",
+    "This House would ban part-time jobs for high school students",
+    "This House believes that public high schools should be free of charge",
+    "This House would introduce a four-day school week",
+    "This House believes that competitive examinations for university entrance should be abolished",
+    "This House would require all students to study abroad for at least one month",
+    "This House believes that social media does more harm than good for teenagers",
+    "This House would ban junk food in school cafeterias",
+    "This House believes that AI tools should be banned in school assignments",
+    "This House would lower the voting age to 16",
+    "This House believes that nuclear energy is necessary for Japan's future",
+    "This House would make community service mandatory for high school graduation",
+    "This House believes that professional athletes are paid too much",
+    "This House would prioritize environmental protection over economic growth",
+    "This House believes that online learning is better than classroom learning",
 ]
 
 STATUS_LABELS = {
