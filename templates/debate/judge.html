@@ -34,6 +34,7 @@
   <div class="inline-block w-8 h-8 rounded-full border-4 border-brand/20 border-t-brand animate-spin mb-3"></div>
   <p class="text-sm font-semibold text-slate-700">ジャッジを実行しています…</p>
   <p class="text-xs text-slate-500 mt-1">通常30秒〜1分程度で完了します。このまま画面を開いたままお待ちください。</p>
+  <ul id="judge-progress-log" class="judge-progress-log" aria-live="polite"></ul>
 </section>
 
 {% elif judge.status == 'error' %}
@@ -150,7 +151,7 @@
   <div class="space-y-3">
     {% for pf in judge.part_feedback %}
     {% set part_data = (session.parts | selectattr('part', 'equalto', pf.part) | first) %}
-    <div class="rounded-xl border border-slate-100 bg-white/70 px-4 py-3">
+    <div class="panel-soft rounded-xl px-4 py-3">
       <div class="flex items-center gap-2 mb-1">
         <span class="w-7 h-7 rounded-lg bg-brand/10 text-brand-dark flex items-center justify-center font-extrabold text-[0.65rem] shrink-0">
           {{ pf.part }}
@@ -189,5 +190,5 @@
   window.DEBATE_SESSION_ID = {{ session.session_id | tojson }};
   window.DEBATE_JUDGE_STATUS = {{ judge.status | tojson }};
 </script>
-<script src="{{ url_for('static', filename='debate/js/judge.js', v='20260730a') }}"></script>
+<script src="{{ url_for('static', filename='debate/js/judge.js', v='20260731e') }}"></script>
 {% endblock %}
