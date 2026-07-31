@@ -79,6 +79,9 @@
           {% if s.updated_at or s.created_at %}
           <p class="text-[0.68rem] text-slate-400 mt-0.5">
             最終保存: {{ (s.updated_at or s.created_at)[:10] }} {{ (s.updated_at or s.created_at)[11:16] }}
+            {% if s.transcription_mode %}
+            · 文字起こし: {{ {'batch': 'モードA', 'realtime': 'モードB', 'mixed': '混在'}.get(s.transcription_mode, s.transcription_mode) }}
+            {% endif %}
           </p>
           {% endif %}
         </div>

@@ -245,15 +245,18 @@ function renderSessions(sessions) {
         : `<span>${s.confirmed_parts}/${s.total_parts} 確定</span>` +
           (s.in_progress_parts ? ` ・ <span class="text-amber-600">${s.in_progress_parts} 進行中</span>` : "");
 
-      const judgeLabelMap = { batch: "モードA", realtime: "モードB", mixed: "混在" };
+      const transcriptionLabelMap = { batch: "モードA", realtime: "モードB", mixed: "混在" };
+      const transcriptionLabel = transcriptionLabelMap[s.transcription_mode] || "";
+      const transcriptionMeta = transcriptionLabel
+        ? `<span><span class="session-row__meta-key">文字起こし</span> ${transcriptionLabel}</span>`
+        : "";
+
       let judgeLabel = "";
       if (s.judge_status === "done") {
-        const modeLabel = judgeLabelMap[s.judge_transcription_mode] || "";
         const modelLabel = s.judge_model ? escapeHtml(s.judge_model) : "";
         judgeLabel =
           `<span class="text-indigo-600 font-semibold">判定: ${escapeHtml(s.judge_winner || "-")}勝利</span>` +
-          (modelLabel ? ` <span class="text-slate-400">(${modelLabel})</span>` : "") +
-          (modeLabel ? ` <span class="text-slate-400">[${modeLabel}]</span>` : "");
+          (modelLabel ? ` <span class="text-slate-400">(${modelLabel})</span>` : "");
       } else if (s.judge_status === "judging") {
         judgeLabel = `<span class="text-amber-600">ジャッジ実行中…</span>`;
       } else if (s.judge_status === "error") {
@@ -273,6 +276,7 @@ function renderSessions(sessions) {
                 <span><span class="session-row__meta-key">日付</span> ${escapeHtml(dt.date)}</span>
                 <span><span class="session-row__meta-key">時刻</span> ${escapeHtml(dt.time)}</span>
                 <span>${progressLabel}</span>
+                ${transcriptionMeta}
                 ${copyBadge ? `<span>${copyBadge}</span>` : ""}
                 ${judgeLabel ? `<span>${judgeLabel}</span>` : ""}
               </div>

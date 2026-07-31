@@ -32,7 +32,7 @@ from debate.config import (
 from debate.judge_jobs import start_judge_job
 from debate.models import new_judge_result, new_session, now_iso
 from debate.settings import load_settings, resolve_background
-from debate.storage import get_part, get_session_lock, list_sessions, load_session, save_session
+from debate.storage import get_part, get_session_lock, list_sessions, load_session, save_session, summarize_transcription_mode
 from debate.transcription_jobs import start_transcription_job
 
 logger = logging.getLogger(__name__)
@@ -128,19 +128,7 @@ def _part_meta() -> dict:
 
 
 def _transcription_mode_summary(session: dict) -> str:
-    """6パートのtranscription_modeが一致していれば"batch"/"realtime"、
-    混在していれば"mixed"を返す（後でモード別の判定結果を比較できるようにするため）。
-    """
-    modes = {
-        part_data.get("transcription_mode")
-        for part_data in session.get("parts", [])
-        if part_data.get("transcription_mode")
-    }
-    if len(modes) == 1:
-        return next(iter(modes))
-    if len(modes) > 1:
-        return "mixed"
-    return ""
+    return summarize_transcription_mode(session)
 
 
 def _resolve_extension(filename: str, mimetype: str | None) -> str:

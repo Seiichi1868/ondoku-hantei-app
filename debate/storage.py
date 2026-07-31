@@ -91,6 +91,20 @@ def _normalize_admin_notes(notes: str) -> str:
     return str(notes or "").strip()[:MAX_ADMIN_NOTES_LEN]
 
 
+def summarize_transcription_mode(session: dict) -> str:
+    """各パートの transcription_mode が一致していれば batch/realtime、混在なら mixed。"""
+    modes = {
+        part_data.get("transcription_mode")
+        for part_data in session.get("parts", [])
+        if part_data.get("transcription_mode")
+    }
+    if len(modes) == 1:
+        return str(next(iter(modes)))
+    if len(modes) > 1:
+        return "mixed"
+    return ""
+
+
 def _rewrite_audio_urls(session: dict, old_id: str, new_id: str) -> None:
     old_token = _safe_id(old_id)
     new_token = _safe_id(new_id)
@@ -189,6 +203,7 @@ def list_sessions(limit: int = 10, *, include_notes: bool = False) -> list[dict]
                 "judge_winner": judge_result.get("winner"),
                 "judge_model": judge_model_label,
                 "judge_transcription_mode": judge_result.get("transcription_mode", ""),
+                "transcription_mode": summarize_transcription_mode(data),
             }
         if include_notes:
             summary["admin_notes"] = str(data.get("admin_notes") or "")
