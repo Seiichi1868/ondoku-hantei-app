@@ -21,46 +21,10 @@ WHISPER_MODEL = os.environ.get("DEBATE_WHISPER_MODEL", "whisper-1")
 WHISPER_TIMEOUT_SEC = float(os.environ.get("DEBATE_WHISPER_TIMEOUT_SEC", "45"))
 WHISPER_MAX_RETRIES = int(os.environ.get("DEBATE_WHISPER_MAX_RETRIES", "1"))
 
-# ジャッジモデルの選択肢（管理画面から切り替え。gpt-4oをベンチマークとしてコスパ比較用）
-JUDGE_MODEL_OPTIONS: dict[str, dict[str, str | int]] = {
-    "4o-mini": {
-        "label": "gpt-4o-mini",
-        "model": "gpt-4o-mini",
-        "cost_performance": 5,
-        "performance": 3,
-    },
-    "5.4-nano": {
-        "label": "gpt-5.4-nano",
-        "model": "gpt-5.4-nano",
-        "cost_performance": 5,
-        "performance": 2,
-    },
-    "5-mini": {
-        "label": "gpt-5-mini",
-        "model": "gpt-5-mini",
-        "cost_performance": 4,
-        "performance": 3,
-    },
-    "5.4-mini": {
-        "label": "gpt-5.4-mini",
-        "model": "gpt-5.4-mini",
-        "cost_performance": 3,
-        "performance": 4,
-    },
-    "4o": {
-        "label": "gpt-4o",
-        "model": "gpt-4o",
-        "cost_performance": 2,
-        "performance": 4,
-    },
-    "5.4": {
-        "label": "gpt-5.4",
-        "model": "gpt-5.4",
-        "cost_performance": 1,
-        "performance": 5,
-    },
-}
-DEFAULT_JUDGE_MODEL_MODE = "4o"
+# ジャッジモデル（単価・性能スコアは debate/judge_model_pricing.py、バー算出は judge_models.py）
+from debate.judge_models import DEFAULT_JUDGE_MODEL_MODE, get_judge_model_options
+
+JUDGE_MODEL_OPTIONS = get_judge_model_options()
 # 環境変数でモデルIDを直接指定する場合（管理画面設定より優先）
 JUDGE_MODEL_OVERRIDE = os.environ.get("DEBATE_JUDGE_MODEL", "").strip()
 JUDGE_TIMEOUT_SEC = float(os.environ.get("DEBATE_JUDGE_TIMEOUT_SEC", "90"))

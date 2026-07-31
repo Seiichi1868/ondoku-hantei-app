@@ -38,6 +38,7 @@ def new_judge_result() -> dict:
         "status": "idle",
         "error": "",
         "model": "",
+        "judge_model": None,
         "transcription_mode": "",
         "started_at": None,
         "judged_at": None,

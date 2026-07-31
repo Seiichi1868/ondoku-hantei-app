@@ -3,10 +3,10 @@ import os
 
 from flask import Blueprint, jsonify, render_template, request
 
+from debate.judge_models import public_judge_model_modes, resolve_judge_model_mode
 from debate.settings import (
     BACKGROUND_PRESETS,
     DEFAULT_BACKGROUND_OPACITY,
-    JUDGE_MODEL_OPTIONS,
     TRANSCRIPTION_MODES,
     _clamp_opacity,
     load_settings,
@@ -41,16 +41,14 @@ def admin_page():
 def admin_settings():
     if request.method == "GET":
         settings = load_settings()
-        judge_mode = settings.get("judge_model_mode", "4o")
+        judge_mode = resolve_judge_model_mode(settings.get("judge_model_mode"))
         return jsonify(
             {
                 "ok": True,
                 **settings,
                 **resolve_background(settings.get("background_id")),
                 "judge_model": resolve_judge_model(judge_mode),
-                "judge_model_modes": [
-                    {"id": key, **JUDGE_MODEL_OPTIONS[key]} for key in JUDGE_MODEL_OPTIONS
-                ],
+                "judge_model_modes": public_judge_model_modes(),
             }
         )
 
@@ -71,35 +69,31 @@ def admin_settings():
             updates["transcription_mode"] = mode
     if "judge_model_mode" in payload:
         judge_mode = str(payload.get("judge_model_mode") or "")
-        if judge_mode in JUDGE_MODEL_OPTIONS:
+        if judge_mode in {mode["id"] for mode in public_judge_model_modes()}:
             updates["judge_model_mode"] = judge_mode
 
     if not updates:
         settings = load_settings()
-        judge_mode = settings.get("judge_model_mode", "4o")
+        judge_mode = resolve_judge_model_mode(settings.get("judge_model_mode"))
         return jsonify(
             {
                 "ok": True,
                 **settings,
                 **resolve_background(settings.get("background_id")),
                 "judge_model": resolve_judge_model(judge_mode),
-                "judge_model_modes": [
-                    {"id": key, **JUDGE_MODEL_OPTIONS[key]} for key in JUDGE_MODEL_OPTIONS
-                ],
+                "judge_model_modes": public_judge_model_modes(),
             }
         )
 
     saved = update_settings(**updates)
-    judge_mode = saved.get("judge_model_mode", "4o")
+    judge_mode = resolve_judge_model_mode(saved.get("judge_model_mode"))
     return jsonify(
         {
             "ok": True,
             **saved,
             **resolve_background(saved.get("background_id")),
             "judge_model": resolve_judge_model(judge_mode),
-            "judge_model_modes": [
-                {"id": key, **JUDGE_MODEL_OPTIONS[key]} for key in JUDGE_MODEL_OPTIONS
-            ],
+            "judge_model_modes": public_judge_model_modes(),
         }
     )
 

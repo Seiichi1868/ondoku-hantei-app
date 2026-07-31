@@ -31,7 +31,7 @@
     <div id="judge-model-picker" class="debate-mode-options debate-mode-options--ai"></div>
     <p class="text-[0.65rem] text-slate-500 mt-1.5">
       現在: <strong id="judge-model-current" class="text-brand font-semibold">—</strong>
-      <span class="text-slate-400">（gpt-4oをベンチマークにコスパ比較）</span>
+      <span class="text-slate-400">（単価と performance_score からコスパ／性能バーを自動算出）</span>
     </p>
   </section>
 
@@ -105,5 +105,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='debate/js/admin.js', v='20260730e') }}"></script>
+<script src="{{ url_for('static', filename='debate/js/admin.js', v='20260731a') }}"></script>
 {% endblock %}

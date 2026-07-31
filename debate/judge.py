@@ -264,9 +264,13 @@ def run_judge(session: dict) -> dict:
     if not client:
         raise RuntimeError("OPENAI_API_KEYが設定されていないため、ジャッジを実行できません。")
 
-    from debate.settings import resolve_judge_model
+    from debate.judge_models import resolve_judge_model_metadata, resolve_judge_model_mode
+    from debate.settings import load_settings, resolve_judge_model
 
-    judge_model = resolve_judge_model()
+    settings = load_settings()
+    judge_mode = resolve_judge_model_mode(settings.get("judge_model_mode"))
+    judge_model = resolve_judge_model(judge_mode)
+    judge_model_info = resolve_judge_model_metadata(judge_mode)
     payload = build_judge_payload(session)
     user_content = json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -297,5 +301,6 @@ def run_judge(session: dict) -> dict:
     data = _parse_json_object(raw)
     result = _normalize_result(data)
     result["model"] = judge_model
+    result["judge_model"] = judge_model_info
     logger.info("Judge finished in %.1fs (model=%s, winner=%s)", elapsed, judge_model, result.get("winner"))
     return result

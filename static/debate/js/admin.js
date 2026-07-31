@@ -21,7 +21,7 @@ const transcriptionModePicker = document.getElementById("transcription-mode-pick
 let unlocked = false;
 let saveTimer = null;
 let currentBackgroundId = null;
-let currentJudgeModelMode = "4o";
+let currentJudgeModelMode = "5.6-luna";
 
 function getStoredPassword() {
   try {
@@ -122,7 +122,7 @@ function renderJudgeModelOptions(modes, selectedMode) {
 }
 
 function applyJudgeModelMode(mode, activeModel) {
-  currentJudgeModelMode = mode || "4o";
+  currentJudgeModelMode = mode || "5.6-luna";
   if (judgeModelCurrent) {
     judgeModelCurrent.textContent = activeModel || "—";
   }
@@ -133,7 +133,7 @@ function applyJudgeModelMode(mode, activeModel) {
 
 function getSelectedJudgeModelMode() {
   const checked = judgeModelPicker?.querySelector('input[name="judge_model_mode"]:checked');
-  return checked?.value || currentJudgeModelMode || "4o";
+  return checked?.value || currentJudgeModelMode || "5.6-luna";
 }
 
 async function fetchSettings() {
@@ -181,8 +181,8 @@ async function loadSettingsIntoUI() {
   applyBackground(data.background_id, activeBtn?.dataset.bgImage);
   applyBackgroundOpacity(data.background_opacity ?? 0.32);
   applyTranscriptionMode(data.transcription_mode ?? "batch");
-  renderJudgeModelOptions(data.judge_model_modes || [], data.judge_model_mode || "4o");
-  applyJudgeModelMode(data.judge_model_mode || "4o", data.judge_model);
+  renderJudgeModelOptions(data.judge_model_modes || [], data.judge_model_mode || "5.6-luna");
+  applyJudgeModelMode(data.judge_model_mode || "5.6-luna", data.judge_model);
 }
 
 function scheduleSave() {
@@ -195,7 +195,7 @@ function scheduleSave() {
       applyBackground(saved.background_id, activeBtn?.dataset.bgImage);
       applyBackgroundOpacity(saved.background_opacity ?? 0.32);
       applyTranscriptionMode(saved.transcription_mode ?? "batch");
-      applyJudgeModelMode(saved.judge_model_mode || "4o", saved.judge_model);
+      applyJudgeModelMode(saved.judge_model_mode || "5.6-luna", saved.judge_model);
       statusMessage.textContent = "保存しました";
     } catch (err) {
       statusMessage.textContent = "";

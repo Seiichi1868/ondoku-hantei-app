@@ -10,10 +10,14 @@ from pathlib import Path
 
 from debate.config import (
     DATA_DIR,
-    DEFAULT_JUDGE_MODEL_MODE,
-    JUDGE_MODEL_OPTIONS,
     JUDGE_MODEL_OVERRIDE,
     ensure_dirs,
+)
+from debate.judge_models import (
+    DEFAULT_JUDGE_MODEL_MODE,
+    get_judge_model_options,
+    resolve_judge_model_id,
+    resolve_judge_model_mode,
 )
 
 _lock = threading.Lock()
@@ -44,12 +48,11 @@ def resolve_judge_model(mode: str | None = None) -> str:
     """管理画面で選択中のジャッジモデルIDを返す。DEBATE_JUDGE_MODEL があれば最優先。"""
     if JUDGE_MODEL_OVERRIDE:
         return JUDGE_MODEL_OVERRIDE
-    selected = mode if mode in JUDGE_MODEL_OPTIONS else None
+    selected = mode if mode in get_judge_model_options() else None
     if selected is None:
-        selected = load_settings().get("judge_model_mode", DEFAULT_JUDGE_MODEL_MODE)
-    if selected not in JUDGE_MODEL_OPTIONS:
-        selected = DEFAULT_JUDGE_MODEL_MODE
-    return str(JUDGE_MODEL_OPTIONS[selected]["model"])
+        stored = load_settings().get("judge_model_mode", DEFAULT_JUDGE_MODEL_MODE)
+        selected = resolve_judge_model_mode(stored, fallback_mode=DEFAULT_JUDGE_MODEL_MODE)
+    return resolve_judge_model_id(selected)
 
 
 def _clamp_opacity(value, default: float = DEFAULT_BACKGROUND_OPACITY) -> float:
@@ -77,8 +80,10 @@ def _normalize(raw: dict | None) -> dict:
         data["transcription_mode"] = mode
 
     judge_mode = raw.get("judge_model_mode")
-    if judge_mode in JUDGE_MODEL_OPTIONS:
+    if judge_mode in get_judge_model_options():
         data["judge_model_mode"] = judge_mode
+    elif judge_mode:
+        data["judge_model_mode"] = DEFAULT_JUDGE_MODEL_MODE
 
     return data
 

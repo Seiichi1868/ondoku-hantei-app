@@ -113,6 +113,12 @@ def list_sessions(limit: int = 10) -> list[dict]:
             updated_at = datetime.fromtimestamp(mtime, tz=jst).isoformat(timespec="seconds")
 
         judge_result = data.get("judge_result") or {}
+        judge_model_info = judge_result.get("judge_model") or {}
+        judge_model_label = ""
+        if isinstance(judge_model_info, dict):
+            judge_model_label = judge_model_info.get("model") or ""
+        if not judge_model_label:
+            judge_model_label = judge_result.get("model", "")
         summaries.append(
             {
                 "session_id": data.get("session_id"),
@@ -124,7 +130,7 @@ def list_sessions(limit: int = 10) -> list[dict]:
                 "total_parts": len(parts),
                 "judge_status": judge_result.get("status", "idle"),
                 "judge_winner": judge_result.get("winner"),
-                "judge_model": judge_result.get("model", ""),
+                "judge_model": judge_model_label,
                 "judge_transcription_mode": judge_result.get("transcription_mode", ""),
             }
         )
