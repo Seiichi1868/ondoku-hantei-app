@@ -1788,16 +1788,29 @@ async function init() {
   // ブラウザ合成音声リストを事前ロード（Part B TTS のラグを減らす）
   ensureVoicesLoaded().catch(() => {});
 
-  // タブクリック
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => startPart(btn.dataset.part));
-  });
+  function beginApp() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => startPart(btn.dataset.part));
+    });
 
-  const stopBtn = document.getElementById('stop-btn');
-  if (stopBtn) stopBtn.addEventListener('click', () => stopAndReset());
+    const stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) stopBtn.addEventListener('click', () => stopAndReset());
 
-  // Part A で初期表示
-  startPart('A');
+    startPart('A');
+  }
+
+  const openingOverlay = document.getElementById('opening-overlay');
+  if (openingOverlay) {
+    setTimeout(() => {
+      openingOverlay.classList.add('opacity-0', 'pointer-events-none', 'transition-opacity', 'duration-300');
+      setTimeout(() => {
+        openingOverlay.remove();
+        beginApp();
+      }, 320);
+    }, 1950);
+  } else {
+    beginApp();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);

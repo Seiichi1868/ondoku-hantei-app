@@ -29,6 +29,21 @@
 </head>
 <body class="relative min-h-screen text-slate-800 antialiased">
 
+  <!-- オープニング -->
+  <div id="opening-overlay"
+    class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-6">
+    <div class="gtec-page-bg absolute inset-0 scale-110 opacity-[0.45]"></div>
+    <div class="absolute inset-0 bg-gradient-to-br from-white/70 via-sky-50/55 to-emerald-50/65"></div>
+    <div class="absolute inset-0 bg-white/20"></div>
+    <div class="gtec-intro-orb absolute -left-16 top-14 h-48 w-48 rounded-full bg-indigo-200/45 blur-3xl"></div>
+    <div class="gtec-intro-orb absolute -right-12 bottom-16 h-56 w-56 rounded-full bg-emerald-200/45 blur-3xl" style="animation-delay: .35s"></div>
+    <div class="gtec-intro-card relative text-center">
+      <p class="gtec-intro-glass-label mb-2 text-[11px] font-semibold uppercase tracking-[0.35em]">Welcome to</p>
+      <h1 class="gtec-intro-glass-logo text-4xl font-bold tracking-tight sm:text-5xl">GTEC Speaking</h1>
+      <p class="gtec-intro-glass-sub mt-3 text-sm font-medium">Practice. Speak. Get instant scores.</p>
+    </div>
+  </div>
+
   <!-- 背景透かし（News と同様の自然風景） -->
   <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
     <div id="page-bg-layer" class="gtec-page-bg absolute inset-0 scale-105" style="opacity: {{ background_opacity }}"></div>

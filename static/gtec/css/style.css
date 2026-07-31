@@ -1,5 +1,59 @@
 /* GTEC Speaking App — カスタムスタイル */
 
+/* ── オープニング（News と同系統）────────────────────────── */
+@keyframes gtecIntroFade {
+  0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+  28% { opacity: 1; transform: translateY(0) scale(1); }
+  78% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-8px) scale(1.02); }
+}
+
+@keyframes gtecOrbFloat {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -12px, 0); }
+}
+
+.gtec-intro-card {
+  animation: gtecIntroFade 2.1s ease both;
+}
+
+.gtec-intro-orb {
+  animation: gtecOrbFloat 2.8s ease-in-out infinite;
+}
+
+.gtec-intro-glass-label {
+  color: rgba(79, 70, 229, 0.88);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55),
+    0 0 8px rgba(255, 255, 255, 0.25);
+}
+
+.gtec-intro-glass-logo {
+  background: linear-gradient(
+    168deg,
+    rgba(129, 140, 248, 0.82) 0%,
+    rgba(79, 70, 229, 0.96) 30%,
+    rgba(67, 56, 202, 0.98) 62%,
+    rgba(55, 48, 163, 1) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0.3px rgba(255, 255, 255, 0.22);
+  paint-order: stroke fill;
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.45))
+    drop-shadow(0 4px 14px rgba(79, 70, 229, 0.2))
+    drop-shadow(0 1px 3px rgba(55, 48, 163, 0.15));
+}
+
+.gtec-intro-glass-sub {
+  color: rgba(100, 116, 139, 0.92);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5),
+    0 0 6px rgba(255, 255, 255, 0.2);
+}
+
 /* ── 背景・ガラスパネル（News と同系統）──────────────────── */
 .glass-header {
   background: rgba(255, 255, 255, 0.72);
