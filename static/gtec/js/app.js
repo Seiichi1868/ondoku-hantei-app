@@ -65,30 +65,45 @@ const App = {
   },
   currentAudio: null,
   currentUtterance: null,
-  problems: null,
+  problems: { ...DEFAULT_PROBLEMS, sets: { a: {}, b: {}, c: {}, d: {} } },
   selectedProblem: { a: null, b: null, c: null, d: null },
   partBRandomSelections: {},
+  _listenersBound: false,
 };
 
 // ─── 3. 設定・問題読み込み ───────────────────────────────────
 
+async function fetchJson(url, timeoutMs = 5000) {
+  const ctrl = new AbortController();
+  const timer = window.setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+function syncSelectedProblems() {
+  for (const p of ['a', 'b', 'c', 'd']) {
+    const selectable = getSelectableProblemNumbers(p);
+    const active = parseInt(App.problems?.active?.[p], 10) || 1;
+    const current = parseInt(App.selectedProblem[p], 10);
+    App.selectedProblem[p] = selectable.includes(current)
+      ? current
+      : (selectable.includes(active) ? active : selectable[0]);
+  }
+}
+
 async function loadProblems() {
   try {
-    const res = await fetch('/gtec/api/problems');
-    if (res.ok) {
-      App.problems = await res.json();
-      for (const p of ['a', 'b', 'c', 'd']) {
-        const selectable = getSelectableProblemNumbers(p);
-        const active = parseInt(App.problems.active?.[p], 10) || 1;
-        const current = parseInt(App.selectedProblem[p], 10);
-        App.selectedProblem[p] = selectable.includes(current)
-          ? current
-          : (selectable.includes(active) ? active : selectable[0]);
-      }
-      return;
-    }
-  } catch (_) { /* fallback */ }
-  App.problems = DEFAULT_PROBLEMS;
+    const data = await fetchJson('/gtec/api/problems');
+    App.problems = data;
+    syncSelectedProblems();
+  } catch (_) {
+    if (!App.problems?.sets) App.problems = DEFAULT_PROBLEMS;
+  }
 }
 
 function getSelectedProblemNum(partId) {
@@ -169,11 +184,9 @@ function problemPickerHTML(partId) {
 
 async function loadSettings() {
   try {
-    const res = await fetch('/gtec/api/settings');
-    if (res.ok) {
-      App.settings = { ...App.settings, ...(await res.json()) };
-      applyBackgroundFromSettings();
-    }
+    const data = await fetchJson('/gtec/api/settings');
+    App.settings = { ...App.settings, ...data };
+    applyBackgroundFromSettings();
   } catch (_) { /* デフォルト設定を使用 */ }
 }
 
@@ -1658,8 +1671,8 @@ async function stopAndReset() {
 }
 
 async function renderPartIdle(partId) {
-  await loadSettings();
-  await loadProblems();
+  // 起動・再表示を API 待ちで止めない。未取得時はデフォルトで即描画する。
+  if (!App.problems?.sets) App.problems = DEFAULT_PROBLEMS;
 
   if (partId === 'A') {
     const d = getPartData('A');
@@ -1771,46 +1784,40 @@ async function startPart(partId) {
 
 // ─── 16. 初期化 ──────────────────────────────────────────────
 
-const OPENING_INTRO_MS = 1950;
-const OPENING_FADE_MS = 320;
+let appStarted = false;
+let initialDataPromise = Promise.resolve();
 
-function dismissOpening() {
-  return new Promise(resolve => {
-    const overlay = document.getElementById('opening-overlay');
-    if (!overlay) {
-      resolve();
-      return;
-    }
-    window.setTimeout(() => {
-      overlay.classList.add('opacity-0', 'pointer-events-none', 'transition-opacity', 'duration-300');
-      window.setTimeout(() => {
-        overlay.remove();
-        resolve();
-      }, OPENING_FADE_MS);
-    }, OPENING_INTRO_MS);
+function bindAppListeners() {
+  if (App._listenersBound) return;
+  App._listenersBound = true;
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => startPart(btn.dataset.part));
   });
+  const stopBtn = document.getElementById('stop-btn');
+  if (stopBtn) stopBtn.addEventListener('click', () => stopAndReset());
 }
 
-async function loadInitialData() {
+async function beginApp() {
+  if (appStarted) return;
+  appStarted = true;
+  const overlay = document.getElementById('opening-overlay');
+  if (overlay) overlay.remove();
+  bindAppListeners();
+
+  // 最大1.2秒だけデータ到着を待つ（届かなくても必ず起動）
+  await Promise.race([initialDataPromise, sleep(1200)]);
+  if (!App.problems?.sets) App.problems = DEFAULT_PROBLEMS;
+
   try {
-    await Promise.all([loadSettings(), loadProblems()]);
+    await startPart('A');
   } catch (err) {
-    console.error('GTEC initial data load failed:', err);
+    console.error('GTEC startPart failed:', err);
+    if (!App.problems?.sets) App.problems = DEFAULT_PROBLEMS;
+    await renderPartIdle('A');
   }
 }
 
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise(resolve => window.setTimeout(resolve, ms)),
-  ]);
-}
-
-async function init() {
-  // オープニングは API 完了を待たず即開始（News と同様）
-  const openingDone = dismissOpening();
-  const dataReady = loadInitialData();
-
+function init() {
   // ブラウザ対応チェック
   const supported = checkSpeechSupport();
   if (supported) {
@@ -1821,20 +1828,27 @@ async function init() {
     if (banner) banner.classList.remove('hidden');
   }
 
-  await openingDone;
-  await withTimeout(dataReady, 8000);
-
-  // ブラウザ合成音声リストを事前ロード（Part B TTS のラグを減らす）
+  // データ取得は裏で進める（オープニング／起動をブロックしない）
+  initialDataPromise = Promise.all([loadSettings(), loadProblems()]).catch(err => {
+    console.error('GTEC initial data load failed:', err);
+  });
   ensureVoicesLoaded().catch(() => {});
 
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => startPart(btn.dataset.part));
-  });
-
-  const stopBtn = document.getElementById('stop-btn');
-  if (stopBtn) stopBtn.addEventListener('click', () => stopAndReset());
-
-  startPart('A');
+  // News と同じく、タイマーだけでオープニングを閉じてアプリ開始
+  // Tailwind CDN 未生成クラスに依存しないようインライン style でフェード
+  const openingOverlay = document.getElementById('opening-overlay');
+  if (openingOverlay) {
+    window.setTimeout(() => {
+      openingOverlay.style.transition = 'opacity 300ms ease';
+      openingOverlay.style.opacity = '0';
+      openingOverlay.style.pointerEvents = 'none';
+      window.setTimeout(() => { beginApp(); }, 320);
+    }, 1950);
+    // 安全弁: 万一タイマーが外れても必ず起動
+    window.setTimeout(() => { beginApp(); }, 3500);
+  } else {
+    beginApp();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);
