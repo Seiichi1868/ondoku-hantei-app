@@ -1771,7 +1771,46 @@ async function startPart(partId) {
 
 // ─── 16. 初期化 ──────────────────────────────────────────────
 
+const OPENING_INTRO_MS = 1950;
+const OPENING_FADE_MS = 320;
+
+function dismissOpening() {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('opening-overlay');
+    if (!overlay) {
+      resolve();
+      return;
+    }
+    window.setTimeout(() => {
+      overlay.classList.add('opacity-0', 'pointer-events-none', 'transition-opacity', 'duration-300');
+      window.setTimeout(() => {
+        overlay.remove();
+        resolve();
+      }, OPENING_FADE_MS);
+    }, OPENING_INTRO_MS);
+  });
+}
+
+async function loadInitialData() {
+  try {
+    await Promise.all([loadSettings(), loadProblems()]);
+  } catch (err) {
+    console.error('GTEC initial data load failed:', err);
+  }
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise(resolve => window.setTimeout(resolve, ms)),
+  ]);
+}
+
 async function init() {
+  // オープニングは API 完了を待たず即開始（News と同様）
+  const openingDone = dismissOpening();
+  const dataReady = loadInitialData();
+
   // ブラウザ対応チェック
   const supported = checkSpeechSupport();
   if (supported) {
@@ -1782,35 +1821,20 @@ async function init() {
     if (banner) banner.classList.remove('hidden');
   }
 
-  await loadSettings();
-  await loadProblems();
+  await openingDone;
+  await withTimeout(dataReady, 8000);
 
   // ブラウザ合成音声リストを事前ロード（Part B TTS のラグを減らす）
   ensureVoicesLoaded().catch(() => {});
 
-  function beginApp() {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => startPart(btn.dataset.part));
-    });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => startPart(btn.dataset.part));
+  });
 
-    const stopBtn = document.getElementById('stop-btn');
-    if (stopBtn) stopBtn.addEventListener('click', () => stopAndReset());
+  const stopBtn = document.getElementById('stop-btn');
+  if (stopBtn) stopBtn.addEventListener('click', () => stopAndReset());
 
-    startPart('A');
-  }
-
-  const openingOverlay = document.getElementById('opening-overlay');
-  if (openingOverlay) {
-    setTimeout(() => {
-      openingOverlay.classList.add('opacity-0', 'pointer-events-none', 'transition-opacity', 'duration-300');
-      setTimeout(() => {
-        openingOverlay.remove();
-        beginApp();
-      }, 320);
-    }, 1950);
-  } else {
-    beginApp();
-  }
+  startPart('A');
 }
 
 document.addEventListener('DOMContentLoaded', init);
