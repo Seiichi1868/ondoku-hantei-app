@@ -1,4 +1,12 @@
 (() => {
+  const openingOverlay = document.getElementById("opening-overlay");
+  if (openingOverlay) {
+    setTimeout(() => {
+      openingOverlay.classList.add("opacity-0", "pointer-events-none", "transition-opacity", "duration-300");
+      setTimeout(() => openingOverlay.remove(), 320);
+    }, 1950);
+  }
+
   const form = document.getElementById("motion-form");
   const motionInput = document.getElementById("motion-input");
   const speakerInput = document.getElementById("speaker-name-input");
