@@ -2,6 +2,7 @@ import re
 
 from flask_app.config import Config
 import flask_app.state as state
+from flask_app.ai_models import DEFAULT_AI_MODEL_MODE, public_ai_model_modes, resolve_ai_model_mode
 from flask_app.state import AI_MODE_OPTIONS, DEFAULT_ENABLED_LANGUAGES, STUDY_LANGUAGE_CATALOG
 
 
@@ -86,25 +87,34 @@ def normalize_ai_mode(raw: str) -> str:
         "gpt-4o-mini": "4o-mini",
         "4omini": "4o-mini",
         "economy": "4o-mini",
-        "gpt-5-mini": "5-mini",
-        "5mini": "5-mini",
-        "premium": "5-mini",
+        "gpt-5.6-luna": "5.6-luna",
+        "gpt-56-luna": "5.6-luna",
+        "5.6luna": "5.6-luna",
+        "gpt-5.6-terra": "5.6-terra",
+        "gpt-56-terra": "5.6-terra",
+        "5.6terra": "5.6-terra",
+        "gpt-5.6-sol": "5.6-sol",
+        "gpt-56-sol": "5.6-sol",
+        "5.6sol": "5.6-sol",
         "gpt-5.4-mini": "5.4-mini",
         "gpt-54-mini": "5.4-mini",
         "5.4mini": "5.4-mini",
         "gpt-5.4-nano": "5.4-nano",
         "gpt-54-nano": "5.4-nano",
         "5.4nano": "5.4-nano",
-        "gpt-4o": "4o",
-        "4o": "4o",
-        "gpt-54": "5.4",
-        "gpt-5.4": "5.4",
-        "5.4": "5.4",
+        # 旧ラインナップからの移行
+        "gpt-5-mini": "5.4-mini",
+        "5-mini": "5.4-mini",
+        "5mini": "5.4-mini",
+        "premium": "5.4-mini",
+        "gpt-4o": "5.6-luna",
+        "4o": "5.6-luna",
+        "gpt-54": "5.6-sol",
+        "gpt-5.4": "5.6-sol",
+        "5.4": "5.6-sol",
     }
     value = aliases.get(value, value)
-    if value in AI_MODE_OPTIONS:
-        return value
-    raise ValueError(f"unsupported ai_mode: {raw}")
+    return resolve_ai_model_mode(value, fallback_mode=DEFAULT_AI_MODEL_MODE)
 
 
 def get_ai_mode() -> str:
@@ -129,7 +139,7 @@ def ai_mode_response() -> dict:
         "label": option["label"],
         "hint": option["hint"],
         "ocr_model": Config.OCR_MODEL,
-        "modes": [{"id": key, **AI_MODE_OPTIONS[key]} for key in AI_MODE_OPTIONS],
+        "modes": public_ai_model_modes(),
         "use_gpt5_mode": mode != Config.DEFAULT_AI_MODE,
     }
 

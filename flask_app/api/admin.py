@@ -61,10 +61,10 @@ def admin_ai_mode():
     if raw_mode is None and payload.get("use_gpt5_mode") is not None:
         raw = payload.get("use_gpt5_mode")
         if isinstance(raw, bool):
-            raw_mode = "5-mini" if raw else Config.DEFAULT_AI_MODE
+            raw_mode = "5.6-luna" if raw else Config.DEFAULT_AI_MODE
         else:
             value = str(raw or "").strip().lower()
-            raw_mode = "5-mini" if value in {"1", "true", "on", "yes"} else Config.DEFAULT_AI_MODE
+            raw_mode = "5.6-luna" if value in {"1", "true", "on", "yes"} else Config.DEFAULT_AI_MODE
 
     if raw_mode is None:
         return jsonify({"error": "ai_mode is required"}), 400
