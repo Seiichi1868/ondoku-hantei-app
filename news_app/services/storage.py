@@ -11,9 +11,11 @@ import openpyxl
 from news_app.config import (
     CEFR_LEVELS,
     DATA_DIR,
+    DEFAULT_CEFR_LEVEL,
     STATE_FILE,
     VOCAB_CEFR_LEVELS,
     VOCAB_STORAGE_MAX,
+    resolve_cefr_level,
 )
 
 _lock = threading.Lock()
@@ -61,6 +63,7 @@ DEFAULT_CLASS_CURRENT = {
 DEFAULT_STATE = {
     "display_language": "ja",
     "ai_model": "gpt-5.6-luna",
+    "default_cefr_level": DEFAULT_CEFR_LEVEL,
     "openai_api_key": "",
     "default_evaluation_criteria": deepcopy(DEFAULT_EVALUATION_CRITERIA),
     "active_class_id": "",
@@ -288,6 +291,7 @@ def _migrate_legacy_state(data: dict) -> dict:
     for key in ("display_language", "ai_model", "openai_api_key", "active_class_id"):
         if key in data and data[key] is not None:
             state[key] = data[key]
+    state["default_cefr_level"] = resolve_cefr_level(data.get("default_cefr_level"))
 
     if isinstance(data.get("default_evaluation_criteria"), dict):
         state["default_evaluation_criteria"] = _normalize_criteria(data["default_evaluation_criteria"])
@@ -329,6 +333,7 @@ def _normalize_state(data: dict | None) -> dict:
         for key in ("display_language", "ai_model", "openai_api_key", "active_class_id"):
             if key in data and data[key] is not None:
                 merged[key] = data[key]
+        merged["default_cefr_level"] = resolve_cefr_level(data.get("default_cefr_level"))
         if isinstance(data.get("default_evaluation_criteria"), dict):
             merged["default_evaluation_criteria"] = _normalize_criteria(data["default_evaluation_criteria"])
             for level in CEFR_LEVELS:
@@ -346,6 +351,7 @@ def _normalize_state(data: dict | None) -> dict:
 
     merged = deepcopy(DEFAULT_STATE)
     merged.update({k: v for k, v in data.items() if k in merged and k != "classes"})
+    merged["default_cefr_level"] = resolve_cefr_level(merged.get("default_cefr_level"))
     if isinstance(data.get("classes"), dict):
         for cid, cls in data["classes"].items():
             if isinstance(cls, dict):
@@ -392,6 +398,8 @@ def update_settings(**kwargs) -> dict:
     for key in ("display_language", "ai_model", "openai_api_key"):
         if key in kwargs:
             state[key] = kwargs[key]
+    if "default_cefr_level" in kwargs:
+        state["default_cefr_level"] = resolve_cefr_level(kwargs.get("default_cefr_level"))
     if "default_evaluation_criteria" in kwargs and isinstance(kwargs["default_evaluation_criteria"], dict):
         state["default_evaluation_criteria"] = _normalize_criteria(kwargs["default_evaluation_criteria"])
         for level in CEFR_LEVELS:
@@ -563,10 +571,8 @@ def copy_class_archive(class_id: str, archive_index: int, target_class_id: str) 
 
 def get_evaluation_rubric(class_id: str, level: str) -> str:
     """クラス固有 → 空ならアプリデフォルト。"""
-    level = level.upper()
-    if level not in CEFR_LEVELS:
-        level = "B1"
     state = load_state()
+    level = resolve_cefr_level(level, fallback=resolve_cefr_level(state.get("default_cefr_level")))
     cls = state.get("classes", {}).get(class_id)
     if cls:
         custom = (cls.get("current") or {}).get("evaluation_criteria") or {}

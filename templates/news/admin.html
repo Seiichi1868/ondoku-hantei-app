@@ -120,6 +120,14 @@
                   {% endfor %}
                 </select>
               </div>
+              <div>
+                <label class="mb-0.5 block text-[11px] font-medium text-slate-600" for="default-cefr-level">デフォルト CEFR</label>
+                <select id="default-cefr-level" name="default_cefr_level" class="compact-input w-full">
+                  {% for lv in cefr_levels %}
+                  <option value="{{ lv }}" {% if state.default_cefr_level == lv %}selected{% endif %}>{{ lv }}</option>
+                  {% endfor %}
+                </select>
+              </div>
               <div class="col-span-2">
                 <label class="mb-0.5 block text-[11px] font-medium text-slate-600" for="openai-api-key">OpenAI API キー</label>
                 <input type="password" id="openai-api-key" name="openai_api_key" autocomplete="off"
@@ -225,7 +233,7 @@
             <label class="mb-0.5 block text-[11px] font-medium text-slate-600" for="share-level">CEFR</label>
             <select id="share-level" class="compact-input w-full">
               {% for lv in cefr_levels %}
-              <option value="{{ lv }}">{{ lv }}</option>
+              <option value="{{ lv }}" {% if state.default_cefr_level == lv %}selected{% endif %}>{{ lv }}</option>
               {% endfor %}
             </select>
           </div>

@@ -26,6 +26,7 @@ load_environment()
 DEFAULT_AI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.6-luna")
 
 CEFR_LEVELS = ("A1", "A2", "B1", "B2")
+DEFAULT_CEFR_LEVEL = "A2"
 VOCAB_CEFR_LEVELS = ("C2", "C1", "B2", "B1")
 VOCAB_EXTRACTION_TARGET = 30
 VOCAB_EXTRACTION_MIN = 25
@@ -48,6 +49,17 @@ def resolve_ai_model(model: str | None = None) -> str:
     if name in AI_MODELS:
         return name
     return DEFAULT_AI_MODEL
+
+
+def resolve_cefr_level(level: str | None = None, *, fallback: str | None = None) -> str:
+    """未対応レベルは fallback（未指定時は DEFAULT_CEFR_LEVEL）へ寄せる。"""
+    name = (level or "").strip().upper()
+    if name in CEFR_LEVELS:
+        return name
+    fb = (fallback or "").strip().upper()
+    if fb in CEFR_LEVELS:
+        return fb
+    return DEFAULT_CEFR_LEVEL
 
 
 def get_openai_api_key() -> str:

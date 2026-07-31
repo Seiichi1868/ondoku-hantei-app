@@ -10,6 +10,7 @@ from news_app.config import (
     get_openai_api_key,
     mask_api_key,
     resolve_ai_model,
+    resolve_cefr_level,
     save_openai_api_key,
 )
 from news_app.services.cnn10 import fetch_cnn10_episodes
@@ -109,7 +110,11 @@ def youtube_highlight():
 @admin_bp.route("/")
 def admin_index():
     state = load_state()
-    state = {**state, "ai_model": resolve_ai_model(state.get("ai_model"))}
+    state = {
+        **state,
+        "ai_model": resolve_ai_model(state.get("ai_model")),
+        "default_cefr_level": resolve_cefr_level(state.get("default_cefr_level")),
+    }
     class_id, cls = _active_class_or_none()
     current = (cls or {}).get("current") or {}
     api_key_configured = bool(get_openai_api_key())
@@ -150,6 +155,7 @@ def save_settings():
         kwargs = {
             "display_language": str(data.get("display_language", "ja")),
             "ai_model": resolve_ai_model(data.get("ai_model")),
+            "default_cefr_level": resolve_cefr_level(data.get("default_cefr_level")),
             "openai_api_key": openai_api_key,
         }
         if isinstance(default_criteria, dict):
@@ -604,10 +610,10 @@ def api_copy_archive_lesson():
 
 @admin_bp.route("/api/share-link", methods=["GET"])
 def share_link():
-    level = (request.args.get("level") or "B1").upper()
+    state = load_state()
+    default_level = resolve_cefr_level(state.get("default_cefr_level"))
+    level = resolve_cefr_level(request.args.get("level"), fallback=default_level)
     class_id = (request.args.get("class_id") or get_active_class_id()).strip()
-    if level not in CEFR_LEVELS:
-        return jsonify({"ok": False, "error": f"CEFR レベルは {', '.join(CEFR_LEVELS)} のいずれかです。"}), 400
     if not class_id:
         return jsonify({"ok": False, "error": "クラスを選択してください。"}), 400
 

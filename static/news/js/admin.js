@@ -1101,6 +1101,7 @@
       const payload = {
         display_language: document.getElementById("display-language").value,
         ai_model: document.getElementById("ai-model").value,
+        default_cefr_level: document.getElementById("default-cefr-level").value,
         openai_api_key: document.getElementById("openai-api-key").value.trim(),
         default_evaluation_criteria: collectDefaultCriteria(),
         admin_password: adminSettingsPasswordValue,

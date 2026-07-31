@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, render_template, request
 
-from news_app.config import CEFR_LEVELS, get_openai_api_key, resolve_ai_model
+from news_app.config import CEFR_LEVELS, get_openai_api_key, resolve_ai_model, resolve_cefr_level
 from news_app.services.openai_eval import evaluate_summary
 from news_app.services.storage import (
     current_lesson_identity,
@@ -147,9 +147,8 @@ def _class_screen_payload(class_id: str, origin: str) -> dict | None:
 @main_bp.route("/")
 def index():
     state = load_state()
-    level = (request.args.get("level") or "B1").upper()
-    if level not in CEFR_LEVELS:
-        level = "B1"
+    default_level = resolve_cefr_level(state.get("default_cefr_level"))
+    level = resolve_cefr_level(request.args.get("level"), fallback=default_level)
     class_id = (request.args.get("class") or get_active_class_id()).strip()
     classes = list_classes()
     cls = get_class(class_id) if class_id else None
@@ -230,15 +229,18 @@ def public_config():
 @main_bp.route("/api/evaluate", methods=["POST"])
 def evaluate():
     data = request.get_json(silent=True) or {}
-    level = (data.get("level") or "B1").upper()
+    state = load_state()
+    default_level = resolve_cefr_level(state.get("default_cefr_level"))
+    raw_level = (data.get("level") or "").strip()
+    if raw_level and raw_level.upper() not in CEFR_LEVELS:
+        return jsonify({"ok": False, "error": f"CEFR レベルは {', '.join(CEFR_LEVELS)} のいずれかです。"}), 400
+    level = resolve_cefr_level(raw_level, fallback=default_level)
     summary = (data.get("summary") or "").strip()
     class_id = (data.get("class_id") or "").strip()
     student_hr_class = str(data.get("student_hr_class") or "").strip()
     student_number = str(data.get("student_number") or "").strip()
     student_name = str(data.get("student_name") or "").strip()
 
-    if level not in CEFR_LEVELS:
-        return jsonify({"ok": False, "error": f"CEFR レベルは {', '.join(CEFR_LEVELS)} のいずれかです。"}), 400
     if not class_id:
         return jsonify({"ok": False, "error": "クラスを選択してください。"}), 400
 
@@ -252,7 +254,6 @@ def evaluate():
             {"ok": False, "error": "このクラスには参照スクリプトが未設定です。管理画面で設定してください。"},
         ), 400
 
-    state = load_state()
     model = resolve_ai_model(state.get("ai_model"))
     api_key = get_openai_api_key()
     rubric = get_evaluation_rubric(class_id, level)
