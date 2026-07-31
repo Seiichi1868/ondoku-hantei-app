@@ -264,34 +264,34 @@ function renderSessions(sessions) {
         ? `<span class="text-violet-600 font-semibold">コピー</span>`
         : "";
 
-      const metaParts = [
-        `<span>${escapeHtml(dt.date)} ${escapeHtml(dt.time)}</span>`,
-        `<span>${progressLabel}</span>`,
-      ];
-      if (copyBadge) metaParts.push(`<span>${copyBadge}</span>`);
-      if (judgeLabel) metaParts.push(`<span>${judgeLabel}</span>`);
-
       return `
-        <div class="session-row-compact" data-session-id="${escapeHtml(s.session_id)}">
-          <div class="session-row-compact__grid">
-            <p class="session-row-compact__title" title="${escapeHtml(s.motion)}">${escapeHtml(s.motion)}</p>
-            <div class="session-row-compact__actions">
-              <a href="/debate/session/${encodeURIComponent(s.session_id)}"
-                class="session-row-compact__btn session-row-compact__btn--resume">再開</a>
-              <button type="button" class="session-row-compact__btn session-row-compact__btn--copy btn-copy-session"
-                data-session-id="${escapeHtml(s.session_id)}">コピー</button>
-              <button type="button" class="session-row-compact__btn session-row-compact__btn--delete btn-delete-session"
-                data-session-id="${escapeHtml(s.session_id)}">削除</button>
+        <div class="session-row" data-session-id="${escapeHtml(s.session_id)}">
+          <div class="session-row__main">
+            <div class="session-row__body">
+              <p class="session-row__title">${escapeHtml(s.motion)}</p>
+              <div class="session-row__meta">
+                <span><span class="session-row__meta-key">日付</span> ${escapeHtml(dt.date)}</span>
+                <span><span class="session-row__meta-key">時刻</span> ${escapeHtml(dt.time)}</span>
+                <span>${progressLabel}</span>
+                ${copyBadge ? `<span>${copyBadge}</span>` : ""}
+                ${judgeLabel ? `<span>${judgeLabel}</span>` : ""}
+              </div>
+              <div class="session-row__notes">
+                <span class="session-row__notes-label">備考</span>
+                <input type="text" class="session-notes-input session-row__notes-input"
+                  data-session-id="${escapeHtml(s.session_id)}"
+                  value="${escapeHtml(s.admin_notes || "")}"
+                  maxlength="200"
+                  placeholder="例: Luna比較用コピー">
+              </div>
             </div>
-            <div class="session-row-compact__meta">
-              ${metaParts.join('<span class="session-row-compact__meta-sep">·</span>')}
-              <span class="session-row-compact__meta-sep">·</span>
-              <span class="session-row-compact__notes-label">備考</span>
-              <input type="text" class="session-notes-input session-row-compact__notes-input"
-                data-session-id="${escapeHtml(s.session_id)}"
-                value="${escapeHtml(s.admin_notes || "")}"
-                maxlength="200"
-                placeholder="Luna比較用など">
+            <div class="session-row__actions">
+              <a href="/debate/session/${encodeURIComponent(s.session_id)}"
+                class="session-row__btn session-row__btn--resume">再開</a>
+              <button type="button" class="session-row__btn session-row__btn--copy btn-copy-session"
+                data-session-id="${escapeHtml(s.session_id)}">コピー</button>
+              <button type="button" class="session-row__btn session-row__btn--delete btn-delete-session"
+                data-session-id="${escapeHtml(s.session_id)}">削除</button>
             </div>
           </div>
         </div>

@@ -69,10 +69,10 @@
         </button>
       </div>
     </div>
-    <p class="text-[0.65rem] text-slate-500 mb-2 leading-snug">
+    <p class="text-xs text-slate-500 mb-2 leading-snug">
       再開・コピー（ジャッジ結果リセット）・備考記録ができます。
     </p>
-    <div id="sessions-list" class="space-y-1">
+    <div id="sessions-list" class="space-y-1.5">
       <p class="text-sm text-slate-400">読み込み中...</p>
     </div>
   </section>
@@ -105,5 +105,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='debate/js/admin.js', v='20260731c') }}"></script>
+<script src="{{ url_for('static', filename='debate/js/admin.js', v='20260731d') }}"></script>
 {% endblock %}
