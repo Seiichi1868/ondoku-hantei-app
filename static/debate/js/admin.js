@@ -255,7 +255,7 @@ function renderSessions(sessions) {
       if (s.judge_status === "done") {
         const modelLabel = s.judge_model ? escapeHtml(s.judge_model) : "";
         judgeLabel =
-          `<span class="text-indigo-600 font-semibold">判定: ${escapeHtml(s.judge_winner || "-")}勝利</span>` +
+          `<span class="text-teal-700 font-semibold">判定: ${escapeHtml(s.judge_winner || "-")}勝利</span>` +
           (modelLabel ? ` <span class="text-slate-400">(${modelLabel})</span>` : "");
       } else if (s.judge_status === "judging") {
         judgeLabel = `<span class="text-amber-600">ジャッジ実行中…</span>`;

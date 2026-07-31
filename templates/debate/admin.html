@@ -7,14 +7,14 @@
   <div id="admin-lock" class="flex items-center gap-1.5">
     <input id="admin-password" type="password" inputmode="numeric" autocomplete="off"
       placeholder="パスワード"
-      class="text-sm rounded-lg border border-indigo-200 bg-white/80 px-3 py-1.5 w-28 focus:outline-none focus:ring-2 focus:ring-brand">
+      class="text-sm rounded-lg border border-teal-100 bg-white/80 px-3 py-1.5 w-28 focus:outline-none focus:ring-2 focus:ring-brand">
     <button id="unlock-btn" type="button"
       class="text-xs px-3 py-1.5 rounded-full bg-brand text-white font-semibold hover:bg-brand-dark transition-colors">
       解除
     </button>
   </div>
   <a href="{{ url_for('debate.index') }}"
-    class="text-xs px-3 py-1.5 rounded-full bg-white/60 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 font-medium transition-colors border border-white/80">
+    class="text-xs px-3 py-1.5 rounded-full bg-white/60 text-slate-600 hover:bg-emerald-50 hover:text-teal-700 font-medium transition-colors border border-white/80">
     ← 生徒画面
   </a>
 </div>
@@ -41,15 +41,15 @@
       生徒画面の録音時に使う文字起こし方式を切り替えます。セッションごとに使用モードが記録されます。
     </p>
     <div class="flex flex-col sm:flex-row gap-3" id="transcription-mode-picker">
-      <label class="panel-soft flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer hover:border-brand/30 transition-colors flex-1">
-        <input type="radio" name="transcription_mode" value="batch" class="mt-1 accent-indigo-600" checked>
+      <label class="panel-soft flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer hover:border-teal-200/80 transition-colors flex-1">
+        <input type="radio" name="transcription_mode" value="batch" class="mt-1 accent-teal-600" checked>
         <span>
           <span class="block text-sm font-semibold text-slate-800">モードA: 録音＋Whisper文字起こし</span>
           <span class="block text-xs text-slate-500 mt-0.5">録音後にサーバー側でWhisper APIにより文字起こし（現在の方式）</span>
         </span>
       </label>
-      <label class="panel-soft flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer hover:border-brand/30 transition-colors flex-1">
-        <input type="radio" name="transcription_mode" value="realtime" class="mt-1 accent-indigo-600">
+      <label class="panel-soft flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer hover:border-teal-200/80 transition-colors flex-1">
+        <input type="radio" name="transcription_mode" value="realtime" class="mt-1 accent-teal-600">
         <span>
           <span class="block text-sm font-semibold text-slate-800">モードB: リアルタイム文字起こし</span>
           <span class="block text-xs text-slate-500 mt-0.5">Web Speech APIで発話と同時にテキスト化（Chrome推奨。非対応ブラウザはAにフォールバック）</span>
@@ -97,7 +97,7 @@
         </label>
         <input id="bg-opacity-slider" type="range" min="0" max="100" step="1"
           value="{{ (background_opacity * 100)|round|int }}"
-          class="bg-opacity-slider accent-indigo-600">
+          class="bg-opacity-slider accent-teal-600">
       </div>
     </div>
   </section>
@@ -105,5 +105,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='debate/js/admin.js', v='20260731f') }}"></script>
+<script src="{{ url_for('static', filename='debate/js/admin.js', v='20260731h') }}"></script>
 {% endblock %}
