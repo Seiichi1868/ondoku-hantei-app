@@ -60,7 +60,7 @@ DEFAULT_CLASS_CURRENT = {
 
 DEFAULT_STATE = {
     "display_language": "ja",
-    "ai_model": "gpt-4o-mini",
+    "ai_model": "gpt-5.6-luna",
     "openai_api_key": "",
     "default_evaluation_criteria": deepcopy(DEFAULT_EVALUATION_CRITERIA),
     "active_class_id": "",

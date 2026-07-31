@@ -54,7 +54,7 @@ def reasoning_effort_for_model(model: str) -> str | None:
     name = (model or "").strip().lower()
     if not is_reasoning_chat_model(model):
         return None
-    if name.startswith("gpt-5.4") or name.startswith("gpt-5.1"):
+    if name.startswith("gpt-5.4") or name.startswith("gpt-5.1") or name.startswith("gpt-5.6"):
         return "none"
     return PREMIUM_REASONING_EFFORT
 

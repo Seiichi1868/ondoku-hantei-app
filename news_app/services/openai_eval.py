@@ -83,12 +83,17 @@ NO_RELEVANT_CONTENT_MESSAGE = "内容がない、もしくは関連のない内�
 
 # 本文（要点・文法）用 — 励まし多め
 MODEL_COACH_STYLE = {
+    "gpt-5.6-luna": (
+        "丁寧で的確。良い点と改善点を具体的に、レポート調は禁止。"
+        "「次はこうしてみましょう」と前向きに。"
+    ),
+    "gpt-5.6-terra": (
+        "分析的かつ具体的。強みと改善点をはっきり示し、"
+        "次の一手を1つに絞って伝える。"
+    ),
     "gpt-4o-mini": (
         "温かくシンプルに。伴走感を出し、"
         "褒めとアドバイスをバランスよく。"
-    ),
-    "gpt-5-mini": (
-        "やさしく具体的に。「次はこうしてみましょう」と前向きに。"
     ),
     "gpt-5.4-mini": (
         "丁寧で的確。良い点と改善点を具体的に、レポート調は禁止。"
@@ -100,14 +105,17 @@ MODEL_COACH_STYLE = {
 
 # 冒頭総評（opening）専用 — 誉めすぎず、客観的なバランス
 MODEL_OPENING_STYLE = {
+    "gpt-5.6-luna": (
+        "総評は2〜3文でコンパクトに。できた点1つと、CEFR {level} 基準で伸びしろ1つを"
+        "事実に基づいて述べる。過度な称賛や締めの汎用励まし文は禁止。"
+    ),
+    "gpt-5.6-terra": (
+        "総評は分析的に。要約の強み1点と弱み1点を、"
+        "CEFR {level} の到達度として率直に述べる。感情的な誉め言葉は控えめに。"
+    ),
     "gpt-4o-mini": (
         "総評は2〜3文でコンパクトに。できた点1つと、CEFR基準で伸びしろ1つを"
         "正直に述べる。過度な称賛（「完璧」「素晴らしい」連発）は禁止。"
-    ),
-    "gpt-5-mini": (
-        "総評はCEFR {level} としての到達度を率直に評価する。"
-        "良い点・足りない点をそれぞれ1つ、バランスよく。"
-        "締めの汎用励まし文は書かない。"
     ),
     "gpt-5.4-mini": (
         "総評は分析的に。要約の強み1点と弱み1点を、"
@@ -121,11 +129,11 @@ MODEL_OPENING_STYLE = {
 
 
 def _coach_style_for_model(model: str) -> str:
-    return MODEL_COACH_STYLE.get(model, MODEL_COACH_STYLE["gpt-4o-mini"])
+    return MODEL_COACH_STYLE.get(model, MODEL_COACH_STYLE["gpt-5.6-luna"])
 
 
 def _opening_style_for_model(model: str, level: str) -> str:
-    template = MODEL_OPENING_STYLE.get(model, MODEL_OPENING_STYLE["gpt-4o-mini"])
+    template = MODEL_OPENING_STYLE.get(model, MODEL_OPENING_STYLE["gpt-5.6-luna"])
     return template.replace("{level}", level)
 
 

@@ -10,7 +10,7 @@ from news_app.services.openai_utils import create_parsed_chat_completion
 
 logger = logging.getLogger(__name__)
 
-WARMUP_MODEL = "gpt-5.4-mini"
+WARMUP_MODEL = "gpt-5.6-luna"
 
 
 class WarmupExtraction(BaseModel):

@@ -3,7 +3,15 @@ import io
 import openpyxl
 from flask import Blueprint, jsonify, render_template, request, send_file, url_for
 
-from news_app.config import AI_MODELS, CEFR_LEVELS, DISPLAY_LANGUAGES, get_openai_api_key, mask_api_key, save_openai_api_key
+from news_app.config import (
+    AI_MODELS,
+    CEFR_LEVELS,
+    DISPLAY_LANGUAGES,
+    get_openai_api_key,
+    mask_api_key,
+    resolve_ai_model,
+    save_openai_api_key,
+)
 from news_app.services.cnn10 import fetch_cnn10_episodes
 from news_app.services.cnn10_highlight import find_title_segment_in_transcript
 from news_app.services.network import get_public_base_url
@@ -82,7 +90,7 @@ def youtube_highlight():
         )
 
     state = load_state()
-    model = str(state.get("ai_model") or "gpt-4o-mini")
+    model = resolve_ai_model(state.get("ai_model"))
     try:
         highlight = find_title_segment_in_transcript(
             title,
@@ -101,6 +109,7 @@ def youtube_highlight():
 @admin_bp.route("/")
 def admin_index():
     state = load_state()
+    state = {**state, "ai_model": resolve_ai_model(state.get("ai_model"))}
     class_id, cls = _active_class_or_none()
     current = (cls or {}).get("current") or {}
     api_key_configured = bool(get_openai_api_key())
@@ -140,7 +149,7 @@ def save_settings():
         default_criteria = data.get("default_evaluation_criteria")
         kwargs = {
             "display_language": str(data.get("display_language", "ja")),
-            "ai_model": str(data.get("ai_model", "gpt-4o-mini")),
+            "ai_model": resolve_ai_model(data.get("ai_model")),
             "openai_api_key": openai_api_key,
         }
         if isinstance(default_criteria, dict):

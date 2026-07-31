@@ -23,7 +23,7 @@ def load_environment() -> None:
 
 load_environment()
 
-DEFAULT_AI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+DEFAULT_AI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.6-luna")
 
 CEFR_LEVELS = ("A1", "A2", "B1", "B2")
 VOCAB_CEFR_LEVELS = ("C2", "C1", "B2", "B1")
@@ -31,14 +31,23 @@ VOCAB_EXTRACTION_TARGET = 30
 VOCAB_EXTRACTION_MIN = 25
 VOCAB_EXTRACTION_MAX = 30
 VOCAB_STORAGE_MAX = 50
-VOCABULARY_EXTRACTION_MODEL = "gpt-5.4-mini"
+VOCABULARY_EXTRACTION_MODEL = "gpt-5.6-luna"
 DISPLAY_LANGUAGES = ("ja", "en")
 AI_MODELS = (
-    "gpt-4o-mini",
-    "gpt-5-mini",
+    "gpt-5.6-luna",
+    "gpt-5.6-terra",
     "gpt-5.4-mini",
+    "gpt-4o-mini",
     "gpt-5.4-nano",
 )
+
+
+def resolve_ai_model(model: str | None = None) -> str:
+    """未対応・旧モデル名はデフォルト（Luna）へ寄せる。"""
+    name = (model or "").strip()
+    if name in AI_MODELS:
+        return name
+    return DEFAULT_AI_MODEL
 
 
 def get_openai_api_key() -> str:

@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, render_template, request
 
-from news_app.config import CEFR_LEVELS, get_openai_api_key
+from news_app.config import CEFR_LEVELS, get_openai_api_key, resolve_ai_model
 from news_app.services.openai_eval import evaluate_summary
 from news_app.services.storage import (
     current_lesson_identity,
@@ -253,7 +253,7 @@ def evaluate():
         ), 400
 
     state = load_state()
-    model = state.get("ai_model") or "gpt-4o-mini"
+    model = resolve_ai_model(state.get("ai_model"))
     api_key = get_openai_api_key()
     rubric = get_evaluation_rubric(class_id, level)
 
