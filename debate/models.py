@@ -69,6 +69,8 @@ def new_session(motion: str, speaker_name: str = "") -> dict:
         "motion": motion.strip(),
         "created_at": now_iso(),
         "updated_at": now_iso(),
+        "admin_notes": "",
+        "copied_from_session_id": "",
         "parts": parts,
         "judge_result": new_judge_result(),
     }

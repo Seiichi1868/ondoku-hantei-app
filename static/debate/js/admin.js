@@ -20,6 +20,7 @@ const transcriptionModePicker = document.getElementById("transcription-mode-pick
 
 let unlocked = false;
 let saveTimer = null;
+let notesSaveTimers = new Map();
 let currentBackgroundId = null;
 let currentJudgeModelMode = "5.6-luna";
 
@@ -259,8 +260,12 @@ function renderSessions(sessions) {
         judgeLabel = `<span class="text-rose-600">ジャッジ失敗</span>`;
       }
 
+      const copyBadge = s.copied_from_session_id
+        ? `<span class="text-violet-600 font-semibold">コピー</span>`
+        : "";
+
       return `
-        <div class="rounded-xl border border-slate-100 bg-white/70 px-4 py-3 hover:border-brand/30 transition-colors">
+        <div class="rounded-xl border border-slate-100 bg-white/70 px-4 py-3 hover:border-brand/30 transition-colors" data-session-id="${escapeHtml(s.session_id)}">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium text-slate-800">${escapeHtml(s.motion)}</p>
@@ -268,14 +273,27 @@ function renderSessions(sessions) {
                 <span><span class="font-semibold text-slate-400">日付</span> ${escapeHtml(dt.date)}</span>
                 <span><span class="font-semibold text-slate-400">時刻</span> ${escapeHtml(dt.time)}</span>
                 <span>${progressLabel}</span>
+                ${copyBadge ? `<span>${copyBadge}</span>` : ""}
                 ${judgeLabel ? `<span>${judgeLabel}</span>` : ""}
               </div>
+              <label class="mt-2 block">
+                <span class="text-[0.65rem] font-semibold text-slate-400">備考</span>
+                <input type="text" class="session-notes-input mt-0.5 w-full rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  data-session-id="${escapeHtml(s.session_id)}"
+                  value="${escapeHtml(s.admin_notes || "")}"
+                  maxlength="200"
+                  placeholder="例: Luna比較用コピー / 2026-07-31 実験">
+              </label>
             </div>
             <div class="flex shrink-0 items-center gap-2">
               <a href="/debate/session/${encodeURIComponent(s.session_id)}"
                 class="text-xs px-3 py-1.5 rounded-full bg-brand/10 text-brand-dark font-semibold hover:bg-brand/20 transition-colors">
                 再開
               </a>
+              <button type="button" class="btn-copy-session text-xs px-3 py-1.5 rounded-full border border-violet-200 text-violet-700 hover:bg-violet-50 transition-colors"
+                data-session-id="${escapeHtml(s.session_id)}">
+                コピー
+              </button>
               <button type="button" class="btn-delete-session text-xs px-3 py-1.5 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
                 data-session-id="${escapeHtml(s.session_id)}">
                 削除
@@ -306,7 +324,69 @@ async function loadSessions() {
 
 sessionsRefreshBtn?.addEventListener("click", loadSessions);
 
+function scheduleNotesSave(sessionId, notes) {
+  if (!unlocked || !sessionId) return;
+  clearTimeout(notesSaveTimers.get(sessionId));
+  notesSaveTimers.set(
+    sessionId,
+    setTimeout(async () => {
+      try {
+        const password = getStoredPassword() || passwordInput.value.trim();
+        const res = await fetch(`/debate/admin/api/sessions/${encodeURIComponent(sessionId)}/notes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ admin_password: password, notes }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || "備考の保存に失敗しました");
+        statusMessage.textContent = "備考を保存しました";
+      } catch (err) {
+        statusMessage.textContent = "";
+        showLockMessage(err.message);
+      }
+    }, 500)
+  );
+}
+
+sessionsList?.addEventListener("input", (e) => {
+  const input = e.target.closest(".session-notes-input");
+  if (!input || !unlocked) return;
+  scheduleNotesSave(input.dataset.sessionId, input.value.trim());
+});
+
 sessionsList?.addEventListener("click", async (e) => {
+  const copyBtn = e.target.closest(".btn-copy-session");
+  if (copyBtn && unlocked) {
+    const sessionId = copyBtn.dataset.sessionId;
+    const notesInput = sessionsList.querySelector(`.session-notes-input[data-session-id="${sessionId}"]`);
+    const suggestedNotes = notesInput?.value.trim() || "";
+    const defaultNotes = suggestedNotes || `コピー（${new Date().toLocaleDateString("ja-JP")}）`;
+    const notes = window.prompt("コピー先セッションの備考（空欄可）", defaultNotes);
+    if (notes === null) return;
+
+    copyBtn.disabled = true;
+    const originalLabel = copyBtn.textContent;
+    copyBtn.textContent = "コピー中...";
+    try {
+      const password = getStoredPassword() || passwordInput.value.trim();
+      const res = await fetch(`/debate/admin/api/sessions/${encodeURIComponent(sessionId)}/copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_password: password, notes: notes.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "コピーに失敗しました");
+      statusMessage.textContent = "セッションをコピーしました";
+      await loadSessions();
+    } catch (err) {
+      statusMessage.textContent = "";
+      showLockMessage(err.message);
+      copyBtn.disabled = false;
+      copyBtn.textContent = originalLabel;
+    }
+    return;
+  }
+
   const btn = e.target.closest(".btn-delete-session");
   if (!btn || !unlocked) return;
 

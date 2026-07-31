@@ -14,7 +14,7 @@ from debate.settings import (
     resolve_judge_model,
     update_settings,
 )
-from debate.storage import delete_session, list_sessions
+from debate.storage import copy_session, delete_session, list_sessions, update_session_notes
 
 debate_admin_bp = Blueprint("debate_admin", __name__, url_prefix="/debate/admin")
 
@@ -103,7 +103,37 @@ def admin_settings():
 def admin_list_sessions():
     if not _password_ok(request.args.to_dict()):
         return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
-    return jsonify({"ok": True, "sessions": list_sessions(limit=500)})
+    return jsonify({"ok": True, "sessions": list_sessions(limit=500, include_notes=True)})
+
+
+@debate_admin_bp.route("/api/sessions/<session_id>/copy", methods=["POST"])
+def admin_copy_session(session_id):
+    payload = request.get_json(silent=True) or {}
+    if not _password_ok(payload):
+        return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
+
+    copied = copy_session(session_id, notes=str(payload.get("notes") or ""))
+    if not copied:
+        return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
+    return jsonify(
+        {
+            "ok": True,
+            "session_id": copied["session_id"],
+            "admin_notes": copied.get("admin_notes", ""),
+        }
+    )
+
+
+@debate_admin_bp.route("/api/sessions/<session_id>/notes", methods=["POST"])
+def admin_update_session_notes(session_id):
+    payload = request.get_json(silent=True) or {}
+    if not _password_ok(payload):
+        return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
+
+    updated = update_session_notes(session_id, notes=str(payload.get("notes") or ""))
+    if not updated:
+        return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
+    return jsonify({"ok": True, "admin_notes": updated.get("admin_notes", "")})
 
 
 @debate_admin_bp.route("/api/sessions/<session_id>/delete", methods=["POST"])

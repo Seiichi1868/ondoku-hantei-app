@@ -6,11 +6,14 @@
 import json
 import shutil
 import threading
+import uuid
+from copy import deepcopy
 from pathlib import Path
 
 from debate.config import AUDIO_DIR, SESSIONS_DIR, ensure_dirs
 
 _lock = threading.Lock()
+MAX_ADMIN_NOTES_LEN = 200
 
 # パートごとの非同期文字起こし（バックグラウンドスレッド）と、通常のリクエスト処理
 # （録音開始・確定・リセット等）が同じセッションJSONを並行して読み書きしても
@@ -84,7 +87,62 @@ def delete_session(session_id: str) -> bool:
     return existed
 
 
-def list_sessions(limit: int = 10) -> list[dict]:
+def _normalize_admin_notes(notes: str) -> str:
+    return str(notes or "").strip()[:MAX_ADMIN_NOTES_LEN]
+
+
+def _rewrite_audio_urls(session: dict, old_id: str, new_id: str) -> None:
+    old_token = _safe_id(old_id)
+    new_token = _safe_id(new_id)
+    for part in session.get("parts", []):
+        audio_url = str(part.get("audio_url") or "")
+        if not audio_url:
+            continue
+        if old_id in audio_url:
+            part["audio_url"] = audio_url.replace(old_id, new_id)
+        elif old_token in audio_url:
+            part["audio_url"] = audio_url.replace(old_token, new_token)
+
+
+def copy_session(session_id: str, notes: str = "") -> dict | None:
+    """セッションJSONと音声ファイルを複製する（ジャッジ結果はリセット）。"""
+    original = load_session(session_id)
+    if not original:
+        return None
+
+    from debate.models import new_judge_result, now_iso
+
+    new_id = str(uuid.uuid4())
+    copied = deepcopy(original)
+    copied["session_id"] = new_id
+    copied["created_at"] = now_iso()
+    copied["updated_at"] = now_iso()
+    copied["copied_from_session_id"] = session_id
+    copied["admin_notes"] = _normalize_admin_notes(notes) or f"コピー（元: {session_id[:8]}）"
+    copied["judge_result"] = new_judge_result()
+
+    old_safe = _safe_id(session_id)
+    new_safe = _safe_id(new_id)
+    old_dir = AUDIO_DIR / old_safe
+    new_dir = AUDIO_DIR / new_safe
+    if old_dir.is_dir():
+        shutil.copytree(old_dir, new_dir, dirs_exist_ok=True)
+
+    _rewrite_audio_urls(copied, session_id, new_id)
+    return save_session(copied)
+
+
+def update_session_notes(session_id: str, notes: str) -> dict | None:
+    """管理画面用: セッション備考を更新する。"""
+    with get_session_lock(session_id):
+        session = load_session(session_id)
+        if not session:
+            return None
+        session["admin_notes"] = _normalize_admin_notes(notes)
+        return save_session(session)
+
+
+def list_sessions(limit: int = 10, *, include_notes: bool = False) -> list[dict]:
     """保存済みセッション一覧（論題入力画面・管理画面用）。"""
     ensure_dirs()
     files = sorted(SESSIONS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -119,8 +177,7 @@ def list_sessions(limit: int = 10) -> list[dict]:
             judge_model_label = judge_model_info.get("model") or ""
         if not judge_model_label:
             judge_model_label = judge_result.get("model", "")
-        summaries.append(
-            {
+        summary = {
                 "session_id": data.get("session_id"),
                 "motion": data.get("motion"),
                 "created_at": data.get("created_at"),
@@ -133,5 +190,8 @@ def list_sessions(limit: int = 10) -> list[dict]:
                 "judge_model": judge_model_label,
                 "judge_transcription_mode": judge_result.get("transcription_mode", ""),
             }
-        )
+        if include_notes:
+            summary["admin_notes"] = str(data.get("admin_notes") or "")
+            summary["copied_from_session_id"] = str(data.get("copied_from_session_id") or "")
+        summaries.append(summary)
     return summaries
