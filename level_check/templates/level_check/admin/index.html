@@ -3,27 +3,14 @@
 {% block title %}管理画面 | Speaking Level Check Test{% endblock %}
 
 {% block header_actions %}
-<div class="flex items-center gap-2">
-  <div id="admin-lock" class="flex items-center gap-1.5">
-    <input id="admin-password" type="password" inputmode="numeric" autocomplete="off"
-      placeholder="パスワード"
-      class="text-sm rounded-lg border border-indigo-100 bg-white/80 px-3 py-1.5 w-28 focus:outline-none focus:ring-2 focus:ring-brand">
-    <button id="unlock-btn" type="button"
-      class="text-xs px-3 py-1.5 rounded-full bg-brand text-white font-semibold hover:bg-brand-dark transition-colors">
-      解除
-    </button>
-  </div>
-  <a href="{{ url_for('level_check.index') }}"
-    class="text-xs px-3 py-1.5 rounded-full bg-white/60 text-slate-600 hover:bg-indigo-50 hover:text-brand-dark font-medium transition-colors border border-white/80">
-    ← 生徒画面
-  </a>
-</div>
+<a href="{{ url_for('level_check.index') }}"
+  class="text-xs px-3 py-1.5 rounded-full bg-white/60 text-slate-600 hover:bg-sky-50 hover:text-brand-dark font-medium transition-colors border border-white/80">
+  ← 生徒画面
+</a>
 {% endblock %}
 
 {% block body %}
-<p id="lock-message" class="hidden text-sm text-rose-600 font-medium mb-3" role="alert"></p>
-
-<div id="admin-panel" class="hidden space-y-4">
+<div class="space-y-3">
   <p id="status-message" class="text-sm text-emerald-700 font-medium min-h-[1.25rem]" aria-live="polite"></p>
 
   <div class="flex gap-1.5 flex-wrap" id="admin-tabs">
@@ -35,49 +22,62 @@
 
   <!-- ── 設定タブ ─────────────────────────────────────── -->
   <section class="admin-tab-panel" data-tab-panel="settings">
-    <div class="lc-card rounded-2xl p-5 md:p-6 mb-4">
-      <h2 class="text-sm font-bold text-slate-800 mb-2">評価に使うAIモデル</h2>
-      <div id="ai-model-picker" class="grid grid-cols-3 gap-2"></div>
+    <!-- 管理設定: AIモデル選択のみパスワードが必要 -->
+    <div class="lc-card rounded-2xl p-4 md:p-5 mb-3">
+      <h2 class="text-sm font-bold text-slate-800 mb-2 flex items-center gap-1.5">🔒 管理設定（評価に使うAIモデル）</h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <div id="ai-model-picker" class="flex flex-wrap gap-2"></div>
+        <input id="model-admin-password" type="password" inputmode="numeric" autocomplete="off"
+          placeholder="管理パスワード" class="lc-input w-32">
+        <button id="change-model-btn" type="button"
+          class="text-xs px-3.5 py-1.5 rounded-full bg-brand text-white font-semibold hover:bg-brand-dark transition-colors">
+          変更
+        </button>
+      </div>
+      <p id="model-change-status" class="text-xs mt-1.5 min-h-[1rem]"></p>
     </div>
 
-    <div class="lc-card rounded-2xl p-5 md:p-6 mb-4">
-      <h2 class="text-sm font-bold text-slate-800 mb-2">生徒への情報要求レベル</h2>
-      <div id="info-level-picker" class="grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
+    <!-- 一般設定: パスワード不要 -->
+    <div class="lc-card rounded-2xl p-4 md:p-5 mb-3">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <h2 class="text-sm font-bold text-slate-800 mb-2">生徒への情報要求レベル</h2>
+          <div id="info-level-picker" class="flex flex-wrap gap-2"></div>
+        </div>
+        <div>
+          <h2 class="text-sm font-bold text-slate-800 mb-2">タスクごとの出題数</h2>
+          <div class="flex items-center gap-2">
+            <input id="questions-per-task" type="number" min="1" max="15" class="lc-input w-20">
+            <p class="text-xs text-slate-400">各タスクからランダム出題する問題数</p>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4">
+        <h2 class="text-sm font-bold text-slate-800 mb-2">5軸評価の重み（合計は自動で正規化されます）</h2>
+        <div id="rubric-weights" class="grid gap-1.5 md:grid-cols-2"></div>
+      </div>
+      <button id="save-settings-btn" type="button"
+        class="mt-4 px-5 py-2 rounded-xl bg-brand text-white text-sm font-bold shadow hover:bg-brand-dark transition-colors">
+        一般設定を保存
+      </button>
     </div>
-
-    <div class="lc-card rounded-2xl p-5 md:p-6 mb-4">
-      <h2 class="text-sm font-bold text-slate-800 mb-2">タスクごとの出題数</h2>
-      <input id="questions-per-task" type="number" min="1" max="15"
-        class="w-24 rounded-lg border border-indigo-100 px-3 py-1.5 text-sm">
-      <p class="text-xs text-slate-400 mt-1">各タスク種別のバンクからランダムに出題する問題数。</p>
-    </div>
-
-    <div class="lc-card rounded-2xl p-5 md:p-6 mb-4">
-      <h2 class="text-sm font-bold text-slate-800 mb-2">5軸評価の重み（合計は自動で正規化されます）</h2>
-      <div id="rubric-weights" class="space-y-2"></div>
-    </div>
-
-    <button id="save-settings-btn" type="button"
-      class="px-5 py-2.5 rounded-xl bg-brand text-white text-sm font-bold shadow hover:bg-brand-dark transition-colors">
-      設定を保存
-    </button>
   </section>
 
   <!-- ── 名簿タブ ─────────────────────────────────────── -->
   <section class="admin-tab-panel hidden" data-tab-panel="roster">
-    <div class="lc-card rounded-2xl p-5 md:p-6 mb-4">
-      <h2 class="text-sm font-bold text-slate-800 mb-2">Excel名簿アップロード</h2>
-      <p class="text-xs text-slate-400 mb-2">1列目=クラス、2列目=出席番号、3列目=名前（1行目はヘッダー扱い）</p>
+    <div class="lc-card rounded-2xl p-4 md:p-5 mb-3 flex items-center gap-2 flex-wrap">
+      <h2 class="text-sm font-bold text-slate-800 shrink-0">Excel名簿アップロード</h2>
+      <p class="text-xs text-slate-400 shrink-0">クラス・出席番号・名前の順（1行目はヘッダー扱い）</p>
       <input id="roster-file-input" type="file" accept=".xlsx,.xls" class="text-sm">
       <button id="roster-upload-btn" type="button"
-        class="ml-2 px-4 py-1.5 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand-dark transition-colors">
+        class="px-4 py-1.5 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand-dark transition-colors">
         アップロード
       </button>
     </div>
-    <div class="lc-card rounded-2xl p-5 md:p-6">
+    <div class="lc-card rounded-2xl p-4 md:p-5">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-sm font-bold text-slate-800">名簿一覧</h2>
-        <button id="roster-add-btn" type="button" class="text-xs px-3 py-1 rounded-full border border-indigo-200 text-brand-dark hover:bg-indigo-50">
+        <button id="roster-add-btn" type="button" class="text-xs px-3 py-1 rounded-full border border-sky-200 text-brand-dark hover:bg-sky-50">
           + 追加
         </button>
       </div>
@@ -87,31 +87,28 @@
 
   <!-- ── 問題バンクタブ ───────────────────────────────── -->
   <section class="admin-tab-panel hidden" data-tab-panel="questions">
-    <div class="flex gap-1.5 mb-3" id="question-task-tabs">
-      <button type="button" class="admin-tab-btn is-active" data-task-tab="repeat">リピート課題</button>
-      <button type="button" class="admin-tab-btn" data-task-tab="sentence_build">文再構成課題</button>
-      <button type="button" class="admin-tab-btn" data-task-tab="qa">短時間Q&A課題</button>
-    </div>
-    <div class="lc-card rounded-2xl p-5 md:p-6 mb-4">
-      <div class="flex items-center gap-2 flex-wrap">
-        <button id="question-add-btn" type="button" class="text-xs px-3 py-1.5 rounded-full border border-indigo-200 text-brand-dark hover:bg-indigo-50">
-          + 手動で追加
-        </button>
-        <div class="flex items-center gap-1.5">
-          <input id="generate-count" type="number" min="1" max="15" value="5" class="w-16 rounded-lg border border-indigo-100 px-2 py-1 text-xs">
-          <button id="generate-questions-btn" type="button" class="text-xs px-3 py-1.5 rounded-full bg-brand text-white font-semibold hover:bg-brand-dark">
-            AIで追加生成
-          </button>
-        </div>
-        <span id="generate-status" class="text-xs text-slate-400"></span>
+    <div class="flex items-center gap-2 flex-wrap mb-3">
+      <div class="flex gap-1.5" id="question-task-tabs">
+        <button type="button" class="admin-tab-btn is-active" data-task-tab="repeat">リピート課題</button>
+        <button type="button" class="admin-tab-btn" data-task-tab="sentence_build">文再構成課題</button>
+        <button type="button" class="admin-tab-btn" data-task-tab="qa">短時間Q&A課題</button>
       </div>
+      <span class="flex-1"></span>
+      <button id="question-add-btn" type="button" class="text-xs px-3 py-1.5 rounded-full border border-sky-200 text-brand-dark hover:bg-sky-50">
+        + 手動で追加
+      </button>
+      <input id="generate-count" type="number" min="1" max="15" value="5" class="lc-input w-16">
+      <button id="generate-questions-btn" type="button" class="text-xs px-3 py-1.5 rounded-full bg-brand text-white font-semibold hover:bg-brand-dark">
+        AIで追加生成
+      </button>
+      <span id="generate-status" class="text-xs text-slate-400"></span>
     </div>
     <div id="questions-list" class="space-y-2"></div>
   </section>
 
   <!-- ── 受験結果タブ ─────────────────────────────────── -->
   <section class="admin-tab-panel hidden" data-tab-panel="submissions">
-    <div class="lc-card rounded-2xl p-5 md:p-6 mb-4 flex items-center justify-between flex-wrap gap-2">
+    <div class="lc-card rounded-2xl p-4 md:p-5 mb-3 flex items-center justify-between flex-wrap gap-2">
       <h2 class="text-sm font-bold text-slate-800">受験結果一覧</h2>
       <a id="export-submissions-link" href="#" class="text-xs px-3 py-1.5 rounded-full bg-brand text-white font-semibold hover:bg-brand-dark">
         Excelでダウンロード

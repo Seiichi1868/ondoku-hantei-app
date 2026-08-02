@@ -110,24 +110,130 @@
   }
 
   // ── 出題提示（リピート課題=音声、文再構成=単語チップ、Q&A=文章） ──
+  // Chrome は cancel() 直後に speak() すると音声がかすれる不具合があるため、
+  // 少し待ってから再生し、明示的に英語音声を選んで安定した発話にする。
+  let voicesReadyPromise = null;
+
+  function isChromeBrowser() {
+    return /Chrome/i.test(navigator.userAgent) && !/Edg|OPR|Brave/i.test(navigator.userAgent);
+  }
+
+  function isMobileDevice() {
+    return /Mobi|Android|iPad|iPhone|iPod/i.test(navigator.userAgent);
+  }
+
+  function ensureVoicesLoaded() {
+    if (!window.speechSynthesis) return Promise.resolve([]);
+    if (!voicesReadyPromise) {
+      voicesReadyPromise = new Promise((resolve) => {
+        const tryResolve = () => {
+          const voices = window.speechSynthesis.getVoices();
+          if (voices.length) {
+            resolve(voices);
+            return true;
+          }
+          return false;
+        };
+        if (tryResolve()) return;
+        window.speechSynthesis.addEventListener("voiceschanged", () => tryResolve(), { once: true });
+        setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1500);
+      });
+    }
+    return voicesReadyPromise;
+  }
+
+  function getEnglishVoice() {
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return null;
+    const enUS = voices.filter((v) => v.lang && v.lang.startsWith("en-US"));
+    const pool = enUS.length ? enUS : voices.filter((v) => v.lang && v.lang.startsWith("en"));
+    if (!pool.length) return null;
+    if (isMobileDevice()) {
+      const local = pool.find((v) => v.localService);
+      if (local) return local;
+    }
+    if (isChromeBrowser()) {
+      const google = pool.find((v) => /google/i.test(v.name));
+      if (google) return google;
+      const online = pool.find((v) => !v.localService);
+      if (online) return online;
+    } else {
+      const local = pool.find((v) => v.localService);
+      if (local) return local;
+      const named = pool.find((v) => /samantha|karen|daniel|alex/i.test(v.name));
+      if (named) return named;
+    }
+    return pool[0];
+  }
+
   function speak(text, onEnd) {
+    const finish = () => { if (onEnd) onEnd(); };
     if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-      onEnd();
+      finish();
       return false;
     }
-    try {
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = "en-US";
-      utter.rate = 0.95;
-      utter.onend = onEnd;
-      utter.onerror = onEnd;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utter);
-      return true;
-    } catch (_) {
-      onEnd();
-      return false;
-    }
+
+    window.speechSynthesis.cancel();
+
+    ensureVoicesLoaded().then((voices) => {
+      if (!voices.length) {
+        finish();
+        return;
+      }
+
+      // cancel() 直後は Chrome の合成エンジンが不安定なため、少し待って再生する
+      setTimeout(() => {
+        let started = false;
+        let finished = false;
+        const done = () => {
+          if (finished) return;
+          finished = true;
+          finish();
+        };
+        const failTimer = setTimeout(() => {
+          if (!started) {
+            window.speechSynthesis.cancel();
+            done();
+          }
+        }, 4000);
+
+        const makeUtterance = (withVoice) => {
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.lang = "en-US";
+          utter.rate = 0.95;
+          utter.pitch = 1;
+          utter.volume = 1;
+          if (withVoice) {
+            const voice = getEnglishVoice();
+            if (voice) {
+              utter.voice = voice;
+              utter.lang = voice.lang || "en-US";
+            }
+          }
+          return utter;
+        };
+
+        const utter = makeUtterance(true);
+        utter.onstart = () => { started = true; clearTimeout(failTimer); };
+        utter.onend = () => { clearTimeout(failTimer); done(); };
+        utter.onerror = () => { clearTimeout(failTimer); done(); };
+        window.speechSynthesis.speak(utter);
+
+        // Chrome では voice 指定時に発話が始まらないことがあるため、既定の声で再試行する
+        setTimeout(() => {
+          if (!started) {
+            window.speechSynthesis.cancel();
+            const utter2 = makeUtterance(false);
+            utter2.onstart = () => { started = true; clearTimeout(failTimer); };
+            utter2.onend = () => { clearTimeout(failTimer); done(); };
+            utter2.onerror = () => { clearTimeout(failTimer); done(); };
+            window.speechSynthesis.speak(utter2);
+          }
+        }, 400);
+      }, 80);
+    });
+
+    return true;
   }
 
   function setupStimulus(card) {

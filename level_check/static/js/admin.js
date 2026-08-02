@@ -7,13 +7,8 @@
     "response_latency",
   ];
 
-  const passwordInput = document.getElementById("admin-password");
-  const unlockBtn = document.getElementById("unlock-btn");
-  const lockMessage = document.getElementById("lock-message");
-  const adminPanel = document.getElementById("admin-panel");
   const statusMessage = document.getElementById("status-message");
 
-  let adminPassword = "";
   let settingsCache = null;
   let questionsCache = null;
   let currentQuestionTaskTab = "repeat";
@@ -34,14 +29,7 @@
   async function apiFetch(path, options = {}) {
     const url = new URL(path, window.location.origin);
     const opts = { ...options };
-    if (opts.method === "GET" || opts.method === "DELETE" || !opts.method) {
-      url.searchParams.set("admin_password", adminPassword);
-    } else if (opts.body instanceof FormData) {
-      opts.body.append("admin_password", adminPassword);
-    } else {
-      const payload = opts.body ? JSON.parse(opts.body) : {};
-      payload.admin_password = adminPassword;
-      opts.body = JSON.stringify(payload);
+    if (opts.body && !(opts.body instanceof FormData)) {
       opts.headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
     }
     const res = await fetch(url.toString(), opts);
@@ -50,28 +38,10 @@
     return data;
   }
 
-  // ── ロック解除 ──────────────────────────────────────────
-  async function unlock() {
-    const pw = passwordInput.value.trim();
-    if (!pw) return;
-    adminPassword = pw;
-    try {
-      await apiFetch("/level_check/admin/api/students");
-      lockMessage.classList.add("hidden");
-      adminPanel.classList.remove("hidden");
-      await loadAll();
-    } catch (err) {
-      adminPassword = "";
-      lockMessage.textContent = err.message || "パスワードが違います。";
-      lockMessage.classList.remove("hidden");
-    }
-  }
-  unlockBtn?.addEventListener("click", unlock);
-  passwordInput?.addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
-
   async function loadAll() {
     await Promise.all([loadSettings(), loadRoster(), loadQuestions(), loadSubmissions()]);
   }
+  loadAll();
 
   // ── タブ切り替え ────────────────────────────────────────
   document.querySelectorAll("#admin-tabs .admin-tab-btn").forEach((btn) => {
@@ -147,7 +117,6 @@
   }
 
   document.getElementById("save-settings-btn")?.addEventListener("click", async () => {
-    const modelMode = document.querySelector('input[name="ai_model_mode"]:checked')?.value;
     const infoLevel = document.querySelector('input[name="student_info_level"]:checked')?.value;
     const questionsPerTask = document.getElementById("questions-per-task").value;
     const rubricWeights = {};
@@ -159,7 +128,6 @@
       await apiFetch("/level_check/admin/api/settings", {
         method: "POST",
         body: JSON.stringify({
-          ai_model_mode: modelMode,
           student_info_level: infoLevel,
           questions_per_task: questionsPerTask,
           rubric_weights: rubricWeights,
@@ -169,6 +137,34 @@
       await loadSettings();
     } catch (err) {
       showStatus(err.message, true);
+    }
+  });
+
+  // ── 管理設定（AIモデル選択のみパスワード必須） ──────────────
+  document.getElementById("change-model-btn")?.addEventListener("click", async () => {
+    const modelMode = document.querySelector('input[name="ai_model_mode"]:checked')?.value;
+    const pwInput = document.getElementById("model-admin-password");
+    const statusEl = document.getElementById("model-change-status");
+    const password = pwInput?.value.trim() || "";
+
+    try {
+      await apiFetch("/level_check/admin/api/settings", {
+        method: "POST",
+        body: JSON.stringify({ ai_model_mode: modelMode, admin_password: password }),
+      });
+      if (statusEl) {
+        statusEl.textContent = "AIモデルを変更しました。";
+        statusEl.classList.remove("text-rose-600");
+        statusEl.classList.add("text-emerald-700");
+      }
+      if (pwInput) pwInput.value = "";
+      await loadSettings();
+    } catch (err) {
+      if (statusEl) {
+        statusEl.textContent = err.message;
+        statusEl.classList.remove("text-emerald-700");
+        statusEl.classList.add("text-rose-600");
+      }
     }
   });
 
@@ -358,8 +354,7 @@
   async function loadSubmissions() {
     const data = await apiFetch("/level_check/admin/api/submissions");
     renderSubmissions(data.submissions || []);
-    document.getElementById("export-submissions-link").href =
-      `/level_check/admin/api/submissions/export?admin_password=${encodeURIComponent(adminPassword)}`;
+    document.getElementById("export-submissions-link").href = "/level_check/admin/api/submissions/export";
   }
 
   function renderSubmissions(submissions) {

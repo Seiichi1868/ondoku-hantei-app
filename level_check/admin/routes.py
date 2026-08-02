@@ -47,18 +47,10 @@ _QUESTION_TEXT_FIELD = {
 }
 
 
-def _password_from_request() -> str:
-    if request.method in ("GET", "DELETE"):
-        return str(request.args.get("admin_password") or "")
-    if request.content_type and "multipart/form-data" in request.content_type:
-        return str(request.form.get("admin_password") or "")
-    payload = request.get_json(silent=True) or {}
-    return str(payload.get("admin_password") or "")
-
-
-def _require_password():
-    if _password_from_request() != ADMIN_PASSWORD:
-        return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
+def _require_model_change_password(payload: dict):
+    """AIモデル選択（管理設定）の変更時のみパスワードを要求する。"""
+    if str(payload.get("admin_password") or "") != ADMIN_PASSWORD:
+        return jsonify({"ok": False, "error": "管理設定のパスワードが違います。"}), 403
     return None
 
 
@@ -92,27 +84,24 @@ def admin_page():
 
 @admin_bp.route("/api/settings", methods=["GET"])
 def get_settings():
-    err = _require_password()
-    if err:
-        return err
     return jsonify(_settings_payload())
 
 
 @admin_bp.route("/api/settings", methods=["POST"])
 def save_settings_api():
-    err = _require_password()
-    if err:
-        return err
     payload = request.get_json(silent=True) or {}
     updates = {}
     if "rubric_weights" in payload:
         updates["rubric_weights"] = payload.get("rubric_weights")
-    if "ai_model_mode" in payload:
-        updates["ai_model_mode"] = payload.get("ai_model_mode")
     if "student_info_level" in payload:
         updates["student_info_level"] = payload.get("student_info_level")
     if "questions_per_task" in payload:
         updates["questions_per_task"] = payload.get("questions_per_task")
+    if "ai_model_mode" in payload:
+        err = _require_model_change_password(payload)
+        if err:
+            return err
+        updates["ai_model_mode"] = payload.get("ai_model_mode")
     update_settings(**updates)
     return jsonify(_settings_payload())
 
@@ -121,17 +110,11 @@ def save_settings_api():
 
 @admin_bp.route("/api/students", methods=["GET"])
 def list_students():
-    err = _require_password()
-    if err:
-        return err
     return jsonify({"ok": True, "students": load_students()})
 
 
 @admin_bp.route("/api/students/upload", methods=["POST"])
 def upload_students():
-    err = _require_password()
-    if err:
-        return err
     file = request.files.get("file")
     if not file or not file.filename:
         return jsonify({"ok": False, "error": "ファイルが選択されていません。"}), 400
@@ -146,9 +129,6 @@ def upload_students():
 
 @admin_bp.route("/api/students", methods=["POST"])
 def upsert_student():
-    err = _require_password()
-    if err:
-        return err
     payload = request.get_json(silent=True) or {}
     student = payload.get("student") or {}
     try:
@@ -160,9 +140,6 @@ def upsert_student():
 
 @admin_bp.route("/api/students/<student_id>", methods=["DELETE"])
 def remove_student(student_id):
-    err = _require_password()
-    if err:
-        return err
     students = delete_student(student_id)
     return jsonify({"ok": True, "students": students})
 
@@ -171,17 +148,11 @@ def remove_student(student_id):
 
 @admin_bp.route("/api/questions", methods=["GET"])
 def list_questions():
-    err = _require_password()
-    if err:
-        return err
     return jsonify({"ok": True, "questions": load_questions()})
 
 
 @admin_bp.route("/api/questions/<task_type>", methods=["POST"])
 def add_question(task_type):
-    err = _require_password()
-    if err:
-        return err
     if task_type not in _QUESTION_TEXT_FIELD:
         return jsonify({"ok": False, "error": f"不明なタスク種別: {task_type}"}), 400
     payload = request.get_json(silent=True) or {}
@@ -192,9 +163,6 @@ def add_question(task_type):
 
 @admin_bp.route("/api/questions/<task_type>/<question_id>", methods=["POST"])
 def edit_question(task_type, question_id):
-    err = _require_password()
-    if err:
-        return err
     if task_type not in _QUESTION_TEXT_FIELD:
         return jsonify({"ok": False, "error": f"不明なタスク種別: {task_type}"}), 400
     payload = request.get_json(silent=True) or {}
@@ -208,9 +176,6 @@ def edit_question(task_type, question_id):
 
 @admin_bp.route("/api/questions/<task_type>/<question_id>", methods=["DELETE"])
 def remove_question(task_type, question_id):
-    err = _require_password()
-    if err:
-        return err
     if task_type not in _QUESTION_TEXT_FIELD:
         return jsonify({"ok": False, "error": f"不明なタスク種別: {task_type}"}), 400
     bank = delete_question(task_type, question_id)
@@ -219,9 +184,6 @@ def remove_question(task_type, question_id):
 
 @admin_bp.route("/api/questions/<task_type>/generate", methods=["POST"])
 def generate_questions_api(task_type):
-    err = _require_password()
-    if err:
-        return err
     if task_type not in _QUESTION_TEXT_FIELD:
         return jsonify({"ok": False, "error": f"不明なタスク種別: {task_type}"}), 400
 
@@ -254,17 +216,11 @@ def generate_questions_api(task_type):
 
 @admin_bp.route("/api/submissions", methods=["GET"])
 def list_submissions():
-    err = _require_password()
-    if err:
-        return err
     return jsonify({"ok": True, "submissions": get_submissions()})
 
 
 @admin_bp.route("/api/submissions/<submission_id>", methods=["DELETE"])
 def remove_submission(submission_id):
-    err = _require_password()
-    if err:
-        return err
     ok = delete_submission(submission_id)
     if not ok:
         return jsonify({"ok": False, "error": "データが見つかりません。"}), 404
@@ -298,9 +254,6 @@ def _latency_average(task_results: list[dict]) -> float | None:
 
 @admin_bp.route("/api/submissions/export", methods=["GET"])
 def export_submissions():
-    err = _require_password()
-    if err:
-        return err
     submissions = get_submissions()
 
     wb = openpyxl.Workbook()
