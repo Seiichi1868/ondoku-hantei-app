@@ -169,14 +169,47 @@
     return speakFallback(promptText, finish);
   }
 
+  function revealAfterAudio(card, taskType) {
+    const questionReveal = card.querySelector("[data-question-reveal]");
+    if (!questionReveal) return;
+    // C/D: 質問文、E: 日本語の指示。A/B は英語本文を出さない。
+    const revealTypes = new Set(["C", "D", "E"]);
+    if (!revealTypes.has(taskType)) {
+      questionReveal.textContent = "";
+      questionReveal.classList.add("hidden");
+      return;
+    }
+    const text = (card.dataset.questionText || "").trim();
+    if (!text) {
+      questionReveal.textContent = "";
+      questionReveal.classList.add("hidden");
+      return;
+    }
+    questionReveal.textContent = text;
+    questionReveal.classList.remove("hidden");
+  }
+
+  function resetStimulusUi(card) {
+    const questionReveal = card.querySelector("[data-question-reveal]");
+    const fallbackEl = card.querySelector("[data-fallback-text]");
+    if (questionReveal) {
+      questionReveal.textContent = "";
+      questionReveal.classList.add("hidden");
+    }
+    if (fallbackEl) {
+      fallbackEl.textContent = "";
+      fallbackEl.classList.add("hidden");
+    }
+  }
+
   function setupStimulus(card) {
     const taskType = card.dataset.taskType;
     const state = cardState.get(card.dataset.partId) || {};
+    resetStimulusUi(card);
 
     if (AUDIO_PROMPT_TYPES.has(taskType)) {
       const noteEl = card.querySelector("[data-audio-note]");
       const fallbackEl = card.querySelector("[data-fallback-text]");
-      const questionReveal = card.querySelector("[data-question-reveal]");
       const recordBtn = card.querySelector(".btn-record");
       const replayBtn = card.querySelector(".btn-replay");
       const PLAY_LABEL = "🔊 問題を聞いて録音";
@@ -187,10 +220,14 @@
           recordBtn.disabled = true;
           recordBtn.textContent = "🔊 再生中...";
         }
+        // 再生中は問題文を隠す（再再生時も含む）
+        resetStimulusUi(card);
+        if (noteEl) noteEl.classList.remove("hidden");
+
         const spoke = playPrompt(card, () => {
           state.stimulusReadyAt = Date.now();
           cardState.set(card.dataset.partId, state);
-          if (questionReveal) questionReveal.classList.remove("hidden");
+          revealAfterAudio(card, taskType);
           if (recordBtn && card.dataset.status === "not_started") {
             recordBtn.disabled = false;
             recordBtn.textContent = PLAY_LABEL;
@@ -198,13 +235,17 @@
           if (onSpoken) onSpoken();
         });
         if (!spoke) {
+          // 音声不可時のみフォールバック表示（聞き取り課題の代替）
           const text = card.dataset.promptText || card.dataset.questionText || "";
-          if (fallbackEl) {
+          if (fallbackEl && text) {
             fallbackEl.textContent = text;
             fallbackEl.classList.remove("hidden");
           }
-          if (noteEl) noteEl.textContent = "🔊 音声再生に対応していないため、文章を表示しました。";
-          if (questionReveal) questionReveal.classList.remove("hidden");
+          if (noteEl) {
+            noteEl.textContent = "🔊 音声再生に対応していないため、文章を表示しました。";
+            noteEl.classList.remove("hidden");
+          }
+          revealAfterAudio(card, taskType);
           state.stimulusReadyAt = Date.now();
           cardState.set(card.dataset.partId, state);
           if (recordBtn) {
@@ -214,7 +255,11 @@
         }
       };
 
-      replayBtn?.addEventListener("click", () => playStimulus());
+      // 二重登録防止
+      if (replayBtn && !replayBtn.dataset.bound) {
+        replayBtn.dataset.bound = "1";
+        replayBtn.addEventListener("click", () => playStimulus());
+      }
       card._playAndRecord = () => playStimulus(() => handleRecordClick(card));
       if (noteEl) {
         noteEl.textContent = taskType === "B"

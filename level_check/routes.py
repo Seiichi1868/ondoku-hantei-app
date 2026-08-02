@@ -19,6 +19,7 @@ from level_check.config import (
     AUDIO_DIR,
     BACKGROUND_IMAGE_STATIC_PATH,
     CATEGORIES,
+    CATEGORY_LABELS,
     DEFAULT_TIME_LIMIT_SEC,
     MAX_AUDIO_BYTES,
     PROMPT_AUDIO_DIR,
@@ -317,6 +318,7 @@ def results_screen(session_id):
         "level_check/results.html",
         session=session,
         task_definitions=TASK_DEFINITIONS,
+        category_labels=CATEGORY_LABELS,
         background_opacity=settings.get("background_opacity"),
         background_image=BACKGROUND_IMAGE_STATIC_PATH,
     )

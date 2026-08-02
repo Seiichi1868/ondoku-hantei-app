@@ -138,6 +138,31 @@ body {
   margin-top: 0.1rem;
 }
 
+.score-scale-ref {
+  max-height: 28rem;
+  object-fit: contain;
+  object-position: top center;
+}
+
+.start-prep {
+  padding: 0.85rem 0.15rem 0.15rem;
+}
+.start-prep-track {
+  height: 0.7rem;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.22);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+.start-prep-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #38bdf8 0%, #0284c7 55%, #0369a1 100%);
+  transition: width 0.12s linear;
+  box-shadow: 0 0 12px rgba(2, 132, 199, 0.35);
+}
+
 .admin-tab-btn {
   font-size: 0.75rem;
   font-weight: 700;

@@ -1,4 +1,4 @@
-"""採点ルーブリック（スピーキング5軸／リスニング2軸）と Speaking Level Score（0〜90）・CEFR帯変換。
+"""採点ルーブリック（スピーキング5軸／リスニング2軸）と Speaking Level Score（10〜90）・CEFR帯変換。
 
 重みはここがデフォルト値。実際に使う重みは管理画面設定
 （level_check_settings.json）に保存された値を優先し、コード変更なしで調整できる。
@@ -67,17 +67,25 @@ LATENCY_THRESHOLDS_MS = {
 }
 LATENCY_MIN_SCORE = 1
 
-# Speaking Level Score（0〜90）→ CEFR 帯
+# Speaking Level Score（10〜90）→ CEFR 帯（参考スケールチャート準拠）
 CEFR_BAND_THRESHOLDS_90 = (
-    (81, "C2"),
-    (72, "C1"),
+    (85, "C2"),
+    (76, "C1"),
+    (67, "B2+"),
     (59, "B2"),
-    (47, "B1"),
-    (32, "A2"),
+    (51, "B1+"),
+    (43, "B1"),
+    (36, "A2+"),
+    (30, "A2"),
+    (22, "A1"),
 )
-CEFR_FLOOR_BAND = "A1"
-CEFR_BANDS = ("A1", "A2", "B1", "B2", "C1", "C2")
+CEFR_FLOOR_BAND = "A1>"
+CEFR_BANDS = ("A1>", "A1", "A2", "A2+", "B1", "B1+", "B2", "B2+", "C1", "C2")
 
+# パート単位で CEFR 帯を出すカテゴリ（スピーキング産出系のみ）
+CEFR_PART_CATEGORIES = frozenset({"E", "F"})
+
+SCORE_SCALE_MIN = 10
 SCORE_SCALE_MAX = 90
 
 
@@ -167,11 +175,17 @@ def listening_weighted_total(scores: dict, weights: dict | None = None) -> float
 
 
 def score_1to5_to_90(score_1to5: float | None) -> int | None:
-    """1〜5点の加重平均を Speaking Level Score（0〜90）へ変換する。"""
+    """1〜5点の加重平均を Speaking Level Score（10〜90）へ変換する。
+
+    参考スケールに合わせ、1点→10（観光客）、3点→50（B1）、5点→90（C2）となるよう
+    線形写像する。
+    """
     if score_1to5 is None:
         return None
     clamped = max(0.0, min(5.0, float(score_1to5)))
-    return round(clamped / 5.0 * SCORE_SCALE_MAX)
+    span = SCORE_SCALE_MAX - SCORE_SCALE_MIN
+    mapped = SCORE_SCALE_MIN + (clamped - 1.0) * (span / 4.0)
+    return round(max(SCORE_SCALE_MIN, min(SCORE_SCALE_MAX, mapped)))
 
 
 def band_for_score_90(score_90: float | None) -> str | None:
@@ -186,6 +200,15 @@ def band_for_score_90(score_90: float | None) -> str | None:
 def band_for_score(score_1to5: float) -> str:
     """1〜5点から CEFR 帯を返す（パート単位の目安表示用）。"""
     return band_for_score_90(score_1to5_to_90(score_1to5)) or CEFR_FLOOR_BAND
+
+
+def cefr_band_for_part(category: str, score_1to5: float | None) -> str | None:
+    """E/F のみ CEFR 帯を返す。それ以外は None。"""
+    if str(category or "").upper() not in CEFR_PART_CATEGORIES:
+        return None
+    if score_1to5 is None:
+        return None
+    return band_for_score(score_1to5)
 
 
 def combine_overall_score(

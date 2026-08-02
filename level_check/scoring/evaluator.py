@@ -12,7 +12,7 @@ from level_check.scoring.rubric import (
     DEFAULT_SPEAKING_RUBRIC,
     LISTENING_AXES,
     SPEAKING_AXES,
-    band_for_score,
+    cefr_band_for_part,
     latency_score,
     listening_weighted_total,
     score_1to5_to_90,
@@ -223,7 +223,8 @@ def evaluate_response(
 
     elapsed = time.monotonic() - started
     score_90 = score_1to5_to_90(total)
-    band = band_for_score(total)
+    # CEFR は E（要約リテリング）・F（自由回答）のみ妥当。他カテゴリは付けない。
+    band = cefr_band_for_part(category, total)
 
     return {
         "scores": scores,
