@@ -9,6 +9,7 @@ from flask import Blueprint, jsonify, render_template, request, send_file
 
 from level_check.config import (
     AI_MODEL_MODES,
+    BACKGROUND_IMAGE_STATIC_PATH,
     INFO_LEVEL_LABELS,
     INFO_LEVELS,
     ADMIN_PASSWORD,
@@ -69,14 +70,17 @@ def _settings_payload() -> dict:
 @admin_bp.route("/")
 def admin_page():
     bank = load_questions()
+    settings = load_settings()
     return render_template(
         "level_check/admin/index.html",
-        settings=load_settings(),
+        settings=settings,
         ai_model_modes=AI_MODEL_MODES,
         info_levels=INFO_LEVELS,
         info_level_labels=INFO_LEVEL_LABELS,
         task_definitions=TASK_DEFINITIONS,
         question_bank=bank,
+        background_opacity=settings.get("background_opacity"),
+        background_image=BACKGROUND_IMAGE_STATIC_PATH,
     )
 
 
@@ -97,6 +101,8 @@ def save_settings_api():
         updates["student_info_level"] = payload.get("student_info_level")
     if "questions_per_task" in payload:
         updates["questions_per_task"] = payload.get("questions_per_task")
+    if "background_opacity" in payload:
+        updates["background_opacity"] = payload.get("background_opacity")
     if "ai_model_mode" in payload:
         err = _require_model_change_password(payload)
         if err:
@@ -265,7 +271,8 @@ def export_submissions():
         "クラス",
         "番号",
         "氏名",
-        "総合CEFR評価",
+        "総合スコア(100点満点)",
+        "総合CEFR目安",
         "総合加重スコア",
         "リピート課題スコア",
         "文再構成課題スコア",
@@ -291,6 +298,7 @@ def export_submissions():
                 student_info.get("class_name", ""),
                 student_info.get("number", ""),
                 student_info.get("name", ""),
+                overall.get("score_100", ""),
                 overall.get("cefr_band", ""),
                 overall.get("weighted_total", ""),
                 _task_type_average(task_results, "repeat"),
@@ -306,7 +314,7 @@ def export_submissions():
             ]
         )
 
-    col_widths = [20, 10, 12, 8, 12, 10, 10, 10, 10, 10, 8, 10, 10, 8, 10, 12, 12]
+    col_widths = [20, 10, 12, 8, 12, 12, 10, 10, 10, 10, 10, 8, 10, 10, 8, 10, 12, 12]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
 

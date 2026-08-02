@@ -10,56 +10,54 @@
 {% endblock %}
 
 {% block body %}
-<div class="grid gap-4 md:grid-cols-2 items-start">
-  <div class="lc-card rounded-2xl p-5 md:p-6">
-    <h2 class="text-lg font-bold text-slate-800 mb-1.5">スピーキング瞬発力・運用力レベルチェック</h2>
-    <p class="text-xs text-slate-500 leading-relaxed mb-3">
-      3種類のタスクに取り組み、流暢さ・発音・文法・語彙・応答速度の5観点からCEFR帯（A1〜C2）を判定します。
-      マイクを使用しますので、録音の許可をお願いします。
-    </p>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-      {% for task_id, task in task_definitions.items() %}
-      <div class="lc-panel rounded-xl px-3 py-2.5">
-        <p class="text-xs font-bold text-slate-700">{{ task.label }}</p>
-        <p class="text-[0.7rem] text-slate-500 mt-0.5 leading-snug">{{ task.instruction }}</p>
-      </div>
-      {% endfor %}
+<div class="lc-card rounded-2xl p-6 md:p-8 mb-5">
+  <h2 class="text-xl font-bold text-slate-800 mb-2">スピーキング瞬発力・運用力レベルチェック</h2>
+  <p class="text-sm text-slate-500 leading-relaxed">
+    3種類のタスク（リピート・文再構成・Q&A）に取り組み、流暢さ・発音・文法・語彙・応答速度の5つの観点から
+    CEFR帯（A1〜C2）でレベルを判定します。マイクを使用しますので、録音の許可をお願いします。
+  </p>
+  <div class="grid gap-2 mt-4">
+    {% for task_id, task in task_definitions.items() %}
+    <div class="lc-panel rounded-xl px-4 py-3">
+      <p class="text-sm font-bold text-slate-700">{{ task.label }}</p>
+      <p class="text-xs text-slate-500 mt-0.5">{{ task.instruction }}</p>
     </div>
+    {% endfor %}
   </div>
+</div>
 
-  <div class="lc-card rounded-2xl p-5 md:p-6">
-    <form id="start-form" class="space-y-3">
-      {% if info_level != 'none' %}
-      <div class="grid {{ 'grid-cols-3' if info_level == 'full' else 'grid-cols-2' }} gap-2.5">
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">クラス</label>
-          <input type="text" name="class_name" required
-            class="w-full rounded-lg border border-sky-100 bg-white/80 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">番号</label>
-          <input type="text" name="number" required
-            class="w-full rounded-lg border border-sky-100 bg-white/80 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
-        </div>
-        {% if info_level == 'full' %}
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">氏名</label>
-          <input type="text" name="name" required
-            class="w-full rounded-lg border border-sky-100 bg-white/80 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
-        </div>
-        {% endif %}
+<div class="lc-card rounded-2xl p-6 md:p-8">
+  <form id="start-form" class="space-y-4">
+    {% if info_level != 'none' %}
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">クラス</label>
+        <input type="text" name="class_name" required
+          class="w-full rounded-lg border border-sky-100 bg-white/80 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
       </div>
-      {% endif %}
-      {% if info_level == 'none' %}
-      <p class="text-xs text-slate-400">氏名・クラス・番号の入力は不要です。そのまま開始してください。</p>
-      {% endif %}
-      <div id="start-error" class="hidden text-sm text-rose-600 font-medium"></div>
-      <button type="submit" id="start-btn"
-        class="w-full px-5 py-3 rounded-xl bg-brand text-white text-sm font-bold shadow hover:bg-brand-dark transition-colors">
-        テストを開始する
-      </button>
-    </form>
-  </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">番号</label>
+        <input type="text" name="number" required
+          class="w-full rounded-lg border border-sky-100 bg-white/80 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+      </div>
+    </div>
+    {% endif %}
+    {% if info_level == 'full' %}
+    <div>
+      <label class="block text-xs font-semibold text-slate-500 mb-1">氏名</label>
+      <input type="text" name="name" required
+        class="w-full rounded-lg border border-sky-100 bg-white/80 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+    </div>
+    {% endif %}
+    {% if info_level == 'none' %}
+    <p class="text-xs text-slate-400">氏名・クラス・番号の入力は不要です。そのまま開始してください。</p>
+    {% endif %}
+    <div id="start-error" class="hidden text-sm text-rose-600 font-medium"></div>
+    <button type="submit" id="start-btn"
+      class="w-full px-5 py-3 rounded-xl bg-brand text-white text-sm font-bold shadow hover:bg-brand-dark transition-colors">
+      テストを開始する
+    </button>
+  </form>
 </div>
 {% endblock %}
 

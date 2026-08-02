@@ -94,6 +94,12 @@
 
     document.getElementById("questions-per-task").value = settingsCache.questions_per_task;
 
+    const bgOpacitySlider = document.getElementById("bg-opacity-slider");
+    const bgOpacityValue = document.getElementById("bg-opacity-value");
+    const bgOpacityPct = Math.round((settingsCache.background_opacity ?? 0.35) * 100);
+    if (bgOpacitySlider) bgOpacitySlider.value = String(bgOpacityPct);
+    if (bgOpacityValue) bgOpacityValue.textContent = `${bgOpacityPct}%`;
+
     const weightsContainer = document.getElementById("rubric-weights");
     weightsContainer.innerHTML = "";
     RUBRIC_AXES.forEach((axis) => {
@@ -116,9 +122,19 @@
     });
   }
 
+  // 背景画像の透過率スライダー: ドラッグ中は即座にプレビューを反映する
+  document.getElementById("bg-opacity-slider")?.addEventListener("input", (e) => {
+    const pct = Number(e.target.value);
+    const valueEl = document.getElementById("bg-opacity-value");
+    if (valueEl) valueEl.textContent = `${pct}%`;
+    const layer = document.getElementById("lc-bg-image-layer");
+    if (layer) layer.style.opacity = String(pct / 100);
+  });
+
   document.getElementById("save-settings-btn")?.addEventListener("click", async () => {
     const infoLevel = document.querySelector('input[name="student_info_level"]:checked')?.value;
     const questionsPerTask = document.getElementById("questions-per-task").value;
+    const bgOpacityPct = document.getElementById("bg-opacity-slider")?.value;
     const rubricWeights = {};
     document.querySelectorAll("#rubric-weights .rubric-weight-slider").forEach((slider) => {
       rubricWeights[slider.dataset.axis] = Number(slider.value) / 100;
@@ -130,6 +146,7 @@
         body: JSON.stringify({
           student_info_level: infoLevel,
           questions_per_task: questionsPerTask,
+          background_opacity: bgOpacityPct !== undefined ? Number(bgOpacityPct) / 100 : undefined,
           rubric_weights: rubricWeights,
         }),
       });
@@ -373,7 +390,7 @@
       row.innerHTML = `
         <div>
           <p class="text-sm font-semibold text-slate-700">${infoText}</p>
-          <p class="text-xs text-slate-400">${s.submitted_at || ""} ・ CEFR: <strong>${overall.cefr_band || "—"}</strong> (${overall.weighted_total ?? "—"})</p>
+          <p class="text-xs text-slate-400">${s.submitted_at || ""} ・ 総合スコア: <strong>${overall.score_100 ?? "—"}/100</strong>（CEFR目安: ${overall.cefr_band || "—"}）</p>
         </div>
         <button type="button" class="text-xs px-2.5 py-1 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50">削除</button>
       `;

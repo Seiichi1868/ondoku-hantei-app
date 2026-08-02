@@ -185,6 +185,7 @@
       setTimeout(() => {
         let started = false;
         let finished = false;
+        let retried = false;
         const done = () => {
           if (finished) return;
           finished = true;
@@ -213,23 +214,33 @@
           return utter;
         };
 
+        // Chrome では voice 指定時に onstart が発火せず、実際には再生できているのに
+        // 「失敗」と誤判定してしまうことがある。その状態で再試行すると、既に再生中の
+        // 音声（正常）と再試行分（既定の声＝かすれた声）が同時に流れてしまうため、
+        // onstart 以外に onboundary（発話の区切りイベント）も開始判定の材料にし、
+        // speechSynthesis.speaking で実際に再生中でないことを確認してからのみ再試行する。
+        const markStarted = () => { started = true; clearTimeout(failTimer); };
+
         const utter = makeUtterance(true);
-        utter.onstart = () => { started = true; clearTimeout(failTimer); };
+        utter.onstart = markStarted;
+        utter.onboundary = markStarted;
         utter.onend = () => { clearTimeout(failTimer); done(); };
         utter.onerror = () => { clearTimeout(failTimer); done(); };
         window.speechSynthesis.speak(utter);
 
-        // Chrome では voice 指定時に発話が始まらないことがあるため、既定の声で再試行する
+        // 既定の声での再試行は、未開始と判定でき、かつ実際に発話中でもない場合のみ行う
+        // （二重判定にすることで、かすれた声が正常再生に重ねて流れる事故を防ぐ）。
         setTimeout(() => {
-          if (!started) {
-            window.speechSynthesis.cancel();
-            const utter2 = makeUtterance(false);
-            utter2.onstart = () => { started = true; clearTimeout(failTimer); };
-            utter2.onend = () => { clearTimeout(failTimer); done(); };
-            utter2.onerror = () => { clearTimeout(failTimer); done(); };
-            window.speechSynthesis.speak(utter2);
-          }
-        }, 400);
+          if (retried || started || window.speechSynthesis.speaking) return;
+          retried = true;
+          window.speechSynthesis.cancel();
+          const utter2 = makeUtterance(false);
+          utter2.onstart = markStarted;
+          utter2.onboundary = markStarted;
+          utter2.onend = () => { clearTimeout(failTimer); done(); };
+          utter2.onerror = () => { clearTimeout(failTimer); done(); };
+          window.speechSynthesis.speak(utter2);
+        }, 700);
       }, 80);
     });
 
@@ -246,8 +257,13 @@
       const noteEl = card.querySelector("[data-repeat-hidden-note]");
       const recordBtn = card.querySelector(".btn-record");
       const replayBtn = card.querySelector(".btn-replay");
+      const PLAY_LABEL = "🔊 問題を聞いて録音";
 
-      const playStimulus = () => {
+      if (recordBtn) recordBtn.textContent = PLAY_LABEL;
+
+      // リピート課題では「問題を聞いて録音」ボタンを押すと音声が流れ、
+      // 音声が終わると同時に録音を自動で開始する（再生と録音開始を1操作に統合）。
+      const playStimulus = (onSpoken) => {
         if (recordBtn) {
           recordBtn.disabled = true;
           recordBtn.textContent = "🔊 再生中...";
@@ -257,8 +273,9 @@
           cardState.set(card.dataset.partId, state);
           if (recordBtn && card.dataset.status === "not_started") {
             recordBtn.disabled = false;
-            recordBtn.textContent = "● 録音開始";
+            recordBtn.textContent = PLAY_LABEL;
           }
+          if (onSpoken) onSpoken();
         });
         if (!spoke) {
           // 音声合成非対応ブラウザ: フォールバックとして文章を表示する
@@ -266,11 +283,18 @@
           if (noteEl) noteEl.textContent = "🔊 音声再生に対応していないため、文章を表示しました。読んでそのまま復唱してください。";
           state.stimulusReadyAt = Date.now();
           cardState.set(card.dataset.partId, state);
+          if (recordBtn) {
+            recordBtn.disabled = false;
+            recordBtn.textContent = "● 録音開始";
+          }
+          // 音声が再生できない場合は自動録音は開始せず、文章を読んでから手動で録音開始してもらう。
         }
       };
 
-      replayBtn?.addEventListener("click", playStimulus);
-      playStimulus();
+      replayBtn?.addEventListener("click", () => playStimulus());
+      // 録音開始ボタンは押された瞬間に再生し、再生完了と同時に録音を開始する。
+      card._repeatPlayAndRecord = () => playStimulus(() => handleRecordClick(card));
+      if (noteEl) noteEl.textContent = "🔊「問題を聞いて録音」を押すと音声が流れます。音声が終わると同時に自動で録音が始まります。";
     } else if (taskType === "sentence_build") {
       const words = JSON.parse(card.dataset.shuffledWords || "[]");
       const container = card.querySelector("[data-word-chips]");
@@ -575,7 +599,13 @@
 
   cards.forEach((card) => {
     cardState.set(card.dataset.partId, {});
-    card.querySelector(".btn-record")?.addEventListener("click", () => handleRecordClick(card));
+    card.querySelector(".btn-record")?.addEventListener("click", () => {
+      if (card.dataset.taskType === "repeat" && typeof card._repeatPlayAndRecord === "function") {
+        card._repeatPlayAndRecord();
+      } else {
+        handleRecordClick(card);
+      }
+    });
     card.querySelector(".btn-stop")?.addEventListener("click", () => handleStopClick(card));
     card.querySelector(".btn-retry")?.addEventListener("click", () => handleRetryClick(card));
 

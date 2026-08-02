@@ -42,16 +42,31 @@ def _finalize_session_if_complete(session: dict) -> None:
     if not parts or any(p.get("status") not in ("done", "error") for p in parts):
         return
 
-    from level_check.scoring.rubric import band_for_score
+    from level_check.scoring.rubric import band_for_score, overall_score_from_task_averages, score_to_100
 
     scored_parts = [p for p in parts if p.get("weighted_total") is not None]
     overall_total = None
     overall_band = None
+    overall_score_100 = None
     if scored_parts:
-        overall_total = round(sum(p["weighted_total"] for p in scored_parts) / len(scored_parts), 2)
-        overall_band = band_for_score(overall_total)
+        # タスク種別ごとにまず平均を取り、短時間Q&A課題の比重を高くして総合スコアを算出する
+        # （出題数がタスク種別ごとに異なっても、単純な全パート平均のように比重が偏らないようにする）。
+        task_type_values: dict[str, list[float]] = {}
+        for p in scored_parts:
+            task_type_values.setdefault(p.get("task_type"), []).append(p["weighted_total"])
+        task_averages = {
+            task_type: round(sum(values) / len(values), 2) for task_type, values in task_type_values.items()
+        }
+        overall_total = overall_score_from_task_averages(task_averages)
+        if overall_total is not None:
+            overall_band = band_for_score(overall_total)
+            overall_score_100 = score_to_100(overall_total)
 
-    session["overall"] = {"weighted_total": overall_total, "cefr_band": overall_band}
+    session["overall"] = {
+        "weighted_total": overall_total,
+        "cefr_band": overall_band,
+        "score_100": overall_score_100,
+    }
     session["status"] = "done"
     save_session(session)
 

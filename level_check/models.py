@@ -54,5 +54,5 @@ def new_session(*, info_level: str, student_info: dict, ai_model_mode: str, part
         "ai_model_mode": ai_model_mode,
         "parts": parts,
         "status": "in_progress",
-        "overall": {"weighted_total": None, "cefr_band": None},
+        "overall": {"weighted_total": None, "cefr_band": None, "score_100": None},
     }

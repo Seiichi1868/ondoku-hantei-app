@@ -57,6 +57,15 @@ CEFR_BAND_THRESHOLDS = (
 CEFR_FLOOR_BAND = "A1"
 CEFR_BANDS = ("A1", "A2", "B1", "B2", "C1", "C2")
 
+# 総合評価（Versant方式の100点満点スコア）を出す際の、タスク種別ごとの比重。
+# 「短時間Q&A課題」は自由発話でより総合的な運用力を反映するため比重を高くし、
+# リピート課題・文再構成課題は互いに均等（かつQ&Aより低い比重）にする。
+OVERALL_TASK_WEIGHTS = {
+    "repeat": 0.25,
+    "sentence_build": 0.25,
+    "qa": 0.5,
+}
+
 
 def normalize_rubric_weights(raw: dict | None) -> dict:
     """weight のみを取り出し合計1.0になるよう正規化する。不正値はデフォルトへ。"""
@@ -104,3 +113,24 @@ def band_for_score(score: float) -> str:
         if score >= threshold:
             return band
     return CEFR_FLOOR_BAND
+
+
+def score_to_100(score_1to5: float) -> int:
+    """5点満点スコアを Versant 方式に倣った100点満点スコアへ変換する。"""
+    clamped = max(0.0, min(5.0, score_1to5))
+    return round(clamped / 5 * 100)
+
+
+def overall_score_from_task_averages(task_averages: dict) -> float | None:
+    """タスク種別ごとの平均（1〜5）から、Q&Aの比重を高くした総合スコア（1〜5）を計算する。"""
+    weighted_sum = 0.0
+    weight_used = 0.0
+    for task_type, avg in task_averages.items():
+        if avg is None:
+            continue
+        weight = OVERALL_TASK_WEIGHTS.get(task_type, 1.0)
+        weighted_sum += avg * weight
+        weight_used += weight
+    if weight_used <= 0:
+        return None
+    return round(weighted_sum / weight_used, 2)

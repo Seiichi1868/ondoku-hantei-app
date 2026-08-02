@@ -18,6 +18,7 @@ from werkzeug.utils import secure_filename
 from level_check.config import (
     ALLOWED_AUDIO_EXTENSIONS,
     AUDIO_DIR,
+    BACKGROUND_IMAGE_STATIC_PATH,
     MAX_AUDIO_BYTES,
     QA_DEFAULT_TIME_LIMIT_SEC,
     ensure_dirs,
@@ -113,6 +114,8 @@ def index():
         "level_check/index.html",
         info_level=info_level,
         task_definitions=TASK_DEFINITIONS,
+        background_opacity=settings.get("background_opacity"),
+        background_image=BACKGROUND_IMAGE_STATIC_PATH,
     )
 
 
@@ -155,11 +158,14 @@ def progress_screen(session_id):
     session = load_session(session_id)
     if not session:
         return render_template("level_check/not_found.html"), 404
+    settings = load_settings()
     return render_template(
         "level_check/progress.html",
         session=session,
         task_definitions=TASK_DEFINITIONS,
         qa_default_time_limit=QA_DEFAULT_TIME_LIMIT_SEC,
+        background_opacity=settings.get("background_opacity"),
+        background_image=BACKGROUND_IMAGE_STATIC_PATH,
     )
 
 
@@ -257,7 +263,7 @@ def retry_part(session_id, part_id):
         )
         if session.get("status") == "done":
             session["status"] = "in_progress"
-            session["overall"] = {"weighted_total": None, "cefr_band": None}
+            session["overall"] = {"weighted_total": None, "cefr_band": None, "score_100": None}
         save_session(session)
         return jsonify({"ok": True, "part": part})
 
@@ -267,10 +273,13 @@ def results_screen(session_id):
     session = load_session(session_id)
     if not session:
         return render_template("level_check/not_found.html"), 404
+    settings = load_settings()
     return render_template(
         "level_check/results.html",
         session=session,
         task_definitions=TASK_DEFINITIONS,
+        background_opacity=settings.get("background_opacity"),
+        background_image=BACKGROUND_IMAGE_STATIC_PATH,
     )
 
 

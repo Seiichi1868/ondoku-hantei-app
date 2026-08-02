@@ -67,6 +67,11 @@ DEFAULT_AI_MODEL_MODE = "luna"
 
 DEFAULT_QUESTIONS_PER_TASK = 3
 
+# ── 背景画像（news/ の自然画像を共有 static 経由でそのまま利用） ──────
+# Flask アプリ本体の static フォルダ（プロジェクトルート static/）配下のパス。
+BACKGROUND_IMAGE_STATIC_PATH = "news/images/nature-bg.jpg"
+DEFAULT_BACKGROUND_OPACITY = 0.35
+
 
 def resolve_ai_model_mode(mode: str | None = None) -> str:
     if mode in AI_MODEL_MODES:

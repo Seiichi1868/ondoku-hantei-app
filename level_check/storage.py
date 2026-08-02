@@ -19,6 +19,7 @@ import openpyxl
 from level_check.config import (
     AUDIO_DIR,
     DEFAULT_AI_MODEL_MODE,
+    DEFAULT_BACKGROUND_OPACITY,
     DEFAULT_INFO_LEVEL,
     DEFAULT_QUESTIONS_PER_TASK,
     QUESTIONS_FILE,
@@ -68,6 +69,7 @@ DEFAULT_SETTINGS = {
     "ai_model_mode": DEFAULT_AI_MODEL_MODE,
     "student_info_level": DEFAULT_INFO_LEVEL,
     "questions_per_task": DEFAULT_QUESTIONS_PER_TASK,
+    "background_opacity": DEFAULT_BACKGROUND_OPACITY,
 }
 
 
@@ -83,6 +85,11 @@ def _normalize_settings(raw: dict | None) -> dict:
     except (TypeError, ValueError):
         count = DEFAULT_QUESTIONS_PER_TASK
     data["questions_per_task"] = max(1, min(15, count))
+    try:
+        opacity = float(raw.get("background_opacity", DEFAULT_BACKGROUND_OPACITY))
+    except (TypeError, ValueError):
+        opacity = DEFAULT_BACKGROUND_OPACITY
+    data["background_opacity"] = round(max(0.0, min(1.0, opacity)), 2)
     return data
 
 

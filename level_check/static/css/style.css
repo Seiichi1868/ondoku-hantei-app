@@ -3,7 +3,14 @@ body {
 }
 
 .lc-page-bg {
-  background: linear-gradient(160deg, #e0f2fe 0%, #f8fafc 45%, #ecfeff 100%);
+  /* 背景の自然画像の上に重ねる半透明のスカイブルーの雰囲気づけレイヤー
+     （画像自体の不透明度は管理画面のスライダーで別途調整できる）。 */
+  background: linear-gradient(
+    160deg,
+    rgba(224, 242, 254, 0.8) 0%,
+    rgba(248, 250, 252, 0.62) 45%,
+    rgba(236, 254, 255, 0.78) 100%
+  );
 }
 
 .lc-glass-header {
@@ -105,6 +112,30 @@ body {
   font-size: 1.5rem;
   font-weight: 800;
   box-shadow: 0 10px 30px rgba(2, 132, 199, 0.35);
+}
+
+.versant-score-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  color: white;
+  box-shadow: 0 10px 30px rgba(2, 132, 199, 0.35);
+}
+.versant-score-badge .versant-score-value {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.versant-score-badge .versant-score-max {
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 0.1rem;
 }
 
 .admin-tab-btn {
