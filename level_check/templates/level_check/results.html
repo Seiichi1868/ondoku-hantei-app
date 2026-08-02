@@ -1,0 +1,54 @@
+{% extends "level_check/base.html" %}
+
+{% block title %}結果 | Speaking Level Check Test{% endblock %}
+
+{% block body %}
+{% if session.status != 'done' %}
+<div class="lc-card rounded-2xl p-8 text-center">
+  <p class="text-2xl mb-2">⏳</p>
+  <h2 class="font-bold text-slate-800 mb-2">採点中です…</h2>
+  <p class="text-sm text-slate-500 mb-4">しばらくしてから再読み込みしてください。</p>
+  <a href="{{ url_for('level_check.progress_screen', session_id=session.session_id) }}"
+    class="inline-block px-5 py-2.5 rounded-xl border border-indigo-200 text-brand-dark text-sm font-bold hover:bg-indigo-50 transition-colors">
+    進行画面に戻る
+  </a>
+</div>
+{% else %}
+<section class="lc-card rounded-2xl p-6 md:p-8 mb-5 text-center">
+  <p class="text-xs font-semibold text-brand uppercase tracking-wide mb-1">総合評価</p>
+  <div class="cefr-badge mx-auto mt-2 mb-3">{{ session.overall.cefr_band or '—' }}</div>
+  <p class="text-sm text-slate-500">加重平均スコア: {{ session.overall.weighted_total or '—' }} / 5.0</p>
+</section>
+
+<div class="space-y-4">
+  {% for part in session.parts %}
+  <article class="lc-card rounded-2xl p-5">
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">{{ task_definitions[part.task_type].label }}</span>
+      {% if part.cefr_band %}
+      <span class="status-pill" style="background:#eef2ff;color:#4338ca;">{{ part.cefr_band }}</span>
+      {% else %}
+      <span class="status-pill status-error">未採点</span>
+      {% endif %}
+    </div>
+    <p class="text-sm text-slate-700 mb-2">{{ part.question_text }}</p>
+    {% if part.transcript %}
+    <p class="text-xs text-slate-400 mb-2">認識結果: 「{{ part.transcript }}」</p>
+    {% endif %}
+    {% if part.scores %}
+    <div class="grid grid-cols-5 gap-2 text-center">
+      {% for axis in ['fluency', 'pronunciation', 'accuracy', 'vocabulary', 'response_latency'] %}
+      <div>
+        <div class="text-[0.65rem] text-slate-400">{{ axis }}</div>
+        <div class="text-sm font-bold text-slate-700">{{ part.scores.get(axis, '—') }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% elif part.transcript_error %}
+    <p class="text-xs text-rose-500">{{ part.transcript_error }}</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

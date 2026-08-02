@@ -45,6 +45,7 @@ def create_app(config_class=Config):
     from news_app import create_news_blueprints
     from gtec_app import gtec_admin_bp, gtec_bp
     from debate import debate_admin_bp, debate_bp
+    from level_check import create_level_check_blueprints
 
     app.register_blueprint(main_bp)
     app.register_blueprint(gtec_bp)
@@ -55,6 +56,10 @@ def create_app(config_class=Config):
     news_bps = create_news_blueprints()
     app.register_blueprint(news_bps["main"], url_prefix="/news")
     app.register_blueprint(news_bps["admin"], url_prefix="/news/admin")
+
+    level_check_bps = create_level_check_blueprints()
+    app.register_blueprint(level_check_bps["main"])
+    app.register_blueprint(level_check_bps["admin"])
     app.register_blueprint(gate_bp, url_prefix="/api")
     app.register_blueprint(grammar_bp, url_prefix="/api")
     app.register_blueprint(ocr_bp, url_prefix="/api")

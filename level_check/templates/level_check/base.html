@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Speaking Level Check Test{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('level_check.static', filename='css/style.css', v='20260802a') }}">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#4f46e5', dark: '#3730a3', light: '#818cf8' },
+          }
+        }
+      }
+    }
+  </script>
+  {% block head %}{% endblock %}
+</head>
+<body class="relative min-h-screen text-slate-800 antialiased lc-page-bg">
+  <header class="lc-glass-header sticky top-0 z-40">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="{{ url_for('level_check.index') }}" class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-brand flex items-center justify-center text-white text-lg font-bold shadow">S</div>
+        <div>
+          <h1 class="text-base font-bold text-brand-dark leading-tight">Speaking Level Check Test</h1>
+          <p class="text-xs text-slate-500">瞬発力・運用力レベルチェック</p>
+        </div>
+      </a>
+      <div class="flex items-center gap-2">
+        {% block header_actions %}{% endblock %}
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-6 pb-16">
+    {% block body %}{% endblock %}
+  </main>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

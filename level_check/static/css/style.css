@@ -1,0 +1,194 @@
+body {
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+
+.lc-page-bg {
+  background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 45%, #ecfeff 100%);
+}
+
+.lc-glass-header {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(199, 210, 254, 0.65);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset, 0 6px 18px rgba(79, 70, 229, 0.05);
+}
+
+.lc-card {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(199, 210, 254, 0.55);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 10px 40px rgba(79, 70, 229, 0.08);
+}
+
+.lc-panel {
+  border: 1px solid rgba(199, 210, 254, 0.45);
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.status-not_started { background: #f1f5f9; color: #64748b; }
+.status-recording { background: #fee2e2; color: #b91c1c; }
+.status-transcribing { background: #fef3c7; color: #92400e; }
+.status-scoring { background: #fef3c7; color: #92400e; }
+.status-done { background: #dcfce7; color: #166534; }
+.status-error { background: #fee2e2; color: #b91c1c; }
+
+.rec-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background: #ef4444;
+  animation: rec-pulse 1.2s infinite;
+}
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.timer-display {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.volume-meter {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.25);
+  overflow: hidden;
+}
+.volume-meter-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #818cf8, #f59e0b, #ef4444);
+  transition: width 0.08s linear;
+}
+
+.word-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.85rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(199, 210, 254, 0.7);
+  background: rgba(238, 242, 255, 0.8);
+  color: #3730a3;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.step-dot {
+  background: #e2e8f0;
+}
+
+.cefr-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #4f46e5, #818cf8);
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 800;
+  box-shadow: 0 10px 30px rgba(79, 70, 229, 0.35);
+}
+
+.admin-tab-btn {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(199, 210, 254, 0.5);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.admin-tab-btn:hover {
+  background: rgba(238, 242, 255, 0.9);
+}
+.admin-tab-btn.is-active {
+  background: #4f46e5;
+  color: white;
+  border-color: #4f46e5;
+}
+
+.roster-row, .question-row, .submission-row {
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(199, 210, 254, 0.45);
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+}
+
+.lc-input {
+  border: 1px solid rgb(224, 231, 255);
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.85);
+}
+.lc-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.35);
+}
+
+.lc-mode-option {
+  display: block;
+  padding: 0.6rem 0.7rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(199, 210, 254, 0.55);
+  background: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+  text-align: center;
+  transition: all 0.15s;
+}
+.lc-mode-option input {
+  display: none;
+}
+.lc-mode-option:has(input:checked) {
+  border-color: #4f46e5;
+  background: rgba(238, 242, 255, 0.9);
+  color: #3730a3;
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
+}
+
+.rubric-weight-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.rubric-weight-label {
+  flex: 0 0 8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+}
+.rubric-weight-slider {
+  flex: 1;
+  accent-color: #4f46e5;
+}
+.rubric-weight-value {
+  flex: 0 0 3rem;
+  text-align: right;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #4f46e5;
+}
