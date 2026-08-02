@@ -21,7 +21,7 @@
 <div id="mic-error-banner" class="hidden lc-card rounded-xl p-3 mb-3 border-rose-300 text-sm text-rose-700"></div>
 
 <div class="space-y-3" id="parts-list">
-  {% set current_task = None %}
+  {% set current_task = namespace %}
   {% for part in session.parts %}
   {% if part.task_type != current_task %}
     {% set current_task = part.task_type %}
@@ -34,12 +34,14 @@
     data-status="{{ part.status }}"
     data-time-limit="{{ part.time_limit_sec or 0 }}"
     data-question-text="{{ part.question_text }}"
+    data-prompt-text="{{ part.prompt_text }}"
     data-target-text="{{ part.target_text }}"
-    data-shuffled-words='{{ part.shuffled_words | tojson }}'
+    data-prompt-audio-url="{{ part.prompt_audio_url or '' }}"
+    data-has-timer="{{ 1 if part.time_limit_sec else 0 }}"
   >
     <div class="flex flex-wrap items-center justify-between gap-3">
       <span class="status-pill status-{{ part.status }}" data-status-pill>{{ part.status }}</span>
-      {% if part.task_type == 'qa' %}
+      {% if part.time_limit_sec %}
       <div class="flex items-center gap-2 shrink-0">
         <span class="text-xs text-slate-400">制限{{ part.time_limit_sec }}秒</span>
         <div class="timer-display text-lg font-bold text-slate-700" data-timer>--:--</div>
@@ -48,17 +50,17 @@
     </div>
 
     <div class="mt-2.5 flex flex-wrap items-center gap-2" data-stimulus-area>
-      {% if part.task_type == 'repeat' %}
-      <p class="text-sm text-slate-400" data-repeat-hidden-note>🔊「問題を聞いて録音」を押すと音声が流れます。音声が終わると同時に自動で録音が始まります。</p>
-      <p class="hidden text-base font-medium text-slate-700" data-repeat-text>{{ part.target_text }}</p>
+      {% if part.task_type in ['A', 'B', 'C', 'D', 'E'] %}
+      <p class="text-sm text-slate-400" data-audio-note>🔊「問題を聞いて録音」を押すと音声が流れます。音声が終わると録音できます。</p>
+      <p class="hidden text-base font-medium text-slate-700" data-fallback-text></p>
       <button type="button" class="btn-replay px-3 py-1.5 rounded-lg border border-sky-200 text-brand-dark text-xs font-semibold hover:bg-sky-50 transition-colors">
         🔁 もう一度再生
       </button>
-      {% elif part.task_type == 'sentence_build' %}
-      <p class="text-xs text-slate-500 w-full">正しい語順の文になるように声に出して言ってください。</p>
-      <div class="flex flex-wrap gap-2" data-word-chips></div>
-      {% elif part.task_type == 'qa' %}
-      <p class="text-base font-medium text-slate-700" data-qa-question>{{ part.question_text }}</p>
+      {% if part.task_type in ['C', 'D'] %}
+      <p class="hidden text-base font-medium text-slate-700 w-full mt-1" data-question-reveal>{{ part.question_text }}</p>
+      {% endif %}
+      {% elif part.task_type == 'F' %}
+      <p class="text-base font-medium text-slate-700" data-free-prompt>{{ part.question_text }}</p>
       {% endif %}
     </div>
 
@@ -73,7 +75,7 @@
 
     <div class="flex flex-wrap items-center gap-2 mt-3">
       <button type="button" class="btn-record px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold shadow hover:bg-brand-dark transition-colors">
-        {% if part.task_type == 'repeat' %}🔊 問題を聞いて録音{% else %}● 録音開始{% endif %}
+        {% if part.task_type in ['A', 'B', 'C', 'D', 'E'] %}🔊 問題を聞いて録音{% else %}● 録音開始{% endif %}
       </button>
       <button type="button" class="btn-stop hidden px-4 py-2 rounded-lg bg-rose-600 text-white text-sm font-semibold shadow hover:bg-rose-700 transition-colors">
         <span class="rec-dot inline-block mr-1 align-middle"></span>停止して送信
@@ -103,5 +105,5 @@
 <script>
   window.LEVEL_CHECK_SESSION_ID = {{ session.session_id | tojson }};
 </script>
-<script src="{{ url_for('level_check.static', filename='js/progress.js', v='20260802b') }}"></script>
+<script src="{{ url_for('level_check.static', filename='js/progress.js', v='20260802c') }}"></script>
 {% endblock %}

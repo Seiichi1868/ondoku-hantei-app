@@ -1,17 +1,23 @@
 """録音アップロード後のバックグラウンド処理（文字起こし→採点）。
 
 本番は gunicorn + gevent（monkey.patch_all）のため、通常の threading.Thread では
-OpenAI 呼び出しの同期 HTTP がワーカー全体を塞ぐ。gevent.threadpool（OS スレッド）で実行する
-（debate/transcription_jobs.py と同じ方式の独立実装）。
+OpenAI 呼び出しの同期 HTTP がワーカー全体を塞ぐ。gevent.threadpool（OS スレッド）で実行する。
 """
 import logging
 import threading
 from pathlib import Path
 
 from level_check.audio_convert import normalize_audio_file
-from level_check.config import resolve_ai_model_id
-from level_check.models import now_iso
+from level_check.config import CATEGORIES, LISTENING_CATEGORIES, SPEAKING_CATEGORIES, resolve_ai_model_id
+from level_check.models import empty_overall, now_iso
 from level_check.scoring.evaluator import evaluate_response
+from level_check.scoring.rubric import (
+    LISTENING_AXES,
+    SPEAKING_AXES,
+    band_for_score_90,
+    combine_overall_score,
+    score_1to5_to_90,
+)
 from level_check.storage import get_part, get_session_lock, load_session, load_settings, save_session, save_submission
 from level_check.transcription import transcribe_audio
 
@@ -37,36 +43,68 @@ def _get_pool():
         return _pool
 
 
+def _average(values: list[float]) -> float | None:
+    if not values:
+        return None
+    return round(sum(values) / len(values), 2)
+
+
+def _axis_averages(parts: list[dict], axes: tuple[str, ...]) -> dict:
+    result = {}
+    for axis in axes:
+        values = []
+        for part in parts:
+            scores = part.get("scores") or {}
+            if axis in scores and scores[axis] is not None:
+                try:
+                    values.append(float(scores[axis]))
+                except (TypeError, ValueError):
+                    pass
+        avg = _average(values)
+        if avg is not None:
+            result[axis] = avg
+    return result
+
+
 def _finalize_session_if_complete(session: dict) -> None:
     parts = session.get("parts", [])
     if not parts or any(p.get("status") not in ("done", "error") for p in parts):
         return
 
-    from level_check.scoring.rubric import band_for_score, overall_score_from_task_averages, score_to_100
-
+    settings = load_settings()
     scored_parts = [p for p in parts if p.get("weighted_total") is not None]
-    overall_total = None
-    overall_band = None
-    overall_score_100 = None
-    if scored_parts:
-        # タスク種別ごとにまず平均を取り、短時間Q&A課題の比重を高くして総合スコアを算出する
-        # （出題数がタスク種別ごとに異なっても、単純な全パート平均のように比重が偏らないようにする）。
-        task_type_values: dict[str, list[float]] = {}
-        for p in scored_parts:
-            task_type_values.setdefault(p.get("task_type"), []).append(p["weighted_total"])
-        task_averages = {
-            task_type: round(sum(values) / len(values), 2) for task_type, values in task_type_values.items()
-        }
-        overall_total = overall_score_from_task_averages(task_averages)
-        if overall_total is not None:
-            overall_band = band_for_score(overall_total)
-            overall_score_100 = score_to_100(overall_total)
 
-    session["overall"] = {
-        "weighted_total": overall_total,
-        "cefr_band": overall_band,
-        "score_100": overall_score_100,
-    }
+    speaking_parts = [p for p in scored_parts if p.get("score_track") == "speaking" or p.get("task_type") in SPEAKING_CATEGORIES]
+    listening_parts = [
+        p for p in scored_parts if p.get("score_track") == "listening" or p.get("task_type") in LISTENING_CATEGORIES
+    ]
+
+    speaking_avg = _average([p["weighted_total"] for p in speaking_parts])
+    listening_avg = _average([p["weighted_total"] for p in listening_parts])
+    speaking_90 = score_1to5_to_90(speaking_avg)
+    listening_90 = score_1to5_to_90(listening_avg)
+    overall_90 = combine_overall_score(speaking_90, listening_90, settings.get("overall_weights"))
+
+    category_scores = {}
+    for cat in CATEGORIES:
+        values = [p["weighted_total"] for p in scored_parts if p.get("task_type") == cat]
+        avg = _average(values)
+        if avg is not None:
+            category_scores[cat] = avg
+
+    overall = empty_overall()
+    overall.update(
+        {
+            "speaking_level_score": overall_90,
+            "cefr_band": band_for_score_90(overall_90),
+            "speaking_subscore": speaking_90,
+            "listening_subscore": listening_90,
+            "speaking_axes": _axis_averages(speaking_parts, SPEAKING_AXES),
+            "listening_axes": _axis_averages(listening_parts, LISTENING_AXES),
+            "category_scores": category_scores,
+        }
+    )
+    session["overall"] = overall
     session["status"] = "done"
     save_session(session)
 
@@ -80,14 +118,20 @@ def _finalize_session_if_complete(session: dict) -> None:
             "task_results": [
                 {
                     "task_type": p.get("task_type"),
+                    "category": p.get("category") or p.get("task_type"),
+                    "score_track": p.get("score_track"),
                     "question_id": p.get("question_id"),
                     "question_text": p.get("question_text"),
+                    "prompt_text": p.get("prompt_text"),
+                    "stimulus_text": p.get("stimulus_text"),
                     "target_text": p.get("target_text"),
+                    "expected_answer": p.get("expected_answer"),
                     "transcript": p.get("transcript"),
                     "response_latency_ms": p.get("response_latency_ms"),
                     "scores": p.get("scores"),
                     "comments": p.get("comments"),
                     "weighted_total": p.get("weighted_total"),
+                    "score_90": p.get("score_90"),
                     "cefr_band": p.get("cefr_band"),
                     "status": p.get("status"),
                     "transcript_error": p.get("transcript_error"),
@@ -144,11 +188,15 @@ def run_process_part_job(session_id: str, part_id: str, file_path: Path) -> None
             task_type=part["task_type"],
             question_text=part.get("question_text", ""),
             target_text=part.get("target_text", ""),
+            stimulus_text=part.get("stimulus_text", ""),
+            expected_answer=part.get("expected_answer", ""),
             transcript=transcript,
             response_latency_ms=part.get("response_latency_ms"),
             model=resolve_ai_model_id(model_mode),
             api_key=get_openai_api_key(),
-            rubric_weights=settings.get("rubric_weights"),
+            score_track=part.get("score_track"),
+            speaking_weights=settings.get("speaking_rubric_weights"),
+            listening_weights=settings.get("listening_rubric_weights"),
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("Scoring failed session=%s part=%s: %s", session_id, part_id, exc)
@@ -169,7 +217,9 @@ def run_process_part_job(session_id: str, part_id: str, file_path: Path) -> None
             part["scores"] = eval_result["scores"]
             part["comments"] = eval_result["comments"]
             part["weighted_total"] = eval_result["weighted_total"]
+            part["score_90"] = eval_result.get("score_90")
             part["cefr_band"] = eval_result["cefr_band"]
+            part["score_track"] = eval_result.get("score_track") or part.get("score_track")
             part["status"] = "done"
         part["end_time"] = part.get("end_time") or now_iso()
         save_session(session)

@@ -14,26 +14,47 @@
   </a>
 </div>
 {% else %}
+{% set overall = session.overall or {} %}
 <section class="lc-card rounded-2xl p-6 md:p-8 mb-5 text-center">
-  <p class="text-xs font-semibold text-brand uppercase tracking-wide mb-1">総合評価（100点満点・Versant方式）</p>
-  <div class="versant-score-badge mx-auto mt-2 mb-3">
-    <span class="versant-score-value">{{ session.overall.score_100 if session.overall.score_100 is not none else '—' }}</span>
-    <span class="versant-score-max">/100</span>
+  <p class="text-xs font-semibold text-brand uppercase tracking-wide mb-1">Speaking Level Score</p>
+  <div class="score-badge mx-auto mt-2 mb-3">
+    <span class="score-badge-value">{{ overall.speaking_level_score if overall.speaking_level_score is not none else '—' }}</span>
+    <span class="score-badge-max">/90</span>
   </div>
-  <p class="text-sm text-slate-500">CEFR目安: {{ session.overall.cefr_band or '—' }}（加重平均 {{ session.overall.weighted_total or '—' }} / 5.0）</p>
+  <p class="text-sm text-slate-600 mb-3">CEFR帯: <strong>{{ overall.cefr_band or '—' }}</strong></p>
+  <div class="grid grid-cols-2 gap-3 max-w-md mx-auto text-left">
+    <div class="lc-panel rounded-xl px-4 py-3">
+      <p class="text-[0.65rem] font-semibold text-slate-400 uppercase">スピーキング</p>
+      <p class="text-xl font-bold text-slate-800">{{ overall.speaking_subscore if overall.speaking_subscore is not none else '—' }}<span class="text-xs font-medium text-slate-400">/90</span></p>
+    </div>
+    <div class="lc-panel rounded-xl px-4 py-3">
+      <p class="text-[0.65rem] font-semibold text-slate-400 uppercase">リスニング</p>
+      <p class="text-xl font-bold text-slate-800">{{ overall.listening_subscore if overall.listening_subscore is not none else '—' }}<span class="text-xs font-medium text-slate-400">/90</span></p>
+    </div>
+  </div>
 </section>
+
+{% if overall.category_scores %}
+<section class="lc-card rounded-2xl p-5 mb-5">
+  <h3 class="text-sm font-bold text-slate-700 mb-3">カテゴリ別スコア（1〜5）</h3>
+  <div class="grid grid-cols-3 md:grid-cols-6 gap-2 text-center">
+    {% for cat in ['A', 'B', 'C', 'D', 'E', 'F'] %}
+    <div class="lc-panel rounded-lg py-2 px-1">
+      <div class="text-[0.65rem] text-slate-400">{{ cat }}</div>
+      <div class="text-sm font-bold text-slate-700">{{ overall.category_scores.get(cat, '—') }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 <div class="space-y-4">
   {% for part in session.parts %}
   <article class="lc-card rounded-2xl p-5">
     <div class="flex items-center justify-between gap-2 mb-2">
       <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">{{ task_definitions[part.task_type].label }}</span>
-      {% if part.task_type == 'qa' %}
-        {% if part.cefr_band %}
-        <span class="status-pill" style="background:#e0f2fe;color:#075985;">{{ part.cefr_band }}</span>
-        {% else %}
-        <span class="status-pill status-error">未採点</span>
-        {% endif %}
+      {% if part.cefr_band %}
+      <span class="status-pill" style="background:#e0f2fe;color:#075985;">{{ part.cefr_band }}</span>
       {% elif not part.scores %}
       <span class="status-pill status-error">未採点</span>
       {% endif %}
@@ -43,14 +64,25 @@
     <p class="text-xs text-slate-400 mb-2">認識結果: 「{{ part.transcript }}」</p>
     {% endif %}
     {% if part.scores %}
-    <div class="grid grid-cols-5 gap-2 text-center">
-      {% for axis in ['fluency', 'pronunciation', 'accuracy', 'vocabulary', 'response_latency'] %}
-      <div>
-        <div class="text-[0.65rem] text-slate-400">{{ axis }}</div>
-        <div class="text-sm font-bold text-slate-700">{{ part.scores.get(axis, '—') }}</div>
+      {% if part.score_track == 'listening' %}
+      <div class="grid grid-cols-2 gap-2 text-center">
+        {% for axis in ['comprehension_accuracy', 'response_relevance'] %}
+        <div>
+          <div class="text-[0.65rem] text-slate-400">{{ axis }}</div>
+          <div class="text-sm font-bold text-slate-700">{{ part.scores.get(axis, '—') }}</div>
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
+      {% else %}
+      <div class="grid grid-cols-5 gap-2 text-center">
+        {% for axis in ['fluency', 'pronunciation', 'accuracy', 'vocabulary', 'response_latency'] %}
+        <div>
+          <div class="text-[0.65rem] text-slate-400">{{ axis }}</div>
+          <div class="text-sm font-bold text-slate-700">{{ part.scores.get(axis, '—') }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
     {% elif part.transcript_error %}
     <p class="text-xs text-rose-500">{{ part.transcript_error }}</p>
     {% endif %}

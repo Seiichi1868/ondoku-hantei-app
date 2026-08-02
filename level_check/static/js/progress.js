@@ -1,7 +1,9 @@
 (() => {
   const SESSION_ID = window.LEVEL_CHECK_SESSION_ID;
   const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
-  const VAD_THRESHOLD = 0.06; // RMS しきい値（マイク入力レベルに合わせた簡易 Voice Activity Detection）
+  const VAD_THRESHOLD = 0.06;
+  const AUDIO_PROMPT_TYPES = new Set(["A", "B", "C", "D", "E"]);
+  const TIMER_TYPES = new Set(["A", "E", "F"]);
   const STATUS_LABELS = {
     not_started: "未実施",
     recording: "録音中",
@@ -17,6 +19,7 @@
   const micErrorBanner = document.getElementById("mic-error-banner");
 
   let activeRecordingPart = null;
+  let currentAudio = null;
   const cardState = new Map();
 
   function pickMimeType() {
@@ -100,177 +103,94 @@
       stopBtn.classList.remove("hidden");
     } else if (status === "transcribing" || status === "scoring") {
       processingLabel.classList.remove("hidden");
-    } else if (status === "done") {
-      retryBtn.classList.remove("hidden");
-    } else if (status === "error") {
+    } else if (status === "done" || status === "error") {
       retryBtn.classList.remove("hidden");
     }
 
     refreshOverallProgress();
   }
 
-  // ── 出題提示（リピート課題=音声、文再構成=単語チップ、Q&A=文章） ──
-  // Chrome は cancel() 直後に speak() すると音声がかすれる不具合があるため、
-  // 少し待ってから再生し、明示的に英語音声を選んで安定した発話にする。
-  let voicesReadyPromise = null;
-
-  function isChromeBrowser() {
-    return /Chrome/i.test(navigator.userAgent) && !/Edg|OPR|Brave/i.test(navigator.userAgent);
-  }
-
-  function isMobileDevice() {
-    return /Mobi|Android|iPad|iPhone|iPod/i.test(navigator.userAgent);
-  }
-
-  function ensureVoicesLoaded() {
-    if (!window.speechSynthesis) return Promise.resolve([]);
-    if (!voicesReadyPromise) {
-      voicesReadyPromise = new Promise((resolve) => {
-        const tryResolve = () => {
-          const voices = window.speechSynthesis.getVoices();
-          if (voices.length) {
-            resolve(voices);
-            return true;
-          }
-          return false;
-        };
-        if (tryResolve()) return;
-        window.speechSynthesis.addEventListener("voiceschanged", () => tryResolve(), { once: true });
-        setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1500);
-      });
+  function stopCurrentAudio() {
+    if (currentAudio) {
+      try {
+        currentAudio.pause();
+        currentAudio.src = "";
+      } catch (_) { /* ignore */ }
+      currentAudio = null;
     }
-    return voicesReadyPromise;
+    if (window.speechSynthesis) {
+      try { window.speechSynthesis.cancel(); } catch (_) { /* ignore */ }
+    }
   }
 
-  function getEnglishVoice() {
-    const voices = window.speechSynthesis.getVoices();
-    if (!voices.length) return null;
-    const enUS = voices.filter((v) => v.lang && v.lang.startsWith("en-US"));
-    const pool = enUS.length ? enUS : voices.filter((v) => v.lang && v.lang.startsWith("en"));
-    if (!pool.length) return null;
-    if (isMobileDevice()) {
-      const local = pool.find((v) => v.localService);
-      if (local) return local;
-    }
-    if (isChromeBrowser()) {
-      const google = pool.find((v) => /google/i.test(v.name));
-      if (google) return google;
-      const online = pool.find((v) => !v.localService);
-      if (online) return online;
-    } else {
-      const local = pool.find((v) => v.localService);
-      if (local) return local;
-      const named = pool.find((v) => /samantha|karen|daniel|alex/i.test(v.name));
-      if (named) return named;
-    }
-    return pool[0];
-  }
-
-  function speak(text, onEnd) {
+  function speakFallback(text, onEnd) {
     const finish = () => { if (onEnd) onEnd(); };
-    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance || !text) {
       finish();
       return false;
     }
-
     window.speechSynthesis.cancel();
-
-    ensureVoicesLoaded().then((voices) => {
-      if (!voices.length) {
-        finish();
-        return;
-      }
-
-      // cancel() 直後は Chrome の合成エンジンが不安定なため、少し待って再生する
-      setTimeout(() => {
-        let started = false;
-        let finished = false;
-        let retried = false;
-        const done = () => {
-          if (finished) return;
-          finished = true;
-          finish();
-        };
-        const failTimer = setTimeout(() => {
-          if (!started) {
-            window.speechSynthesis.cancel();
-            done();
-          }
-        }, 4000);
-
-        const makeUtterance = (withVoice) => {
-          const utter = new SpeechSynthesisUtterance(text);
-          utter.lang = "en-US";
-          utter.rate = 0.95;
-          utter.pitch = 1;
-          utter.volume = 1;
-          if (withVoice) {
-            const voice = getEnglishVoice();
-            if (voice) {
-              utter.voice = voice;
-              utter.lang = voice.lang || "en-US";
-            }
-          }
-          return utter;
-        };
-
-        // Chrome では voice 指定時に onstart が発火せず、実際には再生できているのに
-        // 「失敗」と誤判定してしまうことがある。その状態で再試行すると、既に再生中の
-        // 音声（正常）と再試行分（既定の声＝かすれた声）が同時に流れてしまうため、
-        // onstart 以外に onboundary（発話の区切りイベント）も開始判定の材料にし、
-        // speechSynthesis.speaking で実際に再生中でないことを確認してからのみ再試行する。
-        const markStarted = () => { started = true; clearTimeout(failTimer); };
-
-        const utter = makeUtterance(true);
-        utter.onstart = markStarted;
-        utter.onboundary = markStarted;
-        utter.onend = () => { clearTimeout(failTimer); done(); };
-        utter.onerror = () => { clearTimeout(failTimer); done(); };
-        window.speechSynthesis.speak(utter);
-
-        // 既定の声での再試行は、未開始と判定でき、かつ実際に発話中でもない場合のみ行う
-        // （二重判定にすることで、かすれた声が正常再生に重ねて流れる事故を防ぐ）。
-        setTimeout(() => {
-          if (retried || started || window.speechSynthesis.speaking) return;
-          retried = true;
-          window.speechSynthesis.cancel();
-          const utter2 = makeUtterance(false);
-          utter2.onstart = markStarted;
-          utter2.onboundary = markStarted;
-          utter2.onend = () => { clearTimeout(failTimer); done(); };
-          utter2.onerror = () => { clearTimeout(failTimer); done(); };
-          window.speechSynthesis.speak(utter2);
-        }, 700);
-      }, 80);
-    });
-
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "en-US";
+    utter.rate = 0.95;
+    utter.onend = finish;
+    utter.onerror = finish;
+    window.speechSynthesis.speak(utter);
     return true;
+  }
+
+  function playPrompt(card, onEnd) {
+    const finish = () => { if (onEnd) onEnd(); };
+    const audioUrl = card.dataset.promptAudioUrl || "";
+    const promptText = card.dataset.promptText || card.dataset.targetText || card.dataset.questionText || "";
+    stopCurrentAudio();
+
+    if (audioUrl) {
+      const audio = new Audio(audioUrl);
+      currentAudio = audio;
+      let done = false;
+      const complete = () => {
+        if (done) return;
+        done = true;
+        if (currentAudio === audio) currentAudio = null;
+        finish();
+      };
+      audio.addEventListener("ended", complete);
+      audio.addEventListener("error", () => {
+        // サーバー音声が失敗したらブラウザ合成へ
+        if (!speakFallback(promptText, complete)) complete();
+      });
+      audio.play().catch(() => {
+        if (!speakFallback(promptText, complete)) complete();
+      });
+      return true;
+    }
+
+    return speakFallback(promptText, finish);
   }
 
   function setupStimulus(card) {
     const taskType = card.dataset.taskType;
     const state = cardState.get(card.dataset.partId) || {};
 
-    if (taskType === "repeat") {
-      const targetText = card.dataset.targetText || "";
-      const textEl = card.querySelector("[data-repeat-text]");
-      const noteEl = card.querySelector("[data-repeat-hidden-note]");
+    if (AUDIO_PROMPT_TYPES.has(taskType)) {
+      const noteEl = card.querySelector("[data-audio-note]");
+      const fallbackEl = card.querySelector("[data-fallback-text]");
+      const questionReveal = card.querySelector("[data-question-reveal]");
       const recordBtn = card.querySelector(".btn-record");
       const replayBtn = card.querySelector(".btn-replay");
       const PLAY_LABEL = "🔊 問題を聞いて録音";
-
       if (recordBtn) recordBtn.textContent = PLAY_LABEL;
 
-      // リピート課題では「問題を聞いて録音」ボタンを押すと音声が流れ、
-      // 音声が終わると同時に録音を自動で開始する（再生と録音開始を1操作に統合）。
       const playStimulus = (onSpoken) => {
         if (recordBtn) {
           recordBtn.disabled = true;
           recordBtn.textContent = "🔊 再生中...";
         }
-        const spoke = speak(targetText, () => {
+        const spoke = playPrompt(card, () => {
           state.stimulusReadyAt = Date.now();
           cardState.set(card.dataset.partId, state);
+          if (questionReveal) questionReveal.classList.remove("hidden");
           if (recordBtn && card.dataset.status === "not_started") {
             recordBtn.disabled = false;
             recordBtn.textContent = PLAY_LABEL;
@@ -278,46 +198,35 @@
           if (onSpoken) onSpoken();
         });
         if (!spoke) {
-          // 音声合成非対応ブラウザ: フォールバックとして文章を表示する
-          if (textEl) textEl.classList.remove("hidden");
-          if (noteEl) noteEl.textContent = "🔊 音声再生に対応していないため、文章を表示しました。読んでそのまま復唱してください。";
+          const text = card.dataset.promptText || card.dataset.questionText || "";
+          if (fallbackEl) {
+            fallbackEl.textContent = text;
+            fallbackEl.classList.remove("hidden");
+          }
+          if (noteEl) noteEl.textContent = "🔊 音声再生に対応していないため、文章を表示しました。";
+          if (questionReveal) questionReveal.classList.remove("hidden");
           state.stimulusReadyAt = Date.now();
           cardState.set(card.dataset.partId, state);
           if (recordBtn) {
             recordBtn.disabled = false;
             recordBtn.textContent = "● 録音開始";
           }
-          // 音声が再生できない場合は自動録音は開始せず、文章を読んでから手動で録音開始してもらう。
         }
       };
 
       replayBtn?.addEventListener("click", () => playStimulus());
-      // 録音開始ボタンは押された瞬間に再生し、再生完了と同時に録音を開始する。
-      card._repeatPlayAndRecord = () => playStimulus(() => handleRecordClick(card));
-      if (noteEl) noteEl.textContent = "🔊「問題を聞いて録音」を押すと音声が流れます。音声が終わると同時に自動で録音が始まります。";
-    } else if (taskType === "sentence_build") {
-      const words = JSON.parse(card.dataset.shuffledWords || "[]");
-      const container = card.querySelector("[data-word-chips]");
-      if (container) {
-        container.innerHTML = "";
-        words.forEach((w) => {
-          const chip = document.createElement("span");
-          chip.className = "word-chip";
-          chip.textContent = w;
-          container.appendChild(chip);
-        });
+      card._playAndRecord = () => playStimulus(() => handleRecordClick(card));
+      if (noteEl) {
+        noteEl.textContent = taskType === "B"
+          ? "🔊「問題を聞いて録音」を押すと音声が流れ、終わると同時に自動で録音が始まります。"
+          : "🔊「問題を聞いて録音」を押すと音声が流れます。聞き終わったら録音できます。";
       }
+    } else if (taskType === "F") {
       state.stimulusReadyAt = Date.now();
       cardState.set(card.dataset.partId, state);
-    } else if (taskType === "qa") {
-      state.stimulusReadyAt = Date.now();
-      cardState.set(card.dataset.partId, state);
-      const questionText = card.dataset.questionText || "";
-      speak(questionText, () => {});
     }
   }
 
-  // ── 録音中の音量メーター + 発話開始検知（応答速度の計測） ──────
   function setupVadMeter(card, stream, state) {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const bar = card.querySelector("[data-volume-bar]");
@@ -376,10 +285,10 @@
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
-  function startQaCountdown(card, state) {
-    const timeLimit = Number(card.dataset.timeLimit || 15);
+  function startCountdown(card, state) {
+    const timeLimit = Number(card.dataset.timeLimit || 0);
     const timerEl = card.querySelector("[data-timer]");
-    if (!timerEl) return;
+    if (!timerEl || timeLimit <= 0) return;
     const startedAt = Date.now();
 
     state.timerIntervalId = setInterval(() => {
@@ -395,7 +304,7 @@
     }, 200);
   }
 
-  function stopQaCountdown(state) {
+  function stopCountdown(state) {
     if (state.timerIntervalId) {
       clearInterval(state.timerIntervalId);
       state.timerIntervalId = null;
@@ -407,6 +316,7 @@
     if (activeRecordingPart) return;
     setError(card, "");
     micErrorBanner.classList.add("hidden");
+    stopCurrentAudio();
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError(card, "このブラウザはマイク録音に対応していません。別のブラウザでお試しください。");
@@ -425,6 +335,7 @@
     state.speechOnsetAt = null;
     state.mediaStream = stream;
     state.recordingStartedAt = Date.now();
+    if (!state.stimulusReadyAt) state.stimulusReadyAt = state.recordingStartedAt;
 
     const mimeType = pickMimeType();
     const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
@@ -473,14 +384,14 @@
       return;
     }
 
-    if (card.dataset.taskType === "qa") {
-      startQaCountdown(card, state);
+    if (TIMER_TYPES.has(card.dataset.taskType) || Number(card.dataset.timeLimit || 0) > 0) {
+      startCountdown(card, state);
     }
   }
 
   function cleanupRecording(card, partId) {
     const state = cardState.get(partId) || {};
-    stopQaCountdown(state);
+    stopCountdown(state);
     if (state.vadMeter) {
       state.vadMeter.stop();
       state.vadMeter = null;
@@ -600,8 +511,8 @@
   cards.forEach((card) => {
     cardState.set(card.dataset.partId, {});
     card.querySelector(".btn-record")?.addEventListener("click", () => {
-      if (card.dataset.taskType === "repeat" && typeof card._repeatPlayAndRecord === "function") {
-        card._repeatPlayAndRecord();
+      if (AUDIO_PROMPT_TYPES.has(card.dataset.taskType) && typeof card._playAndRecord === "function") {
+        card._playAndRecord();
       } else {
         handleRecordClick(card);
       }

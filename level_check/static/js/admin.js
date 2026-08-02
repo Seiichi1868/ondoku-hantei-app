@@ -1,22 +1,42 @@
 (() => {
-  const RUBRIC_AXES = window.LEVEL_CHECK_RUBRIC_AXES || [
-    "fluency",
-    "pronunciation",
-    "accuracy",
-    "vocabulary",
-    "response_latency",
+  const SPEAKING_AXES = window.LEVEL_CHECK_SPEAKING_AXES || [
+    "fluency", "pronunciation", "accuracy", "vocabulary", "response_latency",
   ];
+  const LISTENING_AXES = window.LEVEL_CHECK_LISTENING_AXES || [
+    "comprehension_accuracy", "response_relevance",
+  ];
+  const CATEGORIES = window.LEVEL_CHECK_CATEGORIES || ["A", "B", "C", "D", "E", "F"];
 
   const statusMessage = document.getElementById("status-message");
 
   let settingsCache = null;
   let questionsCache = null;
-  let currentQuestionTaskTab = "repeat";
+  let currentQuestionTaskTab = "A";
 
-  const TASK_FIELD = {
-    repeat: { key: "text", label: "お題文" },
-    sentence_build: { key: "target_sentence", label: "正解文" },
-    qa: { key: "question", label: "質問文" },
+  const TASK_FIELDS = {
+    A: [
+      { key: "question", label: "質問文", wide: true },
+      { key: "expected_answer", label: "想定解答", wide: true },
+    ],
+    B: [{ key: "text", label: "復唱文", wide: true }],
+    C: [
+      { key: "dialog_text", label: "会話文", wide: true },
+      { key: "question", label: "質問", wide: true },
+      { key: "expected_answer", label: "想定解答", wide: true },
+    ],
+    D: [
+      { key: "passage_text", label: "文章", wide: true },
+      { key: "question", label: "質問", wide: true },
+      { key: "expected_answer", label: "想定解答", wide: true },
+    ],
+    E: [
+      { key: "story_text", label: "ストーリー", wide: true },
+      { key: "time_limit_sec", label: "秒", type: "number", wide: false },
+    ],
+    F: [
+      { key: "prompt", label: "テーマ", wide: true },
+      { key: "time_limit_sec", label: "秒", type: "number", wide: false },
+    ],
   };
 
   function showStatus(message, isError) {
@@ -43,7 +63,6 @@
   }
   loadAll();
 
-  // ── タブ切り替え ────────────────────────────────────────
   document.querySelectorAll("#admin-tabs .admin-tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll("#admin-tabs .admin-tab-btn").forEach((b) => b.classList.remove("is-active"));
@@ -64,7 +83,38 @@
     });
   });
 
-  // ── 設定 ────────────────────────────────────────────────
+  function renderWeightRows(containerId, axes, defaultsKey, weightsKey) {
+    const container = document.getElementById(containerId);
+    if (!container || !settingsCache) return;
+    container.innerHTML = "";
+    axes.forEach((axis) => {
+      const defaults = (settingsCache[defaultsKey] || {})[axis] || {};
+      const weightPct = Math.round(((settingsCache[weightsKey] || {})[axis] || 0) * 100);
+      const row = document.createElement("div");
+      row.className = "rubric-weight-row";
+      row.innerHTML = `
+        <span class="rubric-weight-label">${defaults.label || axis}</span>
+        <input type="range" min="0" max="100" value="${weightPct}" class="rubric-weight-slider" data-axis="${axis}">
+        <span class="rubric-weight-value" data-axis-value="${axis}">${weightPct}%</span>
+      `;
+      container.appendChild(row);
+    });
+    container.querySelectorAll(".rubric-weight-slider").forEach((slider) => {
+      slider.addEventListener("input", () => {
+        const valueEl = container.querySelector(`[data-axis-value="${slider.dataset.axis}"]`);
+        if (valueEl) valueEl.textContent = `${slider.value}%`;
+      });
+    });
+  }
+
+  function collectWeights(containerId) {
+    const weights = {};
+    document.querySelectorAll(`#${containerId} .rubric-weight-slider`).forEach((slider) => {
+      weights[slider.dataset.axis] = Number(slider.value) / 100;
+    });
+    return weights;
+  }
+
   async function loadSettings() {
     const data = await apiFetch("/level_check/admin/api/settings");
     settingsCache = data;
@@ -92,7 +142,15 @@
       infoPicker.appendChild(label);
     });
 
-    document.getElementById("questions-per-task").value = settingsCache.questions_per_task;
+    const qpc = document.getElementById("questions-per-category");
+    qpc.innerHTML = "";
+    const counts = settingsCache.questions_per_category || {};
+    CATEGORIES.forEach((cat) => {
+      const wrap = document.createElement("label");
+      wrap.className = "text-xs text-slate-500 flex items-center gap-1";
+      wrap.innerHTML = `${cat}<input class="lc-input w-14" type="number" min="0" max="15" data-cat="${cat}" value="${counts[cat] ?? 0}">`;
+      qpc.appendChild(wrap);
+    });
 
     const bgOpacitySlider = document.getElementById("bg-opacity-slider");
     const bgOpacityValue = document.getElementById("bg-opacity-value");
@@ -100,29 +158,31 @@
     if (bgOpacitySlider) bgOpacitySlider.value = String(bgOpacityPct);
     if (bgOpacityValue) bgOpacityValue.textContent = `${bgOpacityPct}%`;
 
-    const weightsContainer = document.getElementById("rubric-weights");
-    weightsContainer.innerHTML = "";
-    RUBRIC_AXES.forEach((axis) => {
-      const defaults = settingsCache.rubric_defaults[axis] || {};
-      const weightPct = Math.round((settingsCache.rubric_weights[axis] || 0) * 100);
+    const overall = settingsCache.overall_weights || { speaking: 0.5, listening: 0.5 };
+    const overallContainer = document.getElementById("overall-weights");
+    overallContainer.innerHTML = "";
+    [["speaking", "スピーキング"], ["listening", "リスニング"]].forEach(([key, label]) => {
+      const pct = Math.round((overall[key] || 0) * 100);
       const row = document.createElement("div");
       row.className = "rubric-weight-row";
       row.innerHTML = `
-        <span class="rubric-weight-label">${defaults.label || axis}</span>
-        <input type="range" min="0" max="100" value="${weightPct}" class="rubric-weight-slider" data-axis="${axis}">
-        <span class="rubric-weight-value" data-axis-value="${axis}">${weightPct}%</span>
+        <span class="rubric-weight-label">${label}</span>
+        <input type="range" min="0" max="100" value="${pct}" class="rubric-weight-slider" data-axis="${key}">
+        <span class="rubric-weight-value" data-axis-value="${key}">${pct}%</span>
       `;
-      weightsContainer.appendChild(row);
+      overallContainer.appendChild(row);
     });
-    weightsContainer.querySelectorAll(".rubric-weight-slider").forEach((slider) => {
+    overallContainer.querySelectorAll(".rubric-weight-slider").forEach((slider) => {
       slider.addEventListener("input", () => {
-        const valueEl = weightsContainer.querySelector(`[data-axis-value="${slider.dataset.axis}"]`);
+        const valueEl = overallContainer.querySelector(`[data-axis-value="${slider.dataset.axis}"]`);
         if (valueEl) valueEl.textContent = `${slider.value}%`;
       });
     });
+
+    renderWeightRows("speaking-rubric-weights", SPEAKING_AXES, "speaking_rubric_defaults", "speaking_rubric_weights");
+    renderWeightRows("listening-rubric-weights", LISTENING_AXES, "listening_rubric_defaults", "listening_rubric_weights");
   }
 
-  // 背景画像の透過率スライダー: ドラッグ中は即座にプレビューを反映する
   document.getElementById("bg-opacity-slider")?.addEventListener("input", (e) => {
     const pct = Number(e.target.value);
     const valueEl = document.getElementById("bg-opacity-value");
@@ -133,11 +193,10 @@
 
   document.getElementById("save-settings-btn")?.addEventListener("click", async () => {
     const infoLevel = document.querySelector('input[name="student_info_level"]:checked')?.value;
-    const questionsPerTask = document.getElementById("questions-per-task").value;
     const bgOpacityPct = document.getElementById("bg-opacity-slider")?.value;
-    const rubricWeights = {};
-    document.querySelectorAll("#rubric-weights .rubric-weight-slider").forEach((slider) => {
-      rubricWeights[slider.dataset.axis] = Number(slider.value) / 100;
+    const questionsPerCategory = {};
+    document.querySelectorAll("#questions-per-category input[data-cat]").forEach((input) => {
+      questionsPerCategory[input.dataset.cat] = Number(input.value);
     });
 
     try {
@@ -145,9 +204,11 @@
         method: "POST",
         body: JSON.stringify({
           student_info_level: infoLevel,
-          questions_per_task: questionsPerTask,
+          questions_per_category: questionsPerCategory,
           background_opacity: bgOpacityPct !== undefined ? Number(bgOpacityPct) / 100 : undefined,
-          rubric_weights: rubricWeights,
+          speaking_rubric_weights: collectWeights("speaking-rubric-weights"),
+          listening_rubric_weights: collectWeights("listening-rubric-weights"),
+          overall_weights: collectWeights("overall-weights"),
         }),
       });
       showStatus("設定を保存しました。");
@@ -157,7 +218,6 @@
     }
   });
 
-  // ── 管理設定（AIモデル選択のみパスワード必須） ──────────────
   document.getElementById("change-model-btn")?.addEventListener("click", async () => {
     const modelMode = document.querySelector('input[name="ai_model_mode"]:checked')?.value;
     const pwInput = document.getElementById("model-admin-password");
@@ -185,7 +245,6 @@
     }
   });
 
-  // ── 名簿 ────────────────────────────────────────────────
   async function loadRoster() {
     const data = await apiFetch("/level_check/admin/api/students");
     renderRoster(data.students || []);
@@ -265,11 +324,14 @@
     }
   });
 
-  // ── 問題バンク ──────────────────────────────────────────
   async function loadQuestions() {
     const data = await apiFetch("/level_check/admin/api/questions");
     questionsCache = data.questions;
     renderQuestions();
+  }
+
+  function escapeAttr(value) {
+    return String(value || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   }
 
   function renderQuestions() {
@@ -278,7 +340,7 @@
     if (!questionsCache) return;
 
     const items = questionsCache[currentQuestionTaskTab] || [];
-    const fieldInfo = TASK_FIELD[currentQuestionTaskTab];
+    const fields = TASK_FIELDS[currentQuestionTaskTab] || [];
 
     if (!items.length) {
       list.innerHTML = '<p class="text-sm text-slate-400">問題が登録されていません。「AIで追加生成」または「手動で追加」してください。</p>';
@@ -287,16 +349,19 @@
 
     items.forEach((item) => {
       const row = document.createElement("div");
-      row.className = "question-row flex items-center gap-2 flex-wrap";
-      const extraField = currentQuestionTaskTab === "qa"
-        ? `<input class="lc-input w-20" data-field="time_limit_sec" type="number" min="5" max="60" value="${item.time_limit_sec || 15}" title="制限時間(秒)">`
-        : "";
+      row.className = "question-row space-y-1.5";
+      const fieldHtml = fields.map((field) => {
+        const width = field.wide ? "w-full" : "w-20";
+        const type = field.type === "number" ? 'type="number" min="5" max="120"' : 'type="text"';
+        return `<input class="lc-input ${width}" data-field="${field.key}" ${type} value="${escapeAttr(item[field.key])}" placeholder="${field.label}">`;
+      }).join("");
       row.innerHTML = `
-        <input class="lc-input flex-1 min-w-[12rem]" data-field="${fieldInfo.key}" value="${(item[fieldInfo.key] || "").replace(/"/g, "&quot;")}" placeholder="${fieldInfo.label}">
-        <input class="lc-input w-16" data-field="level" value="${item.level || ""}" placeholder="レベル">
-        ${extraField}
-        <label class="text-xs flex items-center gap-1"><input type="checkbox" data-field="active" ${item.active ? "checked" : ""}>表示</label>
-        <button type="button" class="text-xs px-2.5 py-1 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50">削除</button>
+        <div class="flex flex-wrap items-center gap-2">
+          ${fieldHtml}
+          <input class="lc-input w-16" data-field="level" value="${escapeAttr(item.level)}" placeholder="レベル">
+          <label class="text-xs flex items-center gap-1"><input type="checkbox" data-field="active" ${item.active ? "checked" : ""}>表示</label>
+          <button type="button" class="text-xs px-2.5 py-1 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50" data-action="delete">削除</button>
+        </div>
       `;
 
       const saveItem = async () => {
@@ -319,7 +384,7 @@
       row.querySelectorAll("input").forEach((input) => {
         input.addEventListener(input.type === "checkbox" ? "change" : "blur", saveItem);
       });
-      row.querySelector("button").addEventListener("click", async () => {
+      row.querySelector('[data-action="delete"]').addEventListener("click", async () => {
         try {
           const data = await apiFetch(`/level_check/admin/api/questions/${currentQuestionTaskTab}/${item.id}`, {
             method: "DELETE",
@@ -335,8 +400,11 @@
   }
 
   document.getElementById("question-add-btn")?.addEventListener("click", async () => {
-    const fieldInfo = TASK_FIELD[currentQuestionTaskTab];
-    const item = { [fieldInfo.key]: "", level: "A2" };
+    const fields = TASK_FIELDS[currentQuestionTaskTab] || [];
+    const item = { level: "A2" };
+    fields.forEach((field) => {
+      item[field.key] = field.type === "number" ? 30 : "";
+    });
     try {
       const data = await apiFetch(`/level_check/admin/api/questions/${currentQuestionTaskTab}`, {
         method: "POST",
@@ -367,7 +435,6 @@
     }
   });
 
-  // ── 受験結果 ────────────────────────────────────────────
   async function loadSubmissions() {
     const data = await apiFetch("/level_check/admin/api/submissions");
     renderSubmissions(data.submissions || []);
@@ -387,10 +454,11 @@
       const row = document.createElement("div");
       row.className = "submission-row flex items-center justify-between gap-2 flex-wrap";
       const infoText = [info.class_name, info.number, info.name].filter(Boolean).join(" / ") || "（情報なし）";
+      const score = overall.speaking_level_score ?? overall.score_100 ?? "—";
       row.innerHTML = `
         <div>
           <p class="text-sm font-semibold text-slate-700">${infoText}</p>
-          <p class="text-xs text-slate-400">${s.submitted_at || ""} ・ 総合スコア: <strong>${overall.score_100 ?? "—"}/100</strong>（CEFR目安: ${overall.cefr_band || "—"}）</p>
+          <p class="text-xs text-slate-400">${s.submitted_at || ""} ・ Speaking Level Score: <strong>${score}/90</strong>（CEFR: ${overall.cefr_band || "—"}） / S:${overall.speaking_subscore ?? "—"} L:${overall.listening_subscore ?? "—"}</p>
         </div>
         <button type="button" class="text-xs px-2.5 py-1 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50">削除</button>
       `;

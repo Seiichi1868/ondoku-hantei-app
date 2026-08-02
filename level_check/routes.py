@@ -1,13 +1,12 @@
 """Speaking Level Check Test: 生徒向け Blueprint。
 
-  1. GET  /level_check/                                    … 受験開始画面（情報要求レベルに応じたフォーム）
+  1. GET  /level_check/                                    … 受験開始画面
   2. GET  /level_check/session/<id>                        … 出題・録音・進行画面
-  3. GET  /level_check/session/<id>/results                … 結果画面（CEFR帯・タスク別スコア）
+  3. GET  /level_check/session/<id>/results                … 結果画面
 """
 import logging
 import mimetypes
 import random
-import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -19,13 +18,15 @@ from level_check.config import (
     ALLOWED_AUDIO_EXTENSIONS,
     AUDIO_DIR,
     BACKGROUND_IMAGE_STATIC_PATH,
+    CATEGORIES,
+    DEFAULT_TIME_LIMIT_SEC,
     MAX_AUDIO_BYTES,
-    QA_DEFAULT_TIME_LIMIT_SEC,
+    PROMPT_AUDIO_DIR,
     ensure_dirs,
     resolve_info_level,
 )
 from level_check.jobs import start_process_part_job
-from level_check.models import new_part, new_session
+from level_check.models import empty_overall, new_part, new_session
 from level_check.storage import (
     active_questions,
     get_part,
@@ -35,6 +36,7 @@ from level_check.storage import (
     save_session,
 )
 from level_check.tasks.definitions import TASK_DEFINITIONS
+from level_check.tts import ensure_prompt_audio, tts_text_for_question
 
 logger = logging.getLogger(__name__)
 
@@ -50,51 +52,89 @@ main_bp = Blueprint(
 JST = timezone(timedelta(hours=9))
 
 
-def _tokenize_sentence(sentence: str) -> list[str]:
-    tokens = [t for t in re.split(r"\s+", sentence.strip()) if t]
-    return tokens
+def _part_from_question(category: str, item: dict) -> dict:
+    cat = category.upper()
+    prompt_audio_url = ""
+    tts_text = tts_text_for_question(cat, item)
+    if tts_text:
+        prompt_audio_url = ensure_prompt_audio(tts_text) or ""
+
+    if cat == "A":
+        return new_part(
+            task_type="A",
+            question_id=item["id"],
+            question_text=item.get("question", ""),
+            prompt_text=item.get("question", ""),
+            expected_answer=item.get("expected_answer", ""),
+            prompt_audio_url=prompt_audio_url,
+            time_limit_sec=DEFAULT_TIME_LIMIT_SEC.get("A"),
+        )
+    if cat == "B":
+        text = item.get("text", "")
+        return new_part(
+            task_type="B",
+            question_id=item["id"],
+            question_text=text,
+            prompt_text=text,
+            target_text=text,
+            prompt_audio_url=prompt_audio_url,
+        )
+    if cat == "C":
+        return new_part(
+            task_type="C",
+            question_id=item["id"],
+            question_text=item.get("question", ""),
+            prompt_text=item.get("dialog_text", ""),
+            stimulus_text=item.get("dialog_text", ""),
+            expected_answer=item.get("expected_answer", ""),
+            prompt_audio_url=prompt_audio_url,
+        )
+    if cat == "D":
+        return new_part(
+            task_type="D",
+            question_id=item["id"],
+            question_text=item.get("question", ""),
+            prompt_text=item.get("passage_text", ""),
+            stimulus_text=item.get("passage_text", ""),
+            expected_answer=item.get("expected_answer", ""),
+            prompt_audio_url=prompt_audio_url,
+        )
+    if cat == "E":
+        story = item.get("story_text", "")
+        return new_part(
+            task_type="E",
+            question_id=item["id"],
+            question_text="自分の言葉でストーリーの内容を言い換えて話してください。",
+            prompt_text=story,
+            stimulus_text=story,
+            prompt_audio_url=prompt_audio_url,
+            time_limit_sec=item.get("time_limit_sec", DEFAULT_TIME_LIMIT_SEC.get("E")),
+        )
+    # F
+    prompt = item.get("prompt", "")
+    return new_part(
+        task_type="F",
+        question_id=item["id"],
+        question_text=prompt,
+        prompt_text=prompt,
+        time_limit_sec=item.get("time_limit_sec", DEFAULT_TIME_LIMIT_SEC.get("F")),
+    )
 
 
-def _build_parts_for_session(questions_per_task: int) -> list[dict]:
+def _build_parts_for_session(questions_per_category: dict) -> list[dict]:
     parts: list[dict] = []
-
-    repeat_pool = active_questions("repeat")
-    for item in random.sample(repeat_pool, min(questions_per_task, len(repeat_pool))):
-        parts.append(
-            new_part(
-                task_type="repeat",
-                question_id=item["id"],
-                question_text=item["text"],
-                target_text=item["text"],
-            )
-        )
-
-    build_pool = active_questions("sentence_build")
-    for item in random.sample(build_pool, min(questions_per_task, len(build_pool))):
-        words = _tokenize_sentence(item["target_sentence"])
-        shuffled = words[:]
-        random.shuffle(shuffled)
-        parts.append(
-            new_part(
-                task_type="sentence_build",
-                question_id=item["id"],
-                question_text=item["target_sentence"],
-                target_text=item["target_sentence"],
-                shuffled_words=shuffled,
-            )
-        )
-
-    qa_pool = active_questions("qa")
-    for item in random.sample(qa_pool, min(questions_per_task, len(qa_pool))):
-        parts.append(
-            new_part(
-                task_type="qa",
-                question_id=item["id"],
-                question_text=item["question"],
-                time_limit_sec=item.get("time_limit_sec", QA_DEFAULT_TIME_LIMIT_SEC),
-            )
-        )
-
+    for cat in CATEGORIES:
+        try:
+            count = int(questions_per_category.get(cat, 0))
+        except (TypeError, ValueError):
+            count = 0
+        if count <= 0:
+            continue
+        pool = active_questions(cat)
+        if not pool:
+            continue
+        for item in random.sample(pool, min(count, len(pool))):
+            parts.append(_part_from_question(cat, item))
     return parts
 
 
@@ -138,8 +178,7 @@ def create_session():
     if info_level == "none":
         student_info = {"class_name": "", "number": "", "name": ""}
 
-    questions_per_task = int(settings.get("questions_per_task", 3))
-    parts = _build_parts_for_session(questions_per_task)
+    parts = _build_parts_for_session(settings.get("questions_per_category") or {})
     if not parts:
         return jsonify({"ok": False, "error": "出題可能な問題がありません。管理画面で問題を登録してください。"}), 400
 
@@ -163,7 +202,6 @@ def progress_screen(session_id):
         "level_check/progress.html",
         session=session,
         task_definitions=TASK_DEFINITIONS,
-        qa_default_time_limit=QA_DEFAULT_TIME_LIMIT_SEC,
         background_opacity=settings.get("background_opacity"),
         background_image=BACKGROUND_IMAGE_STATIC_PATH,
     )
@@ -258,12 +296,13 @@ def retry_part(session_id, part_id):
                 "scores": {},
                 "comments": {},
                 "weighted_total": None,
+                "score_90": None,
                 "cefr_band": None,
             }
         )
         if session.get("status") == "done":
             session["status"] = "in_progress"
-            session["overall"] = {"weighted_total": None, "cefr_band": None, "score_100": None}
+            session["overall"] = empty_overall()
         save_session(session)
         return jsonify({"ok": True, "part": part})
 
@@ -289,3 +328,9 @@ def serve_audio(session_id, filename):
     safe_filename = Path(filename).name
     directory = AUDIO_DIR / safe_session_id
     return send_from_directory(directory, safe_filename)
+
+
+@main_bp.route("/prompt-audio/<path:filename>")
+def serve_prompt_audio(filename):
+    safe_filename = Path(filename).name
+    return send_from_directory(PROMPT_AUDIO_DIR, safe_filename)

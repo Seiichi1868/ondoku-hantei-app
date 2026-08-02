@@ -12,6 +12,7 @@ DATA_DIR = Path(
     os.environ.get("LEVEL_CHECK_DATA_DIR", str(PROJECT_ROOT / "data" / "level_check"))
 ).expanduser()
 AUDIO_DIR = DATA_DIR / "audio"
+PROMPT_AUDIO_DIR = AUDIO_DIR / "prompts"
 SESSIONS_DIR = DATA_DIR / "sessions"
 
 STUDENTS_FILE = DATA_DIR / "level_check_students.json"
@@ -30,22 +31,54 @@ EVAL_MAX_RETRIES = int(os.environ.get("LEVEL_CHECK_EVAL_MAX_RETRIES", "1"))
 MAX_AUDIO_BYTES = 15 * 1024 * 1024
 ALLOWED_AUDIO_EXTENSIONS = {"webm", "wav", "mp3", "m4a", "ogg", "mp4", "mpeg", "mpga"}
 
-# ── タスク種別 ──────────────────────────────────────────────
-TASK_TYPES = ("repeat", "sentence_build", "qa")
+# ── 6カテゴリ（A〜F） ───────────────────────────────────────
+CATEGORIES = ("A", "B", "C", "D", "E", "F")
 
-TASK_LABELS = {
-    "repeat": "リピート課題",
-    "sentence_build": "文再構成課題",
-    "qa": "短時間Q&A課題",
+CATEGORY_LABELS = {
+    "A": "A. 質問応答",
+    "B": "B. 復唱",
+    "C": "C. 会話理解質問",
+    "D": "D. 文章理解質問",
+    "E": "E. 要約リテリング",
+    "F": "F. 自由回答",
 }
 
-TASK_DESCRIPTIONS = {
-    "repeat": "短い英文を聞いて、そのまま復唱する課題。",
-    "sentence_build": "語順がバラバラの単語群を、正しい語順の文として音声で組み立てる課題。",
-    "qa": "簡単な質問に対し、制限時間内に口頭で回答する課題。",
+CATEGORY_DESCRIPTIONS = {
+    "A": "短い質問を聞き、短く即答する（リスニング＋即応性）",
+    "B": "聞いた英文をそのまま繰り返す（リスニング＋発話正確性）",
+    "C": "短い会話を聞き、内容に関する質問に答える（リスニング理解）",
+    "D": "やや長めの文章を聞き、内容に関する質問に答える（リスニング理解・応用）",
+    "E": "短いストーリーを聞き、制限時間内に自分の言葉で言い換えて話す",
+    "F": "簡単なテーマについて自分の意見を自由に述べる",
 }
 
-QA_DEFAULT_TIME_LIMIT_SEC = 15
+# スピーキング採点対象 / リスニング採点対象
+SPEAKING_CATEGORIES = ("B", "E", "F")
+LISTENING_CATEGORIES = ("A", "C", "D")
+
+# 事前TTS（プロンプト音声）が必要なカテゴリ
+AUDIO_PROMPT_CATEGORIES = ("A", "B", "C", "D", "E")
+
+# 週次実施での出題数目安（設定値として上書き可能）
+DEFAULT_QUESTIONS_PER_CATEGORY = {
+    "A": 3,
+    "B": 4,
+    "C": 2,
+    "D": 2,
+    "E": 1,
+    "F": 1,
+}
+
+DEFAULT_TIME_LIMIT_SEC = {
+    "A": 15,
+    "E": 30,
+    "F": 30,
+}
+
+# TTS（OpenAI）— 教育現場での聞き取りやすさ優先
+TTS_MODEL = os.environ.get("LEVEL_CHECK_TTS_MODEL", "tts-1")
+TTS_VOICE = os.environ.get("LEVEL_CHECK_TTS_VOICE", "nova")
+TTS_SPEED = float(os.environ.get("LEVEL_CHECK_TTS_SPEED", "0.95"))
 
 # ── 生徒への情報要求レベル（3段階） ─────────────────────────
 INFO_LEVELS = ("full", "partial", "none")
@@ -65,10 +98,10 @@ AI_MODEL_MODES = {
 }
 DEFAULT_AI_MODEL_MODE = "luna"
 
-DEFAULT_QUESTIONS_PER_TASK = 3
+# 総合スコア合成の初期重み（スピーキング／リスニング各50%）
+DEFAULT_OVERALL_WEIGHTS = {"speaking": 0.5, "listening": 0.5}
 
 # ── 背景画像（news/ の自然画像を共有 static 経由でそのまま利用） ──────
-# Flask アプリ本体の static フォルダ（プロジェクトルート static/）配下のパス。
 BACKGROUND_IMAGE_STATIC_PATH = "news/images/nature-bg.jpg"
 DEFAULT_BACKGROUND_OPACITY = 0.35
 
@@ -89,6 +122,14 @@ def resolve_info_level(level: str | None = None) -> str:
     return DEFAULT_INFO_LEVEL
 
 
+def score_track_for_category(category: str) -> str:
+    if category in SPEAKING_CATEGORIES:
+        return "speaking"
+    if category in LISTENING_CATEGORIES:
+        return "listening"
+    return "speaking"
+
+
 def get_openai_api_key() -> str:
     return (os.environ.get("OPENAI_API_KEY") or "").strip()
 
@@ -96,4 +137,5 @@ def get_openai_api_key() -> str:
 def ensure_dirs() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+    PROMPT_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)

@@ -13,10 +13,11 @@
 <div class="lc-card rounded-2xl p-6 md:p-8 mb-5">
   <h2 class="text-xl font-bold text-slate-800 mb-2">スピーキング瞬発力・運用力レベルチェック</h2>
   <p class="text-sm text-slate-500 leading-relaxed">
-    3種類のタスク（リピート・文再構成・Q&A）に取り組み、流暢さ・発音・文法・語彙・応答速度の5つの観点から
-    CEFR帯（A1〜C2）でレベルを判定します。マイクを使用しますので、録音の許可をお願いします。
+    6カテゴリ（質問応答・復唱・会話理解・文章理解・要約リテリング・自由回答）に取り組み、
+    スピーキング／リスニングのサブスコアと Speaking Level Score（0〜90）・CEFR帯でレベルを判定します。
+    マイクを使用しますので、録音の許可をお願いします。所要時間の目安は5〜8分です。
   </p>
-  <div class="grid gap-2 mt-4">
+  <div class="grid gap-2 mt-4 md:grid-cols-2">
     {% for task_id, task in task_definitions.items() %}
     <div class="lc-panel rounded-xl px-4 py-3">
       <p class="text-sm font-bold text-slate-700">{{ task.label }}</p>
@@ -62,5 +63,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('level_check.static', filename='js/index.js', v='20260802a') }}"></script>
+<script src="{{ url_for('level_check.static', filename='js/index.js', v='20260802c') }}"></script>
 {% endblock %}

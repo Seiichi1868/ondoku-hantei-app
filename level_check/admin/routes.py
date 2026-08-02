@@ -10,14 +10,22 @@ from flask import Blueprint, jsonify, render_template, request, send_file
 from level_check.config import (
     AI_MODEL_MODES,
     BACKGROUND_IMAGE_STATIC_PATH,
+    CATEGORIES,
+    CATEGORY_LABELS,
     INFO_LEVEL_LABELS,
     INFO_LEVELS,
     ADMIN_PASSWORD,
     get_openai_api_key,
     resolve_ai_model_id,
 )
-from level_check.scoring.rubric import DEFAULT_RUBRIC, RUBRIC_AXES
+from level_check.scoring.rubric import (
+    DEFAULT_LISTENING_RUBRIC,
+    DEFAULT_SPEAKING_RUBRIC,
+    LISTENING_AXES,
+    SPEAKING_AXES,
+)
 from level_check.storage import (
+    QUESTION_PRIMARY_FIELD,
     add_or_update_student,
     add_questions,
     delete_question,
@@ -33,6 +41,7 @@ from level_check.storage import (
 )
 from level_check.tasks.definitions import TASK_DEFINITIONS
 from level_check.tasks.generator import generate_questions
+from level_check.tts import ensure_prompt_audio, synthesize_prompt, tts_text_for_question
 
 admin_bp = Blueprint(
     "level_check_admin",
@@ -40,12 +49,6 @@ admin_bp = Blueprint(
     url_prefix="/level_check/admin",
     template_folder="../templates",
 )
-
-_QUESTION_TEXT_FIELD = {
-    "repeat": "text",
-    "sentence_build": "target_sentence",
-    "qa": "question",
-}
 
 
 def _require_model_change_password(payload: dict):
@@ -62,7 +65,10 @@ def _settings_payload() -> dict:
         **settings,
         "ai_model_modes": [{"id": k, **v} for k, v in AI_MODEL_MODES.items()],
         "info_levels": [{"id": lvl, "label": INFO_LEVEL_LABELS[lvl]} for lvl in INFO_LEVELS],
-        "rubric_defaults": {axis: DEFAULT_RUBRIC[axis] for axis in RUBRIC_AXES},
+        "speaking_rubric_defaults": {axis: DEFAULT_SPEAKING_RUBRIC[axis] for axis in SPEAKING_AXES},
+        "listening_rubric_defaults": {axis: DEFAULT_LISTENING_RUBRIC[axis] for axis in LISTENING_AXES},
+        "rubric_defaults": {axis: DEFAULT_SPEAKING_RUBRIC[axis] for axis in SPEAKING_AXES},
+        "categories": [{"id": c, "label": CATEGORY_LABELS[c]} for c in CATEGORIES],
         "api_key_configured": bool(get_openai_api_key()),
     }
 
@@ -78,6 +84,8 @@ def admin_page():
         info_levels=INFO_LEVELS,
         info_level_labels=INFO_LEVEL_LABELS,
         task_definitions=TASK_DEFINITIONS,
+        category_labels=CATEGORY_LABELS,
+        categories=CATEGORIES,
         question_bank=bank,
         background_opacity=settings.get("background_opacity"),
         background_image=BACKGROUND_IMAGE_STATIC_PATH,
@@ -95,12 +103,18 @@ def get_settings():
 def save_settings_api():
     payload = request.get_json(silent=True) or {}
     updates = {}
-    if "rubric_weights" in payload:
-        updates["rubric_weights"] = payload.get("rubric_weights")
+    if "speaking_rubric_weights" in payload:
+        updates["speaking_rubric_weights"] = payload.get("speaking_rubric_weights")
+    elif "rubric_weights" in payload:
+        updates["speaking_rubric_weights"] = payload.get("rubric_weights")
+    if "listening_rubric_weights" in payload:
+        updates["listening_rubric_weights"] = payload.get("listening_rubric_weights")
+    if "overall_weights" in payload:
+        updates["overall_weights"] = payload.get("overall_weights")
     if "student_info_level" in payload:
         updates["student_info_level"] = payload.get("student_info_level")
-    if "questions_per_task" in payload:
-        updates["questions_per_task"] = payload.get("questions_per_task")
+    if "questions_per_category" in payload:
+        updates["questions_per_category"] = payload.get("questions_per_category")
     if "background_opacity" in payload:
         updates["background_opacity"] = payload.get("background_opacity")
     if "ai_model_mode" in payload:
@@ -159,22 +173,24 @@ def list_questions():
 
 @admin_bp.route("/api/questions/<task_type>", methods=["POST"])
 def add_question(task_type):
-    if task_type not in _QUESTION_TEXT_FIELD:
-        return jsonify({"ok": False, "error": f"不明なタスク種別: {task_type}"}), 400
+    cat = str(task_type or "").strip().upper()
+    if cat not in QUESTION_PRIMARY_FIELD:
+        return jsonify({"ok": False, "error": f"不明なカテゴリ: {task_type}"}), 400
     payload = request.get_json(silent=True) or {}
     item = payload.get("item") or {}
-    bank = add_questions(task_type, [item])
+    bank = add_questions(cat, [item])
     return jsonify({"ok": True, "questions": bank})
 
 
 @admin_bp.route("/api/questions/<task_type>/<question_id>", methods=["POST"])
 def edit_question(task_type, question_id):
-    if task_type not in _QUESTION_TEXT_FIELD:
-        return jsonify({"ok": False, "error": f"不明なタスク種別: {task_type}"}), 400
+    cat = str(task_type or "").strip().upper()
+    if cat not in QUESTION_PRIMARY_FIELD:
+        return jsonify({"ok": False, "error": f"不明なカテゴリ: {task_type}"}), 400
     payload = request.get_json(silent=True) or {}
     updates = payload.get("item") or {}
     try:
-        bank = update_question(task_type, question_id, updates)
+        bank = update_question(cat, question_id, updates)
         return jsonify({"ok": True, "questions": bank})
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 404
@@ -182,16 +198,18 @@ def edit_question(task_type, question_id):
 
 @admin_bp.route("/api/questions/<task_type>/<question_id>", methods=["DELETE"])
 def remove_question(task_type, question_id):
-    if task_type not in _QUESTION_TEXT_FIELD:
-        return jsonify({"ok": False, "error": f"不明なタスク種別: {task_type}"}), 400
-    bank = delete_question(task_type, question_id)
+    cat = str(task_type or "").strip().upper()
+    if cat not in QUESTION_PRIMARY_FIELD:
+        return jsonify({"ok": False, "error": f"不明なカテゴリ: {task_type}"}), 400
+    bank = delete_question(cat, question_id)
     return jsonify({"ok": True, "questions": bank})
 
 
 @admin_bp.route("/api/questions/<task_type>/generate", methods=["POST"])
 def generate_questions_api(task_type):
-    if task_type not in _QUESTION_TEXT_FIELD:
-        return jsonify({"ok": False, "error": f"不明なタスク種別: {task_type}"}), 400
+    cat = str(task_type or "").strip().upper()
+    if cat not in QUESTION_PRIMARY_FIELD:
+        return jsonify({"ok": False, "error": f"不明なカテゴリ: {task_type}"}), 400
 
     payload = request.get_json(silent=True) or {}
     try:
@@ -205,17 +223,44 @@ def generate_questions_api(task_type):
 
     settings = load_settings()
     model = resolve_ai_model_id(settings.get("ai_model_mode"))
-    field = _QUESTION_TEXT_FIELD[task_type]
-    existing_texts = [item.get(field, "") for item in load_questions().get(task_type, [])]
+    field = QUESTION_PRIMARY_FIELD[cat]
+    existing_texts = [item.get(field, "") for item in load_questions().get(cat, [])]
 
     try:
         generated = generate_questions(
-            task_type=task_type, count=count, model=model, api_key=api_key, existing_texts=existing_texts
+            task_type=cat, count=count, model=model, api_key=api_key, existing_texts=existing_texts
         )
-        bank = add_questions(task_type, generated)
+        # TTS を可能な範囲で事前生成（失敗しても問題登録は続行）
+        for item in generated:
+            text = tts_text_for_question(cat, item)
+            if text:
+                url = ensure_prompt_audio(text)
+                if url:
+                    item["prompt_audio_key"] = url.rsplit("/", 1)[-1].replace(".mp3", "")
+        bank = add_questions(cat, generated)
         return jsonify({"ok": True, "questions": bank, "generated_count": len(generated)})
     except Exception as exc:  # noqa: BLE001
         return jsonify({"ok": False, "error": f"生成に失敗しました: {exc}"}), 500
+
+
+@admin_bp.route("/api/questions/<task_type>/<question_id>/tts", methods=["POST"])
+def regenerate_question_tts(task_type, question_id):
+    cat = str(task_type or "").strip().upper()
+    if cat not in QUESTION_PRIMARY_FIELD:
+        return jsonify({"ok": False, "error": f"不明なカテゴリ: {task_type}"}), 400
+    bank = load_questions()
+    item = next((q for q in bank.get(cat, []) if q.get("id") == question_id), None)
+    if not item:
+        return jsonify({"ok": False, "error": "問題が見つかりません。"}), 404
+    text = tts_text_for_question(cat, item)
+    if not text:
+        return jsonify({"ok": False, "error": "このカテゴリには音声プロンプトがありません。"}), 400
+    try:
+        key, cached = synthesize_prompt(text, force=True)
+        update_question(cat, question_id, {"prompt_audio_key": key})
+        return jsonify({"ok": True, "prompt_audio_key": key, "cached": cached})
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 # ── 受験結果 ────────────────────────────────────────────────
@@ -233,22 +278,9 @@ def remove_submission(submission_id):
     return jsonify({"ok": True})
 
 
-def _axis_average(task_results: list[dict], axis: str) -> float | None:
-    values = []
-    for result in task_results:
-        scores = result.get("scores") or {}
-        if axis in scores and scores[axis] is not None:
-            values.append(scores[axis])
-    if not values:
-        return None
-    return round(sum(values) / len(values), 2)
-
-
-def _task_type_average(task_results: list[dict], task_type: str) -> float | None:
-    values = [r.get("weighted_total") for r in task_results if r.get("task_type") == task_type and r.get("weighted_total") is not None]
-    if not values:
-        return None
-    return round(sum(values) / len(values), 2)
+def _axis_from_overall(overall: dict, track: str, axis: str):
+    axes = (overall or {}).get(f"{track}_axes") or {}
+    return axes.get(axis, "")
 
 
 def _latency_average(task_results: list[dict]) -> float | None:
@@ -271,17 +303,23 @@ def export_submissions():
         "クラス",
         "番号",
         "氏名",
-        "総合スコア(100点満点)",
-        "総合CEFR目安",
-        "総合加重スコア",
-        "リピート課題スコア",
-        "文再構成課題スコア",
-        "Q&A課題スコア",
+        "Speaking Level Score",
+        "総合CEFR帯",
+        "スピーキングサブスコア",
+        "リスニングサブスコア",
+        "A.質問応答",
+        "B.復唱",
+        "C.会話理解",
+        "D.文章理解",
+        "E.要約リテリング",
+        "F.自由回答",
         "流暢さ",
         "発音・明瞭性",
         "文法的正確性",
         "語彙運用",
         "応答速度スコア",
+        "内容理解",
+        "応答の的確さ",
         "平均応答速度(ms)",
         "使用AIモデル",
     ]
@@ -291,6 +329,7 @@ def export_submissions():
         task_results = s.get("task_results") or []
         student_info = s.get("student_info") or {}
         overall = s.get("overall") or {}
+        category_scores = overall.get("category_scores") or {}
         ws.append(
             [
                 s.get("submitted_at", ""),
@@ -298,25 +337,30 @@ def export_submissions():
                 student_info.get("class_name", ""),
                 student_info.get("number", ""),
                 student_info.get("name", ""),
-                overall.get("score_100", ""),
+                overall.get("speaking_level_score", overall.get("score_100", "")),
                 overall.get("cefr_band", ""),
-                overall.get("weighted_total", ""),
-                _task_type_average(task_results, "repeat"),
-                _task_type_average(task_results, "sentence_build"),
-                _task_type_average(task_results, "qa"),
-                _axis_average(task_results, "fluency"),
-                _axis_average(task_results, "pronunciation"),
-                _axis_average(task_results, "accuracy"),
-                _axis_average(task_results, "vocabulary"),
-                _axis_average(task_results, "response_latency"),
+                overall.get("speaking_subscore", ""),
+                overall.get("listening_subscore", ""),
+                category_scores.get("A", ""),
+                category_scores.get("B", ""),
+                category_scores.get("C", ""),
+                category_scores.get("D", ""),
+                category_scores.get("E", ""),
+                category_scores.get("F", ""),
+                _axis_from_overall(overall, "speaking", "fluency"),
+                _axis_from_overall(overall, "speaking", "pronunciation"),
+                _axis_from_overall(overall, "speaking", "accuracy"),
+                _axis_from_overall(overall, "speaking", "vocabulary"),
+                _axis_from_overall(overall, "speaking", "response_latency"),
+                _axis_from_overall(overall, "listening", "comprehension_accuracy"),
+                _axis_from_overall(overall, "listening", "response_relevance"),
                 _latency_average(task_results),
                 s.get("ai_model_mode", ""),
             ]
         )
 
-    col_widths = [20, 10, 12, 8, 12, 12, 10, 10, 10, 10, 10, 8, 10, 10, 8, 10, 12, 12]
-    for i, width in enumerate(col_widths, 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
+    for i in range(1, len(headers) + 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 12
 
     buf = io.BytesIO()
     wb.save(buf)

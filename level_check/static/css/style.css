@@ -114,7 +114,7 @@ body {
   box-shadow: 0 10px 30px rgba(2, 132, 199, 0.35);
 }
 
-.versant-score-badge {
+.score-badge {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -126,12 +126,12 @@ body {
   color: white;
   box-shadow: 0 10px 30px rgba(2, 132, 199, 0.35);
 }
-.versant-score-badge .versant-score-value {
+.score-badge .score-badge-value {
   font-size: 2rem;
   font-weight: 800;
   line-height: 1;
 }
-.versant-score-badge .versant-score-max {
+.score-badge .score-badge-max {
   font-size: 0.7rem;
   font-weight: 600;
   opacity: 0.85;

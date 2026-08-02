@@ -22,7 +22,6 @@
 
   <!-- ── 設定タブ ─────────────────────────────────────── -->
   <section class="admin-tab-panel" data-tab-panel="settings">
-    <!-- 管理設定: AIモデル選択のみパスワードが必要 -->
     <div class="lc-card rounded-2xl p-4 md:p-5 mb-3">
       <h2 class="text-sm font-bold text-slate-800 mb-2 flex items-center gap-1.5">🔒 管理設定（評価に使うAIモデル）</h2>
       <div class="flex flex-wrap items-center gap-2">
@@ -37,7 +36,6 @@
       <p id="model-change-status" class="text-xs mt-1.5 min-h-[1rem]"></p>
     </div>
 
-    <!-- 一般設定: パスワード不要 -->
     <div class="lc-card rounded-2xl p-4 md:p-5 mb-3">
       <div class="grid gap-4 md:grid-cols-2">
         <div>
@@ -45,11 +43,9 @@
           <div id="info-level-picker" class="flex flex-wrap gap-2"></div>
         </div>
         <div>
-          <h2 class="text-sm font-bold text-slate-800 mb-2">タスクごとの出題数</h2>
-          <div class="flex items-center gap-2">
-            <input id="questions-per-task" type="number" min="1" max="15" class="lc-input w-20">
-            <p class="text-xs text-slate-400">各タスクからランダム出題する問題数</p>
-          </div>
+          <h2 class="text-sm font-bold text-slate-800 mb-2">カテゴリごとの出題数</h2>
+          <div id="questions-per-category" class="grid grid-cols-3 gap-2"></div>
+          <p class="text-xs text-slate-400 mt-1">合計の目安は13問（5〜8分）です。</p>
         </div>
       </div>
       <div class="mt-4">
@@ -58,11 +54,18 @@
           <input id="bg-opacity-slider" type="range" min="0" max="100" step="1" class="rubric-weight-slider">
           <span id="bg-opacity-value" class="rubric-weight-value">—%</span>
         </div>
-        <p class="text-xs text-slate-400 mt-1">自然画像（news/と共有）の見え方の濃さを調整します。</p>
       </div>
       <div class="mt-4">
-        <h2 class="text-sm font-bold text-slate-800 mb-2">5軸評価の重み（合計は自動で正規化されます）</h2>
-        <div id="rubric-weights" class="grid gap-1.5 md:grid-cols-2"></div>
+        <h2 class="text-sm font-bold text-slate-800 mb-2">総合スコアの合成重み（スピーキング／リスニング）</h2>
+        <div id="overall-weights" class="grid gap-1.5 md:grid-cols-2"></div>
+      </div>
+      <div class="mt-4">
+        <h2 class="text-sm font-bold text-slate-800 mb-2">スピーキング評価の重み（B・E・F）</h2>
+        <div id="speaking-rubric-weights" class="grid gap-1.5 md:grid-cols-2"></div>
+      </div>
+      <div class="mt-4">
+        <h2 class="text-sm font-bold text-slate-800 mb-2">リスニング評価の重み（A・C・D）</h2>
+        <div id="listening-rubric-weights" class="grid gap-1.5 md:grid-cols-2"></div>
       </div>
       <button id="save-settings-btn" type="button"
         class="mt-4 px-5 py-2 rounded-xl bg-brand text-white text-sm font-bold shadow hover:bg-brand-dark transition-colors">
@@ -96,10 +99,10 @@
   <!-- ── 問題バンクタブ ───────────────────────────────── -->
   <section class="admin-tab-panel hidden" data-tab-panel="questions">
     <div class="flex items-center gap-2 flex-wrap mb-3">
-      <div class="flex gap-1.5" id="question-task-tabs">
-        <button type="button" class="admin-tab-btn is-active" data-task-tab="repeat">リピート課題</button>
-        <button type="button" class="admin-tab-btn" data-task-tab="sentence_build">文再構成課題</button>
-        <button type="button" class="admin-tab-btn" data-task-tab="qa">短時間Q&A課題</button>
+      <div class="flex gap-1.5 flex-wrap" id="question-task-tabs">
+        {% for cat in categories %}
+        <button type="button" class="admin-tab-btn {% if loop.first %}is-active{% endif %}" data-task-tab="{{ cat }}">{{ category_labels[cat] }}</button>
+        {% endfor %}
       </div>
       <span class="flex-1"></span>
       <button id="question-add-btn" type="button" class="text-xs px-3 py-1.5 rounded-full border border-sky-200 text-brand-dark hover:bg-sky-50">
@@ -130,7 +133,9 @@
 
 {% block scripts %}
 <script>
-  window.LEVEL_CHECK_RUBRIC_AXES = ["fluency", "pronunciation", "accuracy", "vocabulary", "response_latency"];
+  window.LEVEL_CHECK_SPEAKING_AXES = ["fluency", "pronunciation", "accuracy", "vocabulary", "response_latency"];
+  window.LEVEL_CHECK_LISTENING_AXES = ["comprehension_accuracy", "response_relevance"];
+  window.LEVEL_CHECK_CATEGORIES = {{ categories | tojson }};
 </script>
-<script src="{{ url_for('level_check.static', filename='js/admin.js', v='20260802b') }}"></script>
+<script src="{{ url_for('level_check.static', filename='js/admin.js', v='20260802c') }}"></script>
 {% endblock %}
