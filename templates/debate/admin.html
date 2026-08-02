@@ -3,107 +3,110 @@
 {% block title %}管理画面 | PDA Debate Practice{% endblock %}
 
 {% block header_actions %}
-<div class="flex items-center gap-2">
-  <div id="admin-lock" class="flex items-center gap-1.5">
-    <input id="admin-password" type="password" inputmode="numeric" autocomplete="off"
-      placeholder="パスワード"
-      class="text-sm rounded-lg border border-teal-100 bg-white/80 px-3 py-1.5 w-28 focus:outline-none focus:ring-2 focus:ring-brand">
-    <button id="unlock-btn" type="button"
-      class="text-xs px-3 py-1.5 rounded-full bg-brand text-white font-semibold hover:bg-brand-dark transition-colors">
-      解除
-    </button>
-  </div>
-  <a href="{{ url_for('debate.index') }}"
-    class="text-xs px-3 py-1.5 rounded-full bg-white/60 text-slate-600 hover:bg-emerald-50 hover:text-teal-700 font-medium transition-colors border border-white/80">
-    ← 生徒画面
-  </a>
-</div>
+<a href="{{ url_for('debate.index') }}"
+  class="text-xs px-3 py-1.5 rounded-full bg-white/60 text-slate-600 hover:bg-emerald-50 hover:text-teal-700 font-medium transition-colors border border-white/80">
+  ← 生徒画面
+</a>
 {% endblock %}
 
 {% block body %}
 <p id="lock-message" class="hidden text-sm text-rose-600 font-medium mb-3" role="alert"></p>
+<p id="status-message" class="text-sm text-emerald-700 font-medium min-h-[1.25rem] mb-3" aria-live="polite"></p>
 
-<div id="settings-panel" class="hidden space-y-4">
-  <p id="status-message" class="text-sm text-emerald-700 font-medium min-h-[1.25rem]" aria-live="polite"></p>
+<section class="glass-card rounded-2xl p-5 md:p-6 mb-4">
+  <div class="flex items-center justify-between gap-2 mb-2">
+    <h2 class="font-bold text-slate-800">保存済みセッション</h2>
+    <div class="flex items-center gap-2">
+      <span id="sessions-count" class="text-xs text-slate-400"></span>
+      <button id="sessions-refresh-btn" type="button"
+        class="text-xs px-2.5 py-1 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
+        更新
+      </button>
+    </div>
+  </div>
+  <p class="text-xs text-slate-500 mb-2 leading-snug">
+    再開・コピー（ジャッジ結果リセット）・備考記録ができます。
+  </p>
+  <div id="sessions-list" class="space-y-1.5">
+    <p class="text-sm text-slate-400">読み込み中...</p>
+  </div>
+</section>
 
-  <section class="glass-card rounded-2xl p-4 md:p-5">
-    <h2 class="text-sm font-bold text-slate-800 mb-2">ジャッジ用AIモデル</h2>
-    <div id="judge-model-picker" class="debate-mode-options debate-mode-options--ai"></div>
-    <p class="text-[0.65rem] text-slate-500 mt-1.5">
-      現在: <strong id="judge-model-current" class="text-brand font-semibold">—</strong>
-      <span class="text-slate-400">（単価と performance_score からコスパ／性能バーを自動算出）</span>
-    </p>
-  </section>
-
-  <section class="glass-card rounded-2xl p-5 md:p-6">
-    <h2 class="font-bold text-slate-800 mb-1">文字起こし方式</h2>
-    <p class="text-xs text-slate-500 mb-4">
-      生徒画面の録音時に使う文字起こし方式を切り替えます。セッションごとに使用モードが記録されます。
-    </p>
-    <div class="flex flex-col sm:flex-row gap-3" id="transcription-mode-picker">
-      <label class="panel-soft flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer hover:border-teal-200/80 transition-colors flex-1">
-        <input type="radio" name="transcription_mode" value="batch" class="mt-1 accent-teal-600" checked>
-        <span>
-          <span class="block text-sm font-semibold text-slate-800">モードA: 録音＋Whisper文字起こし</span>
-          <span class="block text-xs text-slate-500 mt-0.5">録音後にサーバー側でWhisper APIにより文字起こし（現在の方式）</span>
-        </span>
+<section class="glass-card rounded-xl px-3 py-2.5 mb-4">
+  <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+    <span class="text-[0.65rem] font-semibold text-slate-400 shrink-0">背景</span>
+    <div class="flex flex-wrap gap-1" id="bg-picker">
+      {% for bg_id, bg in backgrounds.items() %}
+      <button type="button"
+        class="bg-pick-btn bg-pick-btn--compact{% if bg_id == background.background_id %} bg-pick-btn-active{% endif %}"
+        data-bg-id="{{ bg_id }}"
+        data-bg-image="{{ url_for('static', filename=bg.image) }}"
+        title="{{ bg.label }}">
+        <span class="bg-pick-thumb bg-pick-thumb--compact" style="background-image: url('{{ url_for('static', filename=bg.image) }}');"></span>
+      </button>
+      {% endfor %}
+    </div>
+    <div class="flex items-center gap-1.5 ml-auto shrink-0">
+      <label for="bg-opacity-slider" class="text-[0.65rem] text-slate-400 whitespace-nowrap">
+        透過 <span id="bg-opacity-value">{{ (background_opacity * 100)|round|int }}</span>%
       </label>
-      <label class="panel-soft flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer hover:border-teal-200/80 transition-colors flex-1">
-        <input type="radio" name="transcription_mode" value="realtime" class="mt-1 accent-teal-600">
-        <span>
-          <span class="block text-sm font-semibold text-slate-800">モードB: リアルタイム文字起こし</span>
-          <span class="block text-xs text-slate-500 mt-0.5">Web Speech APIで発話と同時にテキスト化（Chrome推奨。非対応ブラウザはAにフォールバック）</span>
-        </span>
-      </label>
+      <input id="bg-opacity-slider" type="range" min="0" max="100" step="1"
+        value="{{ (background_opacity * 100)|round|int }}"
+        class="bg-opacity-slider accent-teal-600">
     </div>
-  </section>
+  </div>
+</section>
 
-  <section class="glass-card rounded-2xl p-5 md:p-6">
-    <div class="flex items-center justify-between gap-2 mb-2">
-      <h2 class="font-bold text-slate-800">保存済みセッション</h2>
-      <div class="flex items-center gap-2">
-        <span id="sessions-count" class="text-xs text-slate-400"></span>
-        <button id="sessions-refresh-btn" type="button"
-          class="text-xs px-2.5 py-1 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors">
-          更新
-        </button>
-      </div>
+<section class="glass-card rounded-2xl p-4 md:p-5">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <h2 class="text-sm font-bold text-slate-800">管理設定</h2>
+    <div id="admin-lock" class="flex items-center gap-1.5">
+      <input id="admin-password" type="password" inputmode="numeric" autocomplete="off"
+        placeholder="パスワード"
+        class="text-sm rounded-lg border border-teal-100 bg-white/80 px-3 py-1.5 w-28 focus:outline-none focus:ring-2 focus:ring-brand">
+      <button id="unlock-btn" type="button"
+        class="text-xs px-3 py-1.5 rounded-full bg-brand text-white font-semibold hover:bg-brand-dark transition-colors">
+        解除
+      </button>
     </div>
-    <p class="text-xs text-slate-500 mb-2 leading-snug">
-      再開・コピー（ジャッジ結果リセット）・備考記録ができます。
-    </p>
-    <div id="sessions-list" class="space-y-1.5">
-      <p class="text-sm text-slate-400">読み込み中...</p>
-    </div>
-  </section>
+  </div>
 
-  <section class="glass-card rounded-xl px-3 py-2.5">
-    <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-      <span class="text-[0.65rem] font-semibold text-slate-400 shrink-0">背景</span>
-      <div class="flex flex-wrap gap-1" id="bg-picker">
-        {% for bg_id, bg in backgrounds.items() %}
-        <button type="button"
-          class="bg-pick-btn bg-pick-btn--compact{% if bg_id == background.background_id %} bg-pick-btn-active{% endif %}"
-          data-bg-id="{{ bg_id }}"
-          data-bg-image="{{ url_for('static', filename=bg.image) }}"
-          title="{{ bg.label }}">
-          <span class="bg-pick-thumb bg-pick-thumb--compact" style="background-image: url('{{ url_for('static', filename=bg.image) }}');"></span>
-        </button>
-        {% endfor %}
-      </div>
-      <div class="flex items-center gap-1.5 ml-auto shrink-0">
-        <label for="bg-opacity-slider" class="text-[0.65rem] text-slate-400 whitespace-nowrap">
-          透過 <span id="bg-opacity-value">{{ (background_opacity * 100)|round|int }}</span>%
+  <div id="sensitive-settings" class="space-y-4 opacity-50 pointer-events-none" aria-disabled="true">
+    <div>
+      <h3 class="text-sm font-bold text-slate-800 mb-2">ジャッジ用AIモデル</h3>
+      <div id="judge-model-picker" class="debate-mode-options debate-mode-options--ai"></div>
+      <p class="text-[0.65rem] text-slate-500 mt-1.5">
+        現在: <strong id="judge-model-current" class="text-brand font-semibold">—</strong>
+        <span class="text-slate-400">（単価と performance_score からコスパ／性能バーを自動算出）</span>
+      </p>
+    </div>
+
+    <div>
+      <h3 class="font-bold text-slate-800 mb-1">文字起こし方式</h3>
+      <p class="text-xs text-slate-500 mb-3">
+        生徒画面の録音時に使う文字起こし方式を切り替えます。セッションごとに使用モードが記録されます。
+      </p>
+      <div class="flex flex-col sm:flex-row gap-3" id="transcription-mode-picker">
+        <label class="panel-soft flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer hover:border-teal-200/80 transition-colors flex-1">
+          <input type="radio" name="transcription_mode" value="batch" class="mt-1 accent-teal-600" checked>
+          <span>
+            <span class="block text-sm font-semibold text-slate-800">モードA: 録音＋Whisper文字起こし</span>
+            <span class="block text-xs text-slate-500 mt-0.5">録音後にサーバー側でWhisper APIにより文字起こし（現在の方式）</span>
+          </span>
         </label>
-        <input id="bg-opacity-slider" type="range" min="0" max="100" step="1"
-          value="{{ (background_opacity * 100)|round|int }}"
-          class="bg-opacity-slider accent-teal-600">
+        <label class="panel-soft flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer hover:border-teal-200/80 transition-colors flex-1">
+          <input type="radio" name="transcription_mode" value="realtime" class="mt-1 accent-teal-600">
+          <span>
+            <span class="block text-sm font-semibold text-slate-800">モードB: リアルタイム文字起こし</span>
+            <span class="block text-xs text-slate-500 mt-0.5">Web Speech APIで発話と同時にテキスト化（Chrome推奨。非対応ブラウザはAにフォールバック）</span>
+          </span>
+        </label>
       </div>
     </div>
-  </section>
-</div>
+  </div>
+</section>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='debate/js/admin.js', v='20260731h') }}"></script>
+<script src="{{ url_for('static', filename='debate/js/admin.js', v='20260802a') }}"></script>
 {% endblock %}

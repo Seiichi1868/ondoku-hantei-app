@@ -5,7 +5,7 @@ const UNLOCK_STORAGE_KEY = "debate_admin_unlocked";
 const passwordInput = document.getElementById("admin-password");
 const unlockBtn = document.getElementById("unlock-btn");
 const lockMessage = document.getElementById("lock-message");
-const settingsPanel = document.getElementById("settings-panel");
+const sensitiveSettings = document.getElementById("sensitive-settings");
 const statusMessage = document.getElementById("status-message");
 const pageBgLayer = document.getElementById("page-bg-layer");
 const bgPicker = document.getElementById("bg-picker");
@@ -46,18 +46,22 @@ function clearUnlockState() {
 
 function applyUnlockUI() {
   unlocked = true;
-  passwordInput.disabled = true;
-  unlockBtn.disabled = true;
-  settingsPanel.classList.remove("hidden");
+  if (passwordInput) passwordInput.disabled = true;
+  if (unlockBtn) unlockBtn.disabled = true;
+  if (sensitiveSettings) {
+    sensitiveSettings.classList.remove("opacity-50", "pointer-events-none");
+    sensitiveSettings.removeAttribute("aria-disabled");
+  }
 }
 
 function showLockMessage(msg) {
+  if (!lockMessage) return;
   lockMessage.textContent = msg;
   lockMessage.classList.remove("hidden");
 }
 
 function hideLockMessage() {
-  lockMessage.classList.add("hidden");
+  lockMessage?.classList.add("hidden");
 }
 
 function applyBackgroundOpacity(opacity) {
@@ -166,14 +170,8 @@ function applyTranscriptionMode(mode) {
   });
 }
 
-function collectPayload() {
-  return {
-    admin_password: passwordInput.value.trim(),
-    background_id: currentBackgroundId,
-    background_opacity: getBackgroundOpacityFromSlider(),
-    transcription_mode: getSelectedTranscriptionMode(),
-    judge_model_mode: getSelectedJudgeModelMode(),
-  };
+function getAdminPassword() {
+  return getStoredPassword() || passwordInput?.value.trim() || "";
 }
 
 async function loadSettingsIntoUI() {
@@ -186,20 +184,42 @@ async function loadSettingsIntoUI() {
   applyJudgeModelMode(data.judge_model_mode || "5.6-luna", data.judge_model);
 }
 
-function scheduleSave() {
+function scheduleBackgroundSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      const saved = await saveSettings({
+        background_id: currentBackgroundId,
+        background_opacity: getBackgroundOpacityFromSlider(),
+      });
+      const activeBtn = bgPicker?.querySelector(`.bg-pick-btn[data-bg-id="${saved.background_id}"]`);
+      applyBackground(saved.background_id, activeBtn?.dataset.bgImage);
+      applyBackgroundOpacity(saved.background_opacity ?? 0.32);
+      if (statusMessage) statusMessage.textContent = "保存しました";
+      hideLockMessage();
+    } catch (err) {
+      if (statusMessage) statusMessage.textContent = "";
+      showLockMessage(err.message);
+    }
+  }, 300);
+}
+
+function scheduleSensitiveSave() {
   if (!unlocked) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     try {
-      const saved = await saveSettings(collectPayload());
-      const activeBtn = bgPicker?.querySelector(`.bg-pick-btn[data-bg-id="${saved.background_id}"]`);
-      applyBackground(saved.background_id, activeBtn?.dataset.bgImage);
-      applyBackgroundOpacity(saved.background_opacity ?? 0.32);
+      const saved = await saveSettings({
+        admin_password: getAdminPassword(),
+        transcription_mode: getSelectedTranscriptionMode(),
+        judge_model_mode: getSelectedJudgeModelMode(),
+      });
       applyTranscriptionMode(saved.transcription_mode ?? "batch");
       applyJudgeModelMode(saved.judge_model_mode || "5.6-luna", saved.judge_model);
-      statusMessage.textContent = "保存しました";
+      if (statusMessage) statusMessage.textContent = "保存しました";
+      hideLockMessage();
     } catch (err) {
-      statusMessage.textContent = "";
+      if (statusMessage) statusMessage.textContent = "";
       showLockMessage(err.message);
     }
   }, 300);
@@ -307,11 +327,10 @@ function renderSessions(sessions) {
 }
 
 async function loadSessions() {
-  if (!sessionsList || !unlocked) return;
-  const password = getStoredPassword() || passwordInput.value.trim();
+  if (!sessionsList) return;
   sessionsList.innerHTML = '<p class="text-sm text-slate-400">読み込み中...</p>';
   try {
-    const res = await fetch(`/debate/admin/api/sessions?admin_password=${encodeURIComponent(password)}`);
+    const res = await fetch("/debate/admin/api/sessions");
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || "セッション一覧の取得に失敗しました");
     renderSessions(data.sessions || []);
@@ -323,23 +342,23 @@ async function loadSessions() {
 sessionsRefreshBtn?.addEventListener("click", loadSessions);
 
 function scheduleNotesSave(sessionId, notes) {
-  if (!unlocked || !sessionId) return;
+  if (!sessionId) return;
   clearTimeout(notesSaveTimers.get(sessionId));
   notesSaveTimers.set(
     sessionId,
     setTimeout(async () => {
       try {
-        const password = getStoredPassword() || passwordInput.value.trim();
         const res = await fetch(`/debate/admin/api/sessions/${encodeURIComponent(sessionId)}/notes`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ admin_password: password, notes }),
+          body: JSON.stringify({ notes }),
         });
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error(data.error || "備考の保存に失敗しました");
-        statusMessage.textContent = "備考を保存しました";
+        if (statusMessage) statusMessage.textContent = "備考を保存しました";
+        hideLockMessage();
       } catch (err) {
-        statusMessage.textContent = "";
+        if (statusMessage) statusMessage.textContent = "";
         showLockMessage(err.message);
       }
     }, 500)
@@ -348,13 +367,13 @@ function scheduleNotesSave(sessionId, notes) {
 
 sessionsList?.addEventListener("input", (e) => {
   const input = e.target.closest(".session-notes-input");
-  if (!input || !unlocked) return;
+  if (!input) return;
   scheduleNotesSave(input.dataset.sessionId, input.value.trim());
 });
 
 sessionsList?.addEventListener("click", async (e) => {
   const copyBtn = e.target.closest(".btn-copy-session");
-  if (copyBtn && unlocked) {
+  if (copyBtn) {
     const sessionId = copyBtn.dataset.sessionId;
     const notesInput = sessionsList.querySelector(`.session-notes-input[data-session-id="${sessionId}"]`);
     const suggestedNotes = notesInput?.value.trim() || "";
@@ -366,18 +385,18 @@ sessionsList?.addEventListener("click", async (e) => {
     const originalLabel = copyBtn.textContent;
     copyBtn.textContent = "コピー中...";
     try {
-      const password = getStoredPassword() || passwordInput.value.trim();
       const res = await fetch(`/debate/admin/api/sessions/${encodeURIComponent(sessionId)}/copy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_password: password, notes: notes.trim() }),
+        body: JSON.stringify({ notes: notes.trim() }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "コピーに失敗しました");
-      statusMessage.textContent = "セッションをコピーしました";
+      if (statusMessage) statusMessage.textContent = "セッションをコピーしました";
+      hideLockMessage();
       await loadSessions();
     } catch (err) {
-      statusMessage.textContent = "";
+      if (statusMessage) statusMessage.textContent = "";
       showLockMessage(err.message);
       copyBtn.disabled = false;
       copyBtn.textContent = originalLabel;
@@ -386,7 +405,7 @@ sessionsList?.addEventListener("click", async (e) => {
   }
 
   const btn = e.target.closest(".btn-delete-session");
-  if (!btn || !unlocked) return;
+  if (!btn) return;
 
   const sessionId = btn.dataset.sessionId;
   if (!window.confirm("このセッションの録音・文字起こしデータを完全に削除します。よろしいですか？")) return;
@@ -394,18 +413,18 @@ sessionsList?.addEventListener("click", async (e) => {
   btn.disabled = true;
   btn.textContent = "削除中...";
   try {
-    const password = getStoredPassword() || passwordInput.value.trim();
     const res = await fetch(`/debate/admin/api/sessions/${encodeURIComponent(sessionId)}/delete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ admin_password: password }),
+      body: JSON.stringify({}),
     });
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || "削除に失敗しました");
-    statusMessage.textContent = "セッションを削除しました";
+    if (statusMessage) statusMessage.textContent = "セッションを削除しました";
+    hideLockMessage();
     await loadSessions();
   } catch (err) {
-    statusMessage.textContent = "";
+    if (statusMessage) statusMessage.textContent = "";
     showLockMessage(err.message);
     btn.disabled = false;
     btn.textContent = "削除";
@@ -414,7 +433,7 @@ sessionsList?.addEventListener("click", async (e) => {
 
 async function tryUnlock() {
   hideLockMessage();
-  const password = passwordInput.value.trim();
+  const password = passwordInput?.value.trim() || "";
   if (!password) {
     showLockMessage("パスワードを入力してください");
     return;
@@ -435,9 +454,10 @@ async function tryUnlock() {
 
     saveUnlockState(password);
     applyUnlockUI();
-    await loadSettingsIntoUI();
-    await loadSessions();
-    statusMessage.textContent = "管理設定を解除しました";
+    applyTranscriptionMode(data.transcription_mode ?? "batch");
+    renderJudgeModelOptions(data.judge_model_modes || [], data.judge_model_mode || "5.6-luna");
+    applyJudgeModelMode(data.judge_model_mode || "5.6-luna", data.judge_model);
+    if (statusMessage) statusMessage.textContent = "管理設定を解除しました";
   } catch (err) {
     showLockMessage(err.message);
   }
@@ -447,7 +467,7 @@ async function restoreUnlockFromStorage() {
   const password = getStoredPassword();
   if (!password) return;
 
-  passwordInput.value = password;
+  if (passwordInput) passwordInput.value = password;
   hideLockMessage();
 
   try {
@@ -459,16 +479,17 @@ async function restoreUnlockFromStorage() {
     const data = await res.json();
     if (res.status === 403) {
       clearUnlockState();
-      passwordInput.value = "";
+      if (passwordInput) passwordInput.value = "";
       return;
     }
     if (!res.ok) return;
 
     applyUnlockUI();
-    await loadSettingsIntoUI();
-    await loadSessions();
+    applyTranscriptionMode(data.transcription_mode ?? "batch");
+    renderJudgeModelOptions(data.judge_model_modes || [], data.judge_model_mode || "5.6-luna");
+    applyJudgeModelMode(data.judge_model_mode || "5.6-luna", data.judge_model);
   } catch (_) {
-    // 保存済み解除の復元に失敗した場合はロック画面のまま
+    // 保存済み解除の復元に失敗した場合はロックのまま
   }
 }
 
@@ -479,25 +500,32 @@ passwordInput?.addEventListener("keydown", (e) => {
 
 bgPicker?.addEventListener("click", (e) => {
   const btn = e.target.closest(".bg-pick-btn");
-  if (!btn || !unlocked) return;
+  if (!btn) return;
   applyBackground(btn.dataset.bgId, btn.dataset.bgImage);
-  scheduleSave();
+  scheduleBackgroundSave();
 });
 
 judgeModelPicker?.addEventListener("change", () => {
   if (!unlocked) return;
-  scheduleSave();
+  scheduleSensitiveSave();
 });
 
 bgOpacitySlider?.addEventListener("input", () => {
-  if (!unlocked) return;
   applyBackgroundOpacity(getBackgroundOpacityFromSlider());
-  scheduleSave();
+  scheduleBackgroundSave();
 });
 
 transcriptionModePicker?.addEventListener("change", () => {
   if (!unlocked) return;
-  scheduleSave();
+  scheduleSensitiveSave();
 });
 
-restoreUnlockFromStorage();
+(async function initAdminPage() {
+  try {
+    await loadSettingsIntoUI();
+  } catch (err) {
+    showLockMessage(err.message);
+  }
+  await loadSessions();
+  await restoreUnlockFromStorage();
+})();

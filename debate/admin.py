@@ -20,9 +20,23 @@ debate_admin_bp = Blueprint("debate_admin", __name__, url_prefix="/debate/admin"
 
 ADMIN_PASSWORD = os.environ.get("DEBATE_ADMIN_PASSWORD", "2479")
 
+# パスワードが必要な設定キー（AIモデル・文字起こし方式）
+_SENSITIVE_SETTING_KEYS = ("transcription_mode", "judge_model_mode")
+
 
 def _password_ok(payload: dict) -> bool:
     return str(payload.get("admin_password") or "") == ADMIN_PASSWORD
+
+
+def _settings_response(settings: dict) -> dict:
+    judge_mode = resolve_judge_model_mode(settings.get("judge_model_mode"))
+    return {
+        "ok": True,
+        **settings,
+        **resolve_background(settings.get("background_id")),
+        "judge_model": resolve_judge_model(judge_mode),
+        "judge_model_modes": public_judge_model_modes(),
+    }
 
 
 @debate_admin_bp.route("")
@@ -40,20 +54,11 @@ def admin_page():
 @debate_admin_bp.route("/api/settings", methods=["GET", "POST"])
 def admin_settings():
     if request.method == "GET":
-        settings = load_settings()
-        judge_mode = resolve_judge_model_mode(settings.get("judge_model_mode"))
-        return jsonify(
-            {
-                "ok": True,
-                **settings,
-                **resolve_background(settings.get("background_id")),
-                "judge_model": resolve_judge_model(judge_mode),
-                "judge_model_modes": public_judge_model_modes(),
-            }
-        )
+        return jsonify(_settings_response(load_settings()))
 
     payload = request.get_json(silent=True) or {}
-    if not _password_ok(payload):
+    has_sensitive = any(key in payload for key in _SENSITIVE_SETTING_KEYS)
+    if has_sensitive and not _password_ok(payload):
         return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
 
     updates = {}
@@ -73,45 +78,23 @@ def admin_settings():
             updates["judge_model_mode"] = judge_mode
 
     if not updates:
-        settings = load_settings()
-        judge_mode = resolve_judge_model_mode(settings.get("judge_model_mode"))
-        return jsonify(
-            {
-                "ok": True,
-                **settings,
-                **resolve_background(settings.get("background_id")),
-                "judge_model": resolve_judge_model(judge_mode),
-                "judge_model_modes": public_judge_model_modes(),
-            }
-        )
+        # パスワード確認のみ（管理設定の解除）
+        if has_sensitive or _password_ok(payload):
+            return jsonify(_settings_response(load_settings()))
+        return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
 
-    saved = update_settings(**updates)
-    judge_mode = resolve_judge_model_mode(saved.get("judge_model_mode"))
-    return jsonify(
-        {
-            "ok": True,
-            **saved,
-            **resolve_background(saved.get("background_id")),
-            "judge_model": resolve_judge_model(judge_mode),
-            "judge_model_modes": public_judge_model_modes(),
-        }
-    )
+    return jsonify(_settings_response(update_settings(**updates)))
 
 
 # ── 保存済みセッション一覧（途中まで進めたディベートの再開・削除） ──────
 @debate_admin_bp.route("/api/sessions", methods=["GET"])
 def admin_list_sessions():
-    if not _password_ok(request.args.to_dict()):
-        return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
     return jsonify({"ok": True, "sessions": list_sessions(limit=500, include_notes=True)})
 
 
 @debate_admin_bp.route("/api/sessions/<session_id>/copy", methods=["POST"])
 def admin_copy_session(session_id):
     payload = request.get_json(silent=True) or {}
-    if not _password_ok(payload):
-        return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
-
     copied = copy_session(session_id, notes=str(payload.get("notes") or ""))
     if not copied:
         return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
@@ -127,9 +110,6 @@ def admin_copy_session(session_id):
 @debate_admin_bp.route("/api/sessions/<session_id>/notes", methods=["POST"])
 def admin_update_session_notes(session_id):
     payload = request.get_json(silent=True) or {}
-    if not _password_ok(payload):
-        return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
-
     updated = update_session_notes(session_id, notes=str(payload.get("notes") or ""))
     if not updated:
         return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
@@ -138,10 +118,6 @@ def admin_update_session_notes(session_id):
 
 @debate_admin_bp.route("/api/sessions/<session_id>/delete", methods=["POST"])
 def admin_delete_session(session_id):
-    payload = request.get_json(silent=True) or {}
-    if not _password_ok(payload):
-        return jsonify({"ok": False, "error": "管理パスワードが違います。"}), 403
-
     deleted = delete_session(session_id)
     if not deleted:
         return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
