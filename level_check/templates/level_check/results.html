@@ -5,73 +5,58 @@
 {% block body %}
 {% if session.status != 'done' %}
 <div class="lc-card rounded-2xl p-8 text-center">
-  <p class="text-2xl mb-2">⏳</p>
-  <h2 class="font-bold text-slate-800 mb-2">採点中です…</h2>
-  <p class="text-sm text-slate-500 mb-4">しばらくしてから再読み込みしてください。</p>
+  <p class="text-3xl mb-2">⏳</p>
+  <h2 class="text-xl font-bold text-slate-800 mb-2">採点中です…</h2>
+  <p class="text-base text-slate-500 mb-4">しばらくしてから再読み込みしてください。</p>
   <a href="{{ url_for('level_check.progress_screen', session_id=session.session_id) }}"
-    class="inline-block px-5 py-2.5 rounded-xl border border-sky-200 text-brand-dark text-sm font-bold hover:bg-sky-50 transition-colors">
+    class="inline-block px-5 py-2.5 rounded-xl border border-sky-200 text-brand-dark text-base font-bold hover:bg-sky-50 transition-colors">
     進行画面に戻る
   </a>
 </div>
 {% else %}
 {% set overall = session.overall or {} %}
-<section class="lc-card rounded-2xl p-6 md:p-8 mb-5">
-  <div class="flex flex-col md:flex-row md:items-start gap-6 md:gap-8">
-    <div class="text-center md:text-left md:shrink-0 md:min-w-[11rem]">
-      <p class="text-xs font-semibold text-brand uppercase tracking-wide mb-1">Speaking Level Score</p>
-      <div class="score-badge mx-auto md:mx-0 mt-2 mb-3">
-        <span class="score-badge-value">{{ overall.speaking_level_score if overall.speaking_level_score is not none else '—' }}</span>
-        <span class="score-badge-max">/90</span>
-      </div>
-      <p class="text-sm text-slate-600 mb-3">CEFR帯: <strong>{{ overall.cefr_band or '—' }}</strong></p>
-      <div class="grid grid-cols-2 gap-3 text-left">
-        <div class="lc-panel rounded-xl px-3 py-2.5">
-          <p class="text-[0.65rem] font-semibold text-slate-400 uppercase">スピーキング</p>
-          <p class="text-lg font-bold text-slate-800">{{ overall.speaking_subscore if overall.speaking_subscore is not none else '—' }}<span class="text-xs font-medium text-slate-400">/90</span></p>
-        </div>
-        <div class="lc-panel rounded-xl px-3 py-2.5">
-          <p class="text-[0.65rem] font-semibold text-slate-400 uppercase">リスニング</p>
-          <p class="text-lg font-bold text-slate-800">{{ overall.listening_subscore if overall.listening_subscore is not none else '—' }}<span class="text-xs font-medium text-slate-400">/90</span></p>
-        </div>
-      </div>
+<section class="lc-card results-hero rounded-2xl p-6 md:p-8 mb-5 relative">
+  <div class="score-scale-anchor">
+    <button type="button" id="score-scale-open" class="score-scale-btn" aria-describedby="score-scale-popup" aria-expanded="false">
+      参考スケール
+    </button>
+    <div id="score-scale-popup" class="score-scale-popup" role="tooltip" hidden>
+      <img
+        src="{{ url_for('level_check.static', filename='images/speaking-level-scale.png', v='20260810a') }}"
+        alt="Speaking Level Score と CEFR 帯の対応表（参考）"
+        class="score-scale-popup-img"
+      >
     </div>
-    <div class="md:shrink-0">
-      <p class="text-[0.65rem] font-semibold text-slate-400 uppercase tracking-wide mb-2">参考スケール</p>
-      <button type="button" id="score-scale-open" class="score-scale-thumb-btn" aria-label="参考スケールを拡大表示">
-        <img
-          src="{{ url_for('level_check.static', filename='images/speaking-level-scale.png', v='20260810a') }}"
-          alt="Speaking Level Score と CEFR 帯の対応表（参考）"
-          class="score-scale-thumb"
-          loading="lazy"
-        >
-        <span class="score-scale-thumb-hint">タップで拡大</span>
-      </button>
+  </div>
+
+  <div class="text-center max-w-md mx-auto">
+    <p class="text-sm font-semibold text-brand uppercase tracking-wide mb-1">Speaking Level Score</p>
+    <div class="score-badge mx-auto mt-2 mb-3">
+      <span class="score-badge-value">{{ overall.speaking_level_score if overall.speaking_level_score is not none else '—' }}</span>
+      <span class="score-badge-max">/90</span>
+    </div>
+    <p class="text-base text-slate-600 mb-4">CEFR帯: <strong>{{ overall.cefr_band or '—' }}</strong></p>
+    <div class="grid grid-cols-2 gap-3 text-left">
+      <div class="lc-panel rounded-xl px-4 py-3">
+        <p class="text-xs font-semibold text-slate-400 uppercase">スピーキング</p>
+        <p class="text-2xl font-bold text-slate-800">{{ overall.speaking_subscore if overall.speaking_subscore is not none else '—' }}<span class="text-sm font-medium text-slate-400">/90</span></p>
+      </div>
+      <div class="lc-panel rounded-xl px-4 py-3">
+        <p class="text-xs font-semibold text-slate-400 uppercase">リスニング</p>
+        <p class="text-2xl font-bold text-slate-800">{{ overall.listening_subscore if overall.listening_subscore is not none else '—' }}<span class="text-sm font-medium text-slate-400">/90</span></p>
+      </div>
     </div>
   </div>
 </section>
 
-<dialog id="score-scale-dialog" class="score-scale-dialog">
-  <div class="score-scale-dialog-inner">
-    <div class="score-scale-dialog-bar">
-      <p class="text-xs font-semibold text-slate-500">参考スケール</p>
-      <button type="button" id="score-scale-close" class="score-scale-close" aria-label="閉じる">✕</button>
-    </div>
-    <img
-      src="{{ url_for('level_check.static', filename='images/speaking-level-scale.png', v='20260810a') }}"
-      alt="Speaking Level Score と CEFR 帯の対応表（参考・拡大）"
-      class="score-scale-full"
-    >
-  </div>
-</dialog>
-
 {% if overall.category_scores %}
-<section class="lc-card rounded-2xl p-5 mb-5">
-  <h3 class="text-sm font-bold text-slate-700 mb-3">カテゴリ別スコア（1〜5）</h3>
-  <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+<section class="lc-card rounded-2xl p-5 md:p-6 mb-5">
+  <h3 class="text-base font-bold text-slate-700 mb-3">カテゴリ別スコア（1〜5）</h3>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-2.5">
     {% for cat in ['A', 'B', 'C', 'D', 'E', 'F'] %}
-    <div class="lc-panel rounded-lg py-2.5 px-3 text-left">
-      <div class="text-[0.7rem] font-semibold text-slate-500 leading-snug">{{ category_labels.get(cat, cat) }}</div>
-      <div class="text-lg font-bold text-slate-700 mt-0.5">{{ overall.category_scores.get(cat, '—') }}<span class="text-xs font-medium text-slate-400">/5</span></div>
+    <div class="lc-panel rounded-lg py-3 px-3.5 text-left">
+      <div class="text-sm font-semibold text-slate-500 leading-snug">{{ category_labels.get(cat, cat) }}</div>
+      <div class="text-xl font-bold text-slate-700 mt-1">{{ overall.category_scores.get(cat, '—') }}<span class="text-sm font-medium text-slate-400">/5</span></div>
     </div>
     {% endfor %}
   </div>
@@ -80,26 +65,26 @@
 
 <div class="space-y-4">
   {% for part in session.parts %}
-  <article class="lc-card rounded-2xl p-5">
+  <article class="lc-card rounded-2xl p-5 md:p-6">
     <div class="flex items-center justify-between gap-2 mb-2">
-      <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">{{ task_definitions[part.task_type].label }}</span>
+      <span class="text-sm font-bold text-slate-500 uppercase tracking-wide">{{ task_definitions[part.task_type].label }}</span>
       {% if part.task_type in ['E', 'F'] and part.cefr_band %}
-      <span class="status-pill" style="background:#e0f2fe;color:#075985;">{{ part.cefr_band }}</span>
+      <span class="status-pill" style="background:#e0f2fe;color:#075985;font-size:0.8rem;">{{ part.cefr_band }}</span>
       {% elif not part.scores %}
-      <span class="status-pill status-error">未採点</span>
+      <span class="status-pill status-error" style="font-size:0.8rem;">未採点</span>
       {% endif %}
     </div>
-    <p class="text-sm text-slate-700 mb-2">{{ part.question_text }}</p>
+    <p class="text-base text-slate-700 mb-2 leading-relaxed">{{ part.question_text }}</p>
     {% if part.transcript %}
-    <p class="text-xs text-slate-400 mb-2">認識結果: 「{{ part.transcript }}」</p>
+    <p class="text-sm text-slate-500 mb-3">認識結果: 「{{ part.transcript }}」</p>
     {% endif %}
     {% if part.scores %}
       {% if part.score_track == 'listening' %}
       <div class="grid grid-cols-2 gap-2 text-center">
         {% for axis in ['comprehension_accuracy', 'response_relevance'] %}
         <div>
-          <div class="text-[0.65rem] text-slate-400">{{ axis }}</div>
-          <div class="text-sm font-bold text-slate-700">{{ part.scores.get(axis, '—') }}</div>
+          <div class="text-xs text-slate-400">{{ axis }}</div>
+          <div class="text-base font-bold text-slate-700">{{ part.scores.get(axis, '—') }}</div>
         </div>
         {% endfor %}
       </div>
@@ -107,14 +92,14 @@
       <div class="grid grid-cols-5 gap-2 text-center">
         {% for axis in ['fluency', 'pronunciation', 'accuracy', 'vocabulary', 'response_latency'] %}
         <div>
-          <div class="text-[0.65rem] text-slate-400">{{ axis }}</div>
-          <div class="text-sm font-bold text-slate-700">{{ part.scores.get(axis, '—') }}</div>
+          <div class="text-xs text-slate-400">{{ axis }}</div>
+          <div class="text-base font-bold text-slate-700">{{ part.scores.get(axis, '—') }}</div>
         </div>
         {% endfor %}
       </div>
       {% endif %}
     {% elif part.transcript_error %}
-    <p class="text-xs text-rose-500">{{ part.transcript_error }}</p>
+    <p class="text-sm text-rose-500">{{ part.transcript_error }}</p>
     {% endif %}
   </article>
   {% endfor %}
@@ -125,23 +110,55 @@
 {% block scripts %}
 <script>
 (() => {
-  const dialog = document.getElementById("score-scale-dialog");
-  const openBtn = document.getElementById("score-scale-open");
-  const closeBtn = document.getElementById("score-scale-close");
-  if (!dialog || !openBtn) return;
-  openBtn.addEventListener("click", () => {
-    if (typeof dialog.showModal === "function") dialog.showModal();
-    else dialog.setAttribute("open", "");
-  });
-  closeBtn?.addEventListener("click", () => {
-    if (typeof dialog.close === "function") dialog.close();
-    else dialog.removeAttribute("open");
-  });
-  dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) {
-      if (typeof dialog.close === "function") dialog.close();
-      else dialog.removeAttribute("open");
+  const anchor = document.querySelector(".score-scale-anchor");
+  const btn = document.getElementById("score-scale-open");
+  const popup = document.getElementById("score-scale-popup");
+  if (!anchor || !btn || !popup) return;
+
+  const isHoverDevice = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  let hideTimer = null;
+
+  function show() {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
     }
+    popup.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+  }
+
+  function hide() {
+    popup.hidden = true;
+    btn.setAttribute("aria-expanded", "false");
+  }
+
+  function scheduleHide() {
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(hide, 120);
+  }
+
+  if (isHoverDevice) {
+    btn.addEventListener("mouseenter", show);
+    btn.addEventListener("mouseleave", scheduleHide);
+    popup.addEventListener("mouseenter", show);
+    popup.addEventListener("mouseleave", scheduleHide);
+    btn.addEventListener("focus", show);
+    btn.addEventListener("blur", scheduleHide);
+  }
+
+  // タッチ端末・クリックでも開閉
+  btn.addEventListener("click", (event) => {
+    event.preventDefault();
+    if (popup.hidden) show();
+    else hide();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!anchor.contains(event.target) && !popup.hidden) hide();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !popup.hidden) hide();
   });
 })();
 </script>
