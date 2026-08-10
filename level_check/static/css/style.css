@@ -176,8 +176,8 @@ body {
   position: absolute;
   top: calc(100% + 0.45rem);
   right: 0;
-  width: min(22rem, calc(100vw - 2.5rem));
-  padding: 0.4rem;
+  width: min(38rem, calc(100vw - 2rem));
+  padding: 0.55rem;
   border-radius: 0.85rem;
   background: #fff;
   border: 1px solid rgba(186, 230, 253, 0.8);
@@ -191,7 +191,7 @@ body {
   display: block;
   width: 100%;
   height: auto;
-  max-height: min(70vh, 36rem);
+  max-height: min(82vh, 48rem);
   object-fit: contain;
   border-radius: 0.55rem;
   background: #0f172a;
@@ -207,7 +207,7 @@ body {
     top: 50%;
     left: 50%;
     right: auto;
-    width: min(92vw, 22rem);
+    width: min(96vw, 36rem);
     transform: translate(-50%, -50%);
     z-index: 50;
   }
