@@ -90,7 +90,8 @@ def _finalize_session_if_complete(session: dict) -> None:
         values = [p["weighted_total"] for p in scored_parts if p.get("task_type") == cat]
         avg = _average(values)
         if avg is not None:
-            category_scores[cat] = avg
+            # 表示は小数第1位まで
+            category_scores[cat] = round(avg, 1)
 
     overall = empty_overall()
     overall.update(
