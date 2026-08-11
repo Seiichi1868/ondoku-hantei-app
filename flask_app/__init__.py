@@ -89,7 +89,7 @@ def create_app(config_class=Config):
         if is_public_enabled():
             return None
 
-        message = "現在混雑のため一時停止しています。しばらくしてから再度お試しください。"
+        message = "The service is temporarily unavailable due to high traffic. Please try again later."
         wants_json = path.startswith("/public/api/") or (
             request.accept_mimetypes["application/json"]
             >= request.accept_mimetypes["text/html"]
