@@ -1,7 +1,7 @@
 import logging
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
 from flask_app.config import Config
 from flask_app.extensions import cors
@@ -42,12 +42,14 @@ def create_app(config_class=Config):
         tts_bp,
     )
     from flask_app.views import main_bp
+    from flask_app.views.public import public_bp
     from news_app import create_news_blueprints
     from gtec_app import gtec_admin_bp, gtec_bp
     from debate import debate_admin_bp, debate_bp
     from level_check import create_level_check_blueprints
 
     app.register_blueprint(main_bp)
+    app.register_blueprint(public_bp, url_prefix="/public")
     app.register_blueprint(gtec_bp)
     app.register_blueprint(gtec_admin_bp)
     app.register_blueprint(debate_bp)
@@ -69,6 +71,33 @@ def create_app(config_class=Config):
     app.register_blueprint(practice_bp, url_prefix="/api")
     app.register_blueprint(statistics_bp, url_prefix="/api")
     app.register_blueprint(languages_bp, url_prefix="/api")
+
+    @app.before_request
+    def _public_kill_switch():
+        """/public/ 配下のみを対象にした Kill-Switch。
+
+        既存の学校用パス（``/``, ``/admin``, ``/api/...`` など）は
+        ``request.path`` が ``/public`` で始まらないため、この判定には
+        一切かからない。
+        """
+        path = request.path
+        if path != "/public" and not path.startswith("/public/"):
+            return None
+
+        from flask_app.services.status_service import is_public_enabled
+
+        if is_public_enabled():
+            return None
+
+        message = "現在混雑のため一時停止しています。しばらくしてから再度お試しください。"
+        wants_json = path.startswith("/public/api/") or (
+            request.accept_mimetypes["application/json"]
+            >= request.accept_mimetypes["text/html"]
+            and request.accept_mimetypes["application/json"] > 0
+        )
+        if wants_json:
+            return jsonify({"ok": False, "error": "public_service_disabled", "message": message}), 503
+        return render_template("public_maintenance.html"), 503
 
     @app.errorhandler(404)
     def not_found(_error):

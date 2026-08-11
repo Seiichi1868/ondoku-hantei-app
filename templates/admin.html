@@ -80,6 +80,23 @@
       </section>
 
       <div id="adminSettingsGated" class="admin-settings-gated hidden">
+        <section class="admin-card admin-card--span-2 admin-card--compact admin-card--public-status">
+          <h2 class="admin-card__title">パブリック版サービス状態 <span class="admin-card__title-en">(Public Kill-Switch)</span></h2>
+          <div class="admin-public-status-panel">
+            <div class="admin-public-status-info">
+              <span id="adminPublicStatusLabel" class="admin-public-status-label">読み込み中...</span>
+              <span id="adminPublicStatusHint" class="admin-public-status-hint">/public/ 配下のみに影響します</span>
+            </div>
+            <label class="admin-toggle" for="adminPublicStatusToggle">
+              <input id="adminPublicStatusToggle" type="checkbox" role="switch" aria-labelledby="adminPublicStatusLabel" />
+              <span class="admin-toggle-track" aria-hidden="true">
+                <span class="admin-toggle-thumb"></span>
+              </span>
+            </label>
+          </div>
+          <p id="adminPublicStatusUpdated" class="admin-meta admin-public-status-updated">—</p>
+        </section>
+
         <section class="admin-card admin-card--compact admin-card--tts">
           <h2 class="admin-card__title">TTS音声（OpenAI）</h2>
           <div class="admin-tts-panel">
@@ -161,6 +178,9 @@
       const ttsToggle = document.getElementById("adminTtsToggle");
       const ttsLabel = document.getElementById("adminTtsLabel");
       const ttsHint = document.getElementById("adminTtsHint");
+      const publicStatusToggle = document.getElementById("adminPublicStatusToggle");
+      const publicStatusLabel = document.getElementById("adminPublicStatusLabel");
+      const publicStatusUpdated = document.getElementById("adminPublicStatusUpdated");
       const adminLangInputs = Array.from(document.querySelectorAll('input[name="adminLang"]'));
       const adminLangSaveBtn = document.getElementById("adminLangSaveBtn");
       const adminSectionInputs = Array.from(document.querySelectorAll('input[name="adminSection"]'));
@@ -228,20 +248,26 @@
         if (!adminSettingsPasswordValue) return;
 
         statusText.textContent = "管理設定を取得中...";
-        const [aiRes, ttsRes] = await Promise.all([
+        const [aiRes, ttsRes, publicRes] = await Promise.all([
           fetch("/api/admin/ai-mode"),
           fetch("/api/admin/tts"),
+          fetch("/api/admin/public-status"),
         ]);
         const aiData = await aiRes.json();
         const ttsData = await ttsRes.json();
+        const publicData = await publicRes.json();
         if (!aiRes.ok) {
           throw new Error(aiData.error || "AIモードの取得に失敗しました");
         }
         if (!ttsRes.ok) {
           throw new Error(ttsData.error || "TTS状態の取得に失敗しました");
         }
+        if (!publicRes.ok) {
+          throw new Error(publicData.error || "パブリック版状態の取得に失敗しました");
+        }
         renderAiModeState(aiData);
         renderTtsState(Boolean(ttsData.tts_enabled));
+        renderPublicStatusState(publicData);
         statusText.textContent = "管理設定を表示中";
       }
 
@@ -329,6 +355,33 @@
         ttsToggle.checked = ttsEnabled;
         ttsLabel.textContent = ttsEnabled ? "TTS ON（OpenAI）" : "TTS OFF（ブラウザ）";
         ttsHint.textContent = ttsEnabled ? "見本を聴く時のみ生成" : "ブラウザ標準音声";
+      }
+
+      function formatDateTimeJa(isoString) {
+        if (!isoString) return "";
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) return isoString;
+        return date.toLocaleString("ja-JP", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      function renderPublicStatusState(data) {
+        const enabled = Boolean(data.public_enabled);
+        publicStatusToggle.checked = enabled;
+        publicStatusLabel.textContent = enabled ? "稼働中" : "停止中";
+        publicStatusLabel.classList.toggle("is-on", enabled);
+        publicStatusLabel.classList.toggle("is-off", !enabled);
+        if (data.updated_at) {
+          const stateJa = enabled ? "ON" : "OFF";
+          publicStatusUpdated.textContent = `最終更新: ${formatDateTimeJa(data.updated_at)}（${stateJa} に変更）`;
+        } else {
+          publicStatusUpdated.textContent = "まだ変更履歴はありません";
+        }
       }
 
       function updateLanguageDropdownSummary() {
@@ -665,6 +718,37 @@
         }
       }
 
+      async function savePublicStatusState(enabled) {
+        if (!adminSettingsPasswordValue) {
+          statusText.textContent = "管理設定のパスワードが必要です。";
+          publicStatusToggle.checked = !enabled;
+          return;
+        }
+        publicStatusToggle.disabled = true;
+        statusText.textContent = "パブリック版の状態を保存中...";
+        try {
+          const response = await fetch("/api/admin/toggle-public", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ public_enabled: enabled, admin_password: adminSettingsPasswordValue }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "保存に失敗しました");
+          }
+          renderPublicStatusState(data);
+          statusText.textContent = data.public_enabled
+            ? "パブリック版（/public/）を稼働中にしました"
+            : "パブリック版（/public/）を停止中にしました";
+        } catch (error) {
+          console.error(error);
+          statusText.textContent = "パブリック版の状態保存に失敗しました。";
+          await loadAdvancedAdminState();
+        } finally {
+          publicStatusToggle.disabled = false;
+        }
+      }
+
       lockToggle.addEventListener("change", () => {
         saveGateLockState(lockToggle.checked);
       });
@@ -679,6 +763,10 @@
 
       ttsToggle.addEventListener("change", () => {
         saveTtsState(ttsToggle.checked);
+      });
+
+      publicStatusToggle.addEventListener("change", () => {
+        savePublicStatusState(publicStatusToggle.checked);
       });
 
       if (adminLangSaveBtn) {

@@ -2500,3 +2500,46 @@ body.splash-active .bg-blobs {
     visibility: visible;
   }
 }
+
+/* パブリック版サービス状態（Kill-Switch）カード */
+.admin-public-status-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.admin-public-status-info {
+  min-width: 0;
+}
+
+.admin-public-status-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #475569;
+}
+
+.admin-public-status-label.is-on {
+  color: #1a8f5f;
+}
+
+.admin-public-status-label.is-off {
+  color: #d1425a;
+}
+
+.admin-public-status-hint {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.62rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.admin-public-status-updated {
+  margin-top: 4px;
+}

@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 
 from flask_app.config import Config
 from flask_app.services.gate_service import set_gate_lock_enabled
+from flask_app.services.status_service import get_public_status, set_public_status
 from flask_app.utils.language_utils import (
     ai_mode_response,
     get_default_ui_language,
@@ -139,6 +140,33 @@ def admin_languages():
         return jsonify({"error": str(exc)}), 400
 
     return jsonify(languages_response() | {"enabled_languages": enabled})
+
+
+@admin_bp.route("/admin/public-status", methods=["GET"])
+def admin_public_status():
+    return jsonify({"ok": True, **get_public_status()})
+
+
+@admin_bp.route("/admin/toggle-public", methods=["POST"])
+def admin_toggle_public():
+    payload = request.get_json(silent=True) or {}
+    if not _admin_password_ok(payload):
+        return jsonify({"error": "管理設定のパスワードが違います。"}), 403
+
+    raw = payload.get("public_enabled")
+    if isinstance(raw, bool):
+        enabled = raw
+    else:
+        value = str(raw or "").strip().lower()
+        if value in {"1", "true", "on", "yes"}:
+            enabled = True
+        elif value in {"0", "false", "off", "no"}:
+            enabled = False
+        else:
+            return jsonify({"error": "public_enabled is required"}), 400
+
+    status = set_public_status(enabled, admin_user="admin")
+    return jsonify({"ok": True, **status})
 
 
 @admin_bp.route("/admin/sections", methods=["GET", "POST"])
