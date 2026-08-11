@@ -173,16 +173,19 @@ body {
 }
 
 .score-scale-popup {
-  position: absolute;
-  top: calc(100% + 0.45rem);
-  right: 0;
-  width: min(38rem, calc(100vw - 2rem));
+  /* body 直下 + fixed で最前面。左に自分のスコアが見える幅で右寄せ */
+  position: fixed;
+  top: 4.75rem;
+  right: 0.75rem;
+  left: auto;
+  width: min(34rem, calc(100vw - 17rem));
+  max-width: calc(100vw - 1.5rem);
   padding: 0.55rem;
   border-radius: 0.85rem;
   background: #fff;
   border: 1px solid rgba(186, 230, 253, 0.8);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
-  z-index: 30;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.28);
+  z-index: 1000;
 }
 .score-scale-popup[hidden] {
   display: none !important;
@@ -191,10 +194,16 @@ body {
   display: block;
   width: 100%;
   height: auto;
-  max-height: min(82vh, 48rem);
+  max-height: calc(100vh - 6.5rem);
   object-fit: contain;
   border-radius: 0.55rem;
   background: #0f172a;
+}
+
+@media (max-width: 900px) {
+  .score-scale-popup {
+    width: min(28rem, calc(100vw - 12rem));
+  }
 }
 
 @media (max-width: 640px) {
@@ -203,13 +212,15 @@ body {
     right: 0.75rem;
   }
   .score-scale-popup {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    right: auto;
-    width: min(96vw, 36rem);
-    transform: translate(-50%, -50%);
-    z-index: 50;
+    top: auto;
+    bottom: 0.75rem;
+    right: 0.5rem;
+    left: auto;
+    width: min(92vw, 22rem);
+    max-height: 70vh;
+  }
+  .score-scale-popup-img {
+    max-height: calc(70vh - 1.1rem);
   }
 }
 

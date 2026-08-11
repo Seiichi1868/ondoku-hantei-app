@@ -116,6 +116,9 @@
   const popup = document.getElementById("score-scale-popup");
   if (!anchor || !btn || !popup) return;
 
+  // lc-card の backdrop-filter による重なり回避のため body 直下へ移す
+  document.body.appendChild(popup);
+
   const isHoverDevice = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   let hideTimer = null;
 
@@ -135,7 +138,7 @@
 
   function scheduleHide() {
     if (hideTimer) clearTimeout(hideTimer);
-    hideTimer = setTimeout(hide, 120);
+    hideTimer = setTimeout(hide, 160);
   }
 
   if (isHoverDevice) {
@@ -147,15 +150,17 @@
     btn.addEventListener("blur", scheduleHide);
   }
 
-  // タッチ端末・クリックでも開閉
   btn.addEventListener("click", (event) => {
     event.preventDefault();
+    event.stopPropagation();
     if (popup.hidden) show();
     else hide();
   });
 
   document.addEventListener("click", (event) => {
-    if (!anchor.contains(event.target) && !popup.hidden) hide();
+    if (popup.hidden) return;
+    if (btn.contains(event.target) || popup.contains(event.target)) return;
+    hide();
   });
 
   document.addEventListener("keydown", (event) => {
