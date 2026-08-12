@@ -60,11 +60,7 @@
   </div>
   <p class="text-sm md:text-base text-slate-700 leading-relaxed">{{ judge.overall_feedback }}</p>
   <div class="flex flex-wrap gap-x-4 gap-y-1 mt-4 text-[0.68rem] text-slate-400">
-    <span>モデル: {{ judge.judge_model.model if judge.judge_model else judge.model }}</span>
-    {% if judge.judge_model %}
-    <span>入力: ${{ judge.judge_model.input_price_per_1m }}/1M</span>
-    <span>出力: ${{ judge.judge_model.output_price_per_1m }}/1M</span>
-    {% endif %}
+    <span>判定AIモデル: {{ judge.judge_model.model if judge.judge_model else judge.model }}</span>
     <span>文字起こし方式: {{ mode_labels.get(judge.transcription_mode, judge.transcription_mode or '-') }}</span>
     {% if judge.judged_at %}<span>判定日時: {{ judge.judged_at }}</span>{% endif %}
   </div>
