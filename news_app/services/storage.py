@@ -778,6 +778,16 @@ def get_submissions(class_id: str | None = None) -> list[dict]:
     return list(reversed(submissions))
 
 
+def get_submission(submission_id: str) -> dict | None:
+    """提出IDで1件取得。見つからなければ None。"""
+    if not submission_id:
+        return None
+    for submission in load_submissions():
+        if submission.get("id") == submission_id:
+            return submission
+    return None
+
+
 def delete_submission(submission_id: str) -> bool:
     """指定IDの提出データを削除。成功したら True。"""
     _ensure_data_dir()

@@ -29,6 +29,7 @@ from news_app.services.storage import (
     get_active_class_id,
     get_class,
     get_roster,
+    get_submission,
     get_submissions,
     import_roster_from_excel,
     list_classes,
@@ -45,6 +46,7 @@ from news_app.services.storage import (
     _normalize_vocabulary_data,
     _normalize_warmup_questions,
 )
+from news_app.services.pdf_report import build_submissions_pdf
 from news_app.services.youtube import extract_video_id, fetch_youtube_title, parse_time_to_seconds, seconds_to_display
 
 admin_bp = Blueprint("news_admin", __name__)
@@ -813,4 +815,70 @@ def export_submissions():
         as_attachment=True,
         download_name=filename,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+def _submission_for_pdf(submission: dict) -> dict:
+    submission = _submission_with_lesson_display(submission)
+    scores = extract_score_breakdown(submission.get("feedback", ""))
+    return {
+        **submission,
+        **scores,
+        "feedback": score_only_feedback(submission.get("feedback", "")),
+    }
+
+
+def _pdf_response(submissions: list[dict], *, download_name: str, inline: bool = False):
+    pdf_bytes = build_submissions_pdf(submissions)
+    buf = io.BytesIO(pdf_bytes)
+    buf.seek(0)
+    response = send_file(
+        buf,
+        as_attachment=not inline,
+        download_name=download_name,
+        mimetype="application/pdf",
+    )
+    if inline:
+        response.headers["Content-Disposition"] = f'inline; filename="{download_name}"'
+    return response
+
+
+@admin_bp.route("/api/submissions/<submission_id>/pdf", methods=["GET"])
+def export_submission_pdf(submission_id):
+    """個別提出の評価帳票 PDF（ブラウザ表示用）。"""
+    submission = get_submission(submission_id)
+    if not submission:
+        return jsonify({"ok": False, "error": "データが見つかりません。"}), 404
+    student = submission.get("student_name") or "student"
+    safe_name = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in str(student))[:40]
+    return _pdf_response(
+        [_submission_for_pdf(submission)],
+        download_name=f"vibe_speak_news_{safe_name}.pdf",
+        inline=True,
+    )
+
+
+@admin_bp.route("/api/submissions/pdf", methods=["POST"])
+def export_submissions_pdf_bulk():
+    """選択した提出の評価帳票を1つの PDF にまとめてダウンロード。"""
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get("ids") or []
+    if not isinstance(ids, list) or not ids:
+        return jsonify({"ok": False, "error": "提出が選択されていません。"}), 400
+
+    wanted = {str(i) for i in ids if i}
+    by_id = {}
+    for submission in get_submissions():
+        sid = submission.get("id")
+        if sid in wanted:
+            by_id[sid] = _submission_for_pdf(submission)
+
+    ordered = [by_id[str(i)] for i in ids if str(i) in by_id]
+    if not ordered:
+        return jsonify({"ok": False, "error": "対象の提出データが見つかりません。"}), 404
+
+    return _pdf_response(
+        ordered,
+        download_name=f"vibe_speak_news_reports_{len(ordered)}.pdf",
+        inline=False,
     )

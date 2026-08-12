@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Vibe Speak News — Speaking Evaluation Report</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 14mm 14mm 16mm 14mm;
+    }
+
+    @font-face {
+      font-family: "ReportJP";
+      src: url("{{ font_regular_url }}");
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: "ReportJP";
+      src: url("{{ font_bold_url }}");
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      color: #0f766e;
+      font-family: "ReportJP", "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.55;
+      background: #ffffff;
+    }
+
+    .page {
+      page-break-after: always;
+      break-after: page;
+      position: relative;
+      min-height: 260mm;
+      padding: 2mm;
+      background:
+        linear-gradient(160deg, rgba(224, 242, 254, 0.55) 0%, rgba(255, 255, 255, 0.95) 42%, rgba(209, 250, 229, 0.45) 100%);
+      border: 1px solid rgba(153, 246, 228, 0.75);
+      border-radius: 10px;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid rgba(45, 212, 191, 0.55);
+      margin-bottom: 12px;
+    }
+
+    .brand {
+      color: #0f766e;
+    }
+
+    .brand-name {
+      margin: 0;
+      font-size: 18pt;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #0f766e;
+    }
+
+    .brand-sub {
+      margin: 2px 0 0;
+      font-size: 9.5pt;
+      font-weight: 400;
+      color: #0e7490;
+      letter-spacing: 0.04em;
+    }
+
+    .submitted-at {
+      text-align: right;
+      font-size: 9pt;
+      color: #475569;
+      white-space: nowrap;
+    }
+
+    .submitted-at strong {
+      display: block;
+      color: #0f766e;
+      font-size: 8pt;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(167, 243, 208, 0.7);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+
+    .panel-title {
+      margin: 0 0 8px;
+      font-size: 9pt;
+      font-weight: 700;
+      color: #0f766e;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .meta-grid {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .meta-grid td {
+      padding: 3px 8px 3px 0;
+      vertical-align: top;
+      color: #334155;
+      font-size: 10pt;
+    }
+
+    .meta-grid .label {
+      width: 22%;
+      color: #64748b;
+      font-size: 8.5pt;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .lesson-title {
+      margin: 0;
+      color: #0f172a;
+      font-size: 11.5pt;
+      font-weight: 700;
+    }
+
+    .scores {
+      display: table;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 8px 0;
+      margin: 0 -8px;
+    }
+
+    .score-card {
+      display: table-cell;
+      width: 25%;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(153, 246, 228, 0.8);
+      border-radius: 8px;
+      padding: 8px 10px;
+      vertical-align: top;
+    }
+
+    .score-label {
+      font-size: 8pt;
+      font-weight: 700;
+      color: #0e7490;
+      margin-bottom: 4px;
+    }
+
+    .score-value {
+      font-size: 16pt;
+      font-weight: 700;
+      color: #0f766e;
+      line-height: 1.1;
+    }
+
+    .score-value.missing {
+      font-size: 10pt;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    .score-max {
+      font-size: 8pt;
+      color: #64748b;
+      font-weight: 400;
+    }
+
+    .bar {
+      margin-top: 8px;
+      height: 7px;
+      background: rgba(204, 251, 241, 0.9);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #14b8a6, #10b981);
+      border-radius: 999px;
+    }
+
+    .total-row {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: linear-gradient(90deg, rgba(20, 184, 166, 0.12), rgba(16, 185, 129, 0.16));
+      border: 1px solid rgba(45, 212, 191, 0.55);
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .total-row .label {
+      font-size: 10pt;
+      font-weight: 700;
+      color: #0f766e;
+    }
+
+    .total-row .value {
+      font-size: 16pt;
+      font-weight: 700;
+      color: #047857;
+    }
+
+    .body-text {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      color: #1e293b;
+      font-size: 9.5pt;
+      line-height: 1.6;
+    }
+
+    .footer {
+      position: absolute;
+      left: 2mm;
+      right: 2mm;
+      bottom: 2mm;
+      padding-top: 6px;
+      border-top: 1px solid rgba(153, 246, 228, 0.65);
+      font-size: 8pt;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  {% for report in reports %}
+  <section class="page">
+    <header class="header">
+      <div class="brand">
+        <p class="brand-name">Vibe Speak News</p>
+        <p class="brand-sub">Speaking Evaluation Report</p>
+      </div>
+      <div class="submitted-at">
+        <strong>提出日時</strong>
+        {{ report.submitted_at_display or "—" }}
+      </div>
+    </header>
+
+    <section class="panel">
+      <h2 class="panel-title">生徒情報</h2>
+      <table class="meta-grid">
+        <tr>
+          <td class="label">授業クラス</td>
+          <td>{{ report.class_name or "—" }}</td>
+          <td class="label">HRクラス</td>
+          <td>{{ report.student_hr_class or "—" }}</td>
+        </tr>
+        <tr>
+          <td class="label">出席番号</td>
+          <td>{{ report.student_number or "—" }}</td>
+          <td class="label">名前</td>
+          <td>{{ report.student_name or "—" }}</td>
+        </tr>
+        <tr>
+          <td class="label">CEFRレベル</td>
+          <td colspan="3">{{ report.level or "—" }}</td>
+        </tr>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-title">動画タイトル</h2>
+      <p class="lesson-title">{{ report.lesson_title or "未分類" }}</p>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-title">評価スコア</h2>
+      {% if report.has_scores %}
+      <div class="scores">
+        {% for score in report.score_items %}
+        <div class="score-card">
+          <div class="score-label">{{ score.label }}</div>
+          {% if score.value is not none %}
+          <div class="score-value">{{ score.value }}<span class="score-max"> / {{ score.max }}</span></div>
+          <div class="bar"><div class="bar-fill" style="width: {{ score.percent }}%;"></div></div>
+          {% else %}
+          <div class="score-value missing">データなし</div>
+          <div class="bar"><div class="bar-fill" style="width: 0%;"></div></div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="total-row">
+        <span class="label">合計スコア</span>
+        {% if report.total_score is not none %}
+        <span class="value">{{ report.total_score }} / {{ report.total_max }}</span>
+        {% else %}
+        <span class="value" style="font-size: 11pt; color: #94a3b8;">データなし</span>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="body-text" style="color: #94a3b8;">スコアデータなし</p>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-title">文字起こし</h2>
+      <p class="body-text">{{ report.transcript or "（なし）" }}</p>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-title">AIフィードバック</h2>
+      <p class="body-text">{{ report.feedback or "（なし）" }}</p>
+    </section>
+
+    <footer class="footer">
+      <span>提出ID: {{ report.id or "—" }}</span>
+      <span>Vibe Speak News</span>
+    </footer>
+  </section>
+  {% endfor %}
+</body>
+</html>

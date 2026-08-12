@@ -42,6 +42,7 @@
   const resultsExportBtn = document.getElementById("results-export-btn");
   const resultsSelectAllBtn = document.getElementById("results-select-all-btn");
   const resultsDeleteSelectedBtn = document.getElementById("results-delete-selected-btn");
+  const resultsPdfSelectedBtn = document.getElementById("results-pdf-selected-btn");
   const resultsSortKey = document.getElementById("results-sort-key");
   const resultsSortDirection = document.getElementById("results-sort-direction");
   const resultsTable = document.getElementById("results-table");
@@ -1352,8 +1353,12 @@
           <div class="max-h-40 overflow-y-auto whitespace-pre-wrap rounded bg-white/45 p-1">${esc(scoreOnlyFeedback(submission.feedback))}</div>
         </td>
         <td class="py-1">
-          <button type="button" data-id="${esc(submission.id)}"
-            class="del-submission-btn text-[10px] text-red-400 hover:text-red-600">削除</button>
+          <div class="flex items-center gap-2 whitespace-nowrap">
+            <button type="button" data-id="${esc(submission.id)}"
+              class="pdf-submission-btn text-[10px] font-semibold text-emerald-600 hover:text-emerald-700">PDF</button>
+            <button type="button" data-id="${esc(submission.id)}"
+              class="del-submission-btn text-[10px] text-red-400 hover:text-red-600">削除</button>
+          </div>
         </td>`;
       resultsTbody.appendChild(tr);
     });
@@ -1375,6 +1380,10 @@
     if (resultsDeleteSelectedBtn) {
       resultsDeleteSelectedBtn.disabled = selectedCount === 0;
       resultsDeleteSelectedBtn.textContent = selectedCount ? `選択削除（${selectedCount}件）` : "選択削除";
+    }
+    if (resultsPdfSelectedBtn) {
+      resultsPdfSelectedBtn.disabled = selectedCount === 0;
+      resultsPdfSelectedBtn.textContent = selectedCount ? `選択PDF（${selectedCount}件）` : "選択PDF";
     }
   }
 
@@ -1471,10 +1480,65 @@
     });
   }
 
+  if (resultsPdfSelectedBtn) {
+    resultsPdfSelectedBtn.addEventListener("click", async () => {
+      const ids = getSubmissionCheckboxes()
+        .filter((box) => box.checked)
+        .map((box) => box.dataset.id)
+        .filter(Boolean);
+      if (!ids.length) return;
+
+      resultsPdfSelectedBtn.disabled = true;
+      resultsPdfSelectedBtn.textContent =
+        ids.length >= 5 ? `PDF生成中（${ids.length}件）…` : "PDF生成中…";
+      try {
+        const res = await fetch("/news/admin/api/submissions/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
+        });
+        if (!res.ok) {
+          let message = "PDFの生成に失敗しました。";
+          try {
+            const data = await res.json();
+            if (data && data.error) message = data.error;
+          } catch (_) {
+            /* ignore */
+          }
+          throw new Error(message);
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `vibe_speak_news_reports_${ids.length}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert(err && err.message ? err.message : "PDFの生成に失敗しました。");
+      } finally {
+        updateBulkDeleteState();
+      }
+    });
+  }
+
   if (resultsTbody) {
     resultsTbody.addEventListener("click", async (e) => {
       if (e.target.closest(".submission-select")) {
         updateBulkDeleteState();
+        return;
+      }
+      const pdfBtn = e.target.closest(".pdf-submission-btn");
+      if (pdfBtn) {
+        const id = pdfBtn.dataset.id;
+        if (!id) return;
+        window.open(
+          `/news/admin/api/submissions/${encodeURIComponent(id)}/pdf`,
+          "_blank",
+          "noopener,noreferrer"
+        );
         return;
       }
       const btn = e.target.closest(".del-submission-btn");
