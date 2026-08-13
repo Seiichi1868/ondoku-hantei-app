@@ -259,7 +259,7 @@
       showMessage(
         lessonMessage,
         highlight?.ok
-          ? "動画とAI推定区間を授業設定に反映しました。内容を確認して保存してください。"
+          ? "動画と調整した区間を授業設定に反映しました。内容を確認して保存してください。"
           : "動画を授業設定に反映しました。開始・終了時間を入力するとスクリプトが自動入力されます。",
         false
       );
@@ -274,7 +274,42 @@
     cnn10MoreBtn.textContent = cnn10Loading ? "読み込み中…" : "さらに古い動画を見る";
   }
 
-  async function loadCnn10Transcript(videoId, episodeTitle, transcriptMeta, transcriptText, highlightBanner) {
+  function snippetDurationSec(snippets) {
+    let max = 0;
+    (snippets || []).forEach((snippet) => {
+      const start = Number(snippet.start) || 0;
+      const duration = Number(snippet.duration) || 0;
+      max = Math.max(max, Math.ceil(start + duration));
+    });
+    return Math.max(max, 1);
+  }
+
+  function normalizeHighlightRange(highlight, maxSec) {
+    const ceiling = Math.max(1, parseInt(maxSec, 10) || 1);
+    let start = Math.max(0, Math.min(parseInt(highlight?.start_sec, 10) || 0, ceiling));
+    let end = Math.max(0, Math.min(parseInt(highlight?.end_sec, 10) || ceiling, ceiling));
+    if (end <= start) end = Math.min(ceiling, start + 1);
+    if (end <= start) start = Math.max(0, end - 1);
+    return {
+      ...(highlight && typeof highlight === "object" ? highlight : {}),
+      ok: true,
+      start_sec: start,
+      end_sec: end,
+      start_display: formatTime(start),
+      end_display: formatTime(end),
+    };
+  }
+
+  function seekCnn10Preview(iframe, videoId, startSec, endSec) {
+    if (!iframe || !videoId) return;
+    const start = Math.max(0, parseInt(startSec, 10) || 0);
+    const end = Math.max(start + 1, parseInt(endSec, 10) || start + 1);
+    iframe.src =
+      `https://www.youtube.com/embed/${encodeURIComponent(videoId)}` +
+      `?start=${start}&end=${end}&rel=0&modestbranding=1`;
+  }
+
+  async function loadCnn10Transcript(videoId, episodeTitle, transcriptMeta, transcriptText, highlightBanner, iframe) {
     transcriptText.textContent = "文字起こしを読み込み中…";
     transcriptText.classList.remove("font-mono");
     if (highlightBanner) {
@@ -284,68 +319,59 @@
     transcriptMeta.classList.add("hidden");
 
     const data = await fetchYoutubeTranscriptClient({ videoId });
+    const snippets = data.snippets || [];
     let highlight = null;
     if (episodeTitle) {
       try {
-        highlight = await fetchYoutubeHighlight(episodeTitle, data.all_snippets || data.snippets || []);
+        highlight = await fetchYoutubeHighlight(episodeTitle, data.all_snippets || snippets);
       } catch (err) {
         highlight = { ok: false, error: err.message || "区間推定に失敗しました。" };
       }
     }
 
-    renderCnn10Transcript(transcriptText, data.snippets || [], highlight, highlightBanner);
+    const maxSec = snippetDurationSec(data.all_snippets || snippets);
+    const adjustable = snippets.length
+      ? normalizeHighlightRange(
+          highlight?.ok ? highlight : { start_sec: 0, end_sec: maxSec, note: highlight?.error || "" },
+          maxSec
+        )
+      : null;
+    if (adjustable && highlight?.ok) {
+      adjustable.confidence = highlight.confidence;
+      adjustable.note = highlight.note;
+      adjustable.from_ai = true;
+    } else if (adjustable) {
+      adjustable.from_ai = false;
+      adjustable.error = highlight?.error || "";
+    }
+
+    renderCnn10Transcript(transcriptText, snippets, adjustable, highlightBanner, {
+      maxSec,
+      onInput: (updated) => {
+        paintCnn10TranscriptLines(transcriptText, snippets, updated);
+      },
+      onChange: (updated) => {
+        paintCnn10TranscriptLines(transcriptText, snippets, updated);
+        seekCnn10Preview(iframe, videoId, updated.start_sec, updated.end_sec);
+      },
+    });
+    if (adjustable) {
+      seekCnn10Preview(iframe, videoId, adjustable.start_sec, adjustable.end_sec);
+    }
 
     const kind = data.is_generated ? "自動生成" : "手動";
     let metaText = `${data.language || "English"} (${kind})`;
-    if (highlight?.ok) {
-      metaText += ` · AI推定区間 ${highlight.start_display}–${highlight.end_display} (${highlight.confidence})`;
+    if (adjustable?.from_ai) {
+      metaText += ` · AI推定区間 ${adjustable.start_display}–${adjustable.end_display} (${adjustable.confidence || "medium"})`;
     }
     transcriptMeta.textContent = metaText;
     transcriptMeta.classList.remove("hidden");
-    return { ...data, highlight };
+    return { ...data, snippets, highlight: adjustable };
   }
 
-  function renderCnn10Transcript(container, snippets, highlight, highlightBanner) {
+  function paintCnn10TranscriptLines(container, snippets, highlight) {
     container.innerHTML = "";
     container.classList.remove("font-mono");
-
-    if (highlightBanner) {
-      if (highlight?.ok) {
-        highlightBanner.classList.remove("hidden");
-        highlightBanner.className =
-          "mb-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] text-amber-950";
-
-        const label = document.createElement("p");
-        label.textContent = `タイトルに対応する区間（AI推定・要確認）: ${highlight.start_display} – ${highlight.end_display}`;
-        highlightBanner.appendChild(label);
-
-        if (highlight.note) {
-          const note = document.createElement("p");
-          note.className = "mt-0.5 text-[10px] text-amber-800/90";
-          note.textContent = highlight.note;
-          highlightBanner.appendChild(note);
-        }
-
-        const applyBtn = document.createElement("button");
-        applyBtn.type = "button";
-        applyBtn.className =
-          "mt-1 rounded border border-amber-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100";
-        applyBtn.textContent = "開始・終了時刻に反映";
-        applyBtn.addEventListener("click", () => {
-          applyCnn10HighlightToLesson(highlight);
-        });
-        highlightBanner.appendChild(applyBtn);
-      } else if (highlight?.error) {
-        highlightBanner.classList.remove("hidden");
-        highlightBanner.className =
-          "mb-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] text-slate-600";
-        highlightBanner.textContent = highlight.error;
-      } else {
-        highlightBanner.classList.add("hidden");
-        highlightBanner.innerHTML = "";
-      }
-    }
-
     if (!snippets.length) {
       container.textContent = "（文字起こしが空です）";
       container.classList.add("font-mono");
@@ -354,7 +380,6 @@
 
     const startSec = highlight?.ok ? highlight.start_sec : null;
     const endSec = highlight?.ok ? highlight.end_sec : null;
-
     snippets.forEach((snippet) => {
       const line = document.createElement("div");
       const start = Number(snippet.start) || 0;
@@ -368,23 +393,124 @@
     });
   }
 
-  function applyCnn10HighlightToLesson(highlight) {
-    if (!highlight?.ok) return;
-    const startEl = document.getElementById("start-time");
-    const endEl = document.getElementById("end-time");
-    if (startEl) startEl.value = highlight.start_display || formatTime(highlight.start_sec);
-    if (endEl) endEl.value = highlight.end_display || formatTime(highlight.end_sec);
-    scriptAutoManaged = true;
-    hideCnn10Panel();
-    document.querySelector('.tab-btn[data-tab="lesson"]')?.click();
-    scheduleAutoScriptFill();
-    if (lessonMessage) {
-      showMessage(
-        lessonMessage,
-        "AI推定区間を開始・終了時刻に反映しました。内容を確認して保存してください。",
-        false
-      );
+  function renderCnn10HighlightControls(banner, highlight, maxSec, handlers = {}) {
+    banner.classList.remove("hidden");
+    banner.className =
+      "mb-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] text-amber-950";
+    banner.innerHTML = "";
+
+    const heading = document.createElement("p");
+    heading.className = "font-semibold";
+    heading.textContent = highlight.from_ai
+      ? "タイトルに対応する区間（AI推定・スライダーで調整可）"
+      : "再生区間（スライダーで調整可）";
+    banner.appendChild(heading);
+
+    if (highlight.from_ai && highlight.note) {
+      const note = document.createElement("p");
+      note.className = "mt-0.5 text-[10px] text-amber-800/90";
+      note.textContent = highlight.note;
+      banner.appendChild(note);
+    } else if (!highlight.from_ai && highlight.error) {
+      const note = document.createElement("p");
+      note.className = "mt-0.5 text-[10px] text-amber-800/90";
+      note.textContent = `${highlight.error} 全区間から手動で調整できます。`;
+      banner.appendChild(note);
     }
+
+    const hint = document.createElement("p");
+    hint.className = "mt-0.5 text-[10px] text-amber-800/80";
+    hint.textContent = "調整した区間は「授業に設定」で授業設定の開始・終了時間とスクリプトに反映されます。";
+    banner.appendChild(hint);
+
+    const startRow = document.createElement("div");
+    startRow.className = "mt-1.5";
+    const startLabel = document.createElement("div");
+    startLabel.className = "mb-0.5 flex items-center justify-between font-semibold";
+    const startName = document.createElement("span");
+    startName.textContent = "開始";
+    const startVal = document.createElement("span");
+    startVal.textContent = highlight.start_display;
+    startLabel.appendChild(startName);
+    startLabel.appendChild(startVal);
+    const startRange = document.createElement("input");
+    startRange.type = "range";
+    startRange.min = "0";
+    startRange.max = String(maxSec);
+    startRange.step = "1";
+    startRange.value = String(highlight.start_sec);
+    startRange.className = "cnn10-range";
+    startRow.appendChild(startLabel);
+    startRow.appendChild(startRange);
+
+    const endRow = document.createElement("div");
+    endRow.className = "mt-1";
+    const endLabel = document.createElement("div");
+    endLabel.className = "mb-0.5 flex items-center justify-between font-semibold";
+    const endName = document.createElement("span");
+    endName.textContent = "終了";
+    const endVal = document.createElement("span");
+    endVal.textContent = highlight.end_display;
+    endLabel.appendChild(endName);
+    endLabel.appendChild(endVal);
+    const endRange = document.createElement("input");
+    endRange.type = "range";
+    endRange.min = "0";
+    endRange.max = String(maxSec);
+    endRange.step = "1";
+    endRange.value = String(highlight.end_sec);
+    endRange.className = "cnn10-range";
+    endRow.appendChild(endLabel);
+    endRow.appendChild(endRange);
+
+    banner.appendChild(startRow);
+    banner.appendChild(endRow);
+
+    function emit(source) {
+      let start = parseInt(startRange.value, 10) || 0;
+      let end = parseInt(endRange.value, 10) || 0;
+      const movingStart = source.startsWith("start");
+      if (end <= start) {
+        if (movingStart) end = Math.min(maxSec, start + 1);
+        else start = Math.max(0, end - 1);
+        startRange.value = String(start);
+        endRange.value = String(end);
+      }
+      highlight.start_sec = start;
+      highlight.end_sec = end;
+      highlight.start_display = formatTime(start);
+      highlight.end_display = formatTime(end);
+      highlight.ok = true;
+      startVal.textContent = highlight.start_display;
+      endVal.textContent = highlight.end_display;
+      if (source.endsWith("change")) handlers.onChange?.(highlight);
+      else handlers.onInput?.(highlight);
+    }
+
+    startRange.addEventListener("input", () => emit("start"));
+    endRange.addEventListener("input", () => emit("end"));
+    startRange.addEventListener("change", () => emit("start-change"));
+    endRange.addEventListener("change", () => emit("end-change"));
+  }
+
+  function renderCnn10Transcript(container, snippets, highlight, highlightBanner, options = {}) {
+    if (highlightBanner) {
+      if (highlight?.ok) {
+        renderCnn10HighlightControls(
+          highlightBanner,
+          highlight,
+          options.maxSec || snippetDurationSec(snippets),
+          {
+            onInput: options.onInput,
+            onChange: options.onChange,
+          }
+        );
+      } else {
+        highlightBanner.classList.add("hidden");
+        highlightBanner.innerHTML = "";
+      }
+    }
+    paintCnn10TranscriptLines(container, snippets, highlight);
   }
 
   function createCnn10EpisodeRow(episode) {
@@ -546,7 +672,8 @@
           episode.title || "",
           transcriptMeta,
           transcriptText,
-          highlightBanner
+          highlightBanner,
+          iframe
         );
         episodeHighlight = data.highlight?.ok ? data.highlight : null;
         transcriptLoaded = true;

@@ -73,6 +73,12 @@
     min-height: 1.35rem;
     resize: vertical;
   }
+  .cnn10-range {
+    width: 100%;
+    height: 1.15rem;
+    accent-color: rgb(13 148 136);
+    cursor: pointer;
+  }
 </style>
 {% endblock %}
 
@@ -170,7 +176,7 @@
       <div class="mb-3 flex items-start justify-between gap-3">
         <div>
           <h2 class="text-sm font-bold text-slate-800">CNN10 Previous Episodes</h2>
-          <p class="mt-0.5 text-[11px] text-slate-500">サムネイルをクリックして動画と文字起こしを確認し、「授業に設定」で授業設定へ反映できます</p>
+          <p class="mt-0.5 text-[11px] text-slate-500">サムネイルをクリックして動画と文字起こしを確認し、区間をスライダーで調整してから「授業に設定」で授業設定へ反映できます</p>
         </div>
         <button type="button" id="cnn10-close-btn"
           class="rounded border border-slate-100 bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 hover:bg-slate-50">
@@ -569,6 +575,6 @@
   window.ADMIN_WARMUP_IMAGE_URL = {{ (current.warmup_image_url or '')|tojson }};
   window.ADMIN_WARMUP_QUESTIONS = {{ (current.warmup_questions or [])|tojson }};
 </script>
-<script src="{{ url_for('static', filename='news/js/youtube-transcript.js', v='20260813a') }}"></script>
-<script src="{{ url_for('static', filename='news/js/admin.js', v='20260813a') }}"></script>
+<script src="{{ url_for('static', filename='news/js/youtube-transcript.js', v='20260814a') }}"></script>
+<script src="{{ url_for('static', filename='news/js/admin.js', v='20260814a') }}"></script>
 {% endblock %}

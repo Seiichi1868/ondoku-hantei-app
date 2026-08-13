@@ -15,12 +15,12 @@ FONT_REGULAR_NAME = "NotoSansJP-Regular.ttf"
 FONT_BOLD_NAME = "NotoSansJP-Bold.ttf"
 
 SCORE_SPECS = (
-    ("content_score", "内容理解", 10),
-    ("organization_score", "構成・流れ", 10),
-    ("language_score", "英語表現", 10),
-    ("speaking_summary_score", "即興要約", 10),
+    ("content_score", "内容理解", 5),
+    ("organization_score", "構成・流れ", 5),
+    ("language_score", "英語表現", 5),
+    ("speaking_summary_score", "即興要約", 5),
 )
-TOTAL_MAX = 40
+TOTAL_MAX = 20
 
 
 def _font_path(filename: str) -> Path:
