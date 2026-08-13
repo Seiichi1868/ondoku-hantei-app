@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Vibe Speak News — Speaking Evaluation Report</title>
+  <title>Vibe Speak News 評価レポート</title>
   <style>
     @page {
       size: A4 portrait;
@@ -70,7 +70,7 @@
 
     .brand-name {
       margin: 0;
-      font-size: 18pt;
+      font-size: 15pt;
       font-weight: 700;
       letter-spacing: 0.02em;
       color: #0f766e;
@@ -129,7 +129,7 @@
     }
 
     .meta-grid .label {
-      width: 22%;
+      width: 28%;
       color: #64748b;
       font-size: 8.5pt;
       font-weight: 700;
@@ -252,7 +252,7 @@
   <section class="page">
     <header class="header">
       <div class="brand">
-        <p class="brand-name">Vibe Speak News</p>
+        <p class="brand-name">Vibe Speak News 評価レポート</p>
         <p class="brand-sub">Speaking Evaluation Report</p>
       </div>
       <div class="submitted-at">
@@ -262,7 +262,7 @@
     </header>
 
     <section class="panel">
-      <h2 class="panel-title">生徒情報</h2>
+      <h2 class="panel-title">受験者情報</h2>
       <table class="meta-grid">
         <tr>
           <td class="label">授業クラス</td>
@@ -277,7 +277,7 @@
           <td>{{ report.student_name or "—" }}</td>
         </tr>
         <tr>
-          <td class="label">CEFRレベル</td>
+          <td class="label">CEFRレベル評価基準</td>
           <td colspan="3">{{ report.level or "—" }}</td>
         </tr>
       </table>
@@ -319,7 +319,7 @@
     </section>
 
     <section class="panel">
-      <h2 class="panel-title">文字起こし</h2>
+      <h2 class="panel-title">要約スピーチ録音結果</h2>
       <p class="body-text">{{ report.transcript or "（なし）" }}</p>
     </section>
 

@@ -76,9 +76,9 @@ def _draw_rounded_rect(c: canvas.Canvas, x, y, w, h, radius=4, fill=None, stroke
 
 
 def _draw_header(c: canvas.Canvas, report: dict, x, top, width):
-    c.setFont(FONT_BOLD, 18)
+    c.setFont(FONT_BOLD, 16)
     c.setFillColor(TEAL)
-    c.drawString(x, top - 18, "Vibe Speak News")
+    c.drawString(x, top - 18, "Vibe Speak News 評価レポート")
     c.setFont(FONT_REG, 9.5)
     c.setFillColor(TEAL_DARK)
     c.drawString(x, top - 34, "Speaking Evaluation Report")
@@ -111,11 +111,11 @@ def _draw_student_panel(c: canvas.Canvas, report: dict, x, y, width) -> float:
     rows = [
         ("授業クラス", report.get("class_name") or "—", "HRクラス", report.get("student_hr_class") or "—"),
         ("出席番号", report.get("student_number") or "—", "名前", report.get("student_name") or "—"),
-        ("CEFRレベル", report.get("level") or "—", "", ""),
+        ("CEFRレベル評価基準", report.get("level") or "—", "", ""),
     ]
     height = 78
     _draw_rounded_rect(c, x, y - height, width, height, radius=5, fill=PANEL_BG, stroke=BORDER_SOFT)
-    cursor = _draw_panel_title(c, "生徒情報", x + 10, y - 14)
+    cursor = _draw_panel_title(c, "受験者情報", x + 10, y - 14)
     col1 = x + 10
     col2 = x + width * 0.28
     col3 = x + width * 0.52
@@ -124,9 +124,10 @@ def _draw_student_panel(c: canvas.Canvas, report: dict, x, y, width) -> float:
         c.setFont(FONT_BOLD, 8)
         c.setFillColor(SLATE_MUTED)
         c.drawString(col1, cursor, label_a)
+        value_x = max(col2, col1 + pdfmetrics.stringWidth(label_a, FONT_BOLD, 8) + 8)
         c.setFont(FONT_REG, 10)
         c.setFillColor(SLATE)
-        c.drawString(col2, cursor, str(value_a))
+        c.drawString(value_x, cursor, str(value_a))
         if label_b:
             c.setFont(FONT_BOLD, 8)
             c.setFillColor(SLATE_MUTED)
@@ -306,7 +307,7 @@ def build_pdf_with_reportlab(reports: list[dict]) -> bytes:
         y = _draw_scores_panel(c, report, margin_x, y, content_width)
 
         sections = [
-            ("文字起こし", _wrap_text(report.get("transcript", "") or "（なし）", FONT_REG, 8.5, content_width - 24)),
+            ("要約スピーチ録音結果", _wrap_text(report.get("transcript", "") or "（なし）", FONT_REG, 8.5, content_width - 24)),
             ("AIフィードバック", _wrap_text(report.get("feedback", "") or "（なし）", FONT_REG, 8.5, content_width - 24)),
         ]
 
