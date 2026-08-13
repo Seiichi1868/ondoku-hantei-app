@@ -512,7 +512,7 @@
             <button type="button" id="results-pdf-selected-btn"
               class="rounded border border-emerald-100 bg-white/80 px-2 py-1 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50"
               disabled>
-              PDF帳票ダウンロード
+              PDF個票ダウンロード
             </button>
           </div>
           <div class="flex flex-wrap items-end gap-2">
@@ -569,6 +569,6 @@
   window.ADMIN_WARMUP_IMAGE_URL = {{ (current.warmup_image_url or '')|tojson }};
   window.ADMIN_WARMUP_QUESTIONS = {{ (current.warmup_questions or [])|tojson }};
 </script>
-<script src="{{ url_for('static', filename='news/js/youtube-transcript.js') }}"></script>
-<script src="{{ url_for('static', filename='news/js/admin.js') }}"></script>
+<script src="{{ url_for('static', filename='news/js/youtube-transcript.js', v='20260813a') }}"></script>
+<script src="{{ url_for('static', filename='news/js/admin.js', v='20260813a') }}"></script>
 {% endblock %}

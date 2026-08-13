@@ -1384,8 +1384,8 @@
     if (resultsPdfSelectedBtn) {
       resultsPdfSelectedBtn.disabled = selectedCount === 0;
       resultsPdfSelectedBtn.textContent = selectedCount
-        ? `PDF帳票ダウンロード（${selectedCount}件）`
-        : "PDF帳票ダウンロード";
+        ? `PDF個票ダウンロード（${selectedCount}件）`
+        : "PDF個票ダウンロード";
     }
   }
 
