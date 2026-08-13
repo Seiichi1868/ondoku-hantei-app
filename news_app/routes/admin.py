@@ -1,7 +1,10 @@
 import io
+import logging
 
 import openpyxl
 from flask import Blueprint, jsonify, render_template, request, send_file, url_for
+
+logger = logging.getLogger(__name__)
 
 from news_app.config import (
     AI_MODELS,
@@ -828,57 +831,75 @@ def _submission_for_pdf(submission: dict) -> dict:
     }
 
 
+def _ascii_safe_filename(value: str, fallback: str = "report") -> str:
+    """Content-Disposition に安全に載せられる ASCII のみのファイル名断片を作る。
+
+    日本語などの非ASCII文字はヘッダーエンコードに失敗して 500/502 の原因になるため、
+    ASCII 範囲の英数字・-・_ のみを残し、それ以外は取り除く。
+    """
+    ascii_only = "".join(ch for ch in str(value or "") if ch.isascii() and (ch.isalnum() or ch in ("-", "_")))
+    ascii_only = ascii_only[:40]
+    return ascii_only or fallback
+
+
 def _pdf_response(submissions: list[dict], *, download_name: str, inline: bool = False):
     pdf_bytes = build_submissions_pdf(submissions)
     buf = io.BytesIO(pdf_bytes)
     buf.seek(0)
-    response = send_file(
+    # download_name は ASCII のみのファイル名を渡す前提。send_file が
+    # as_attachment に応じて Content-Disposition (inline/attachment) を
+    # 安全に設定するため、ここで手動でヘッダーを上書きしない。
+    return send_file(
         buf,
         as_attachment=not inline,
         download_name=download_name,
         mimetype="application/pdf",
     )
-    if inline:
-        response.headers["Content-Disposition"] = f'inline; filename="{download_name}"'
-    return response
 
 
 @admin_bp.route("/api/submissions/<submission_id>/pdf", methods=["GET"])
 def export_submission_pdf(submission_id):
     """個別提出の評価帳票 PDF（ブラウザ表示用）。"""
-    submission = get_submission(submission_id)
-    if not submission:
-        return jsonify({"ok": False, "error": "データが見つかりません。"}), 404
-    student = submission.get("student_name") or "student"
-    safe_name = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in str(student))[:40]
-    return _pdf_response(
-        [_submission_for_pdf(submission)],
-        download_name=f"vibe_speak_news_{safe_name}.pdf",
-        inline=True,
-    )
+    try:
+        submission = get_submission(submission_id)
+        if not submission:
+            return jsonify({"ok": False, "error": "データが見つかりません。"}), 404
+        safe_name = _ascii_safe_filename(submission.get("student_name"), fallback="student")
+        return _pdf_response(
+            [_submission_for_pdf(submission)],
+            download_name=f"vibe_speak_news_{safe_name}.pdf",
+            inline=True,
+        )
+    except Exception:
+        logger.exception("個別PDFの生成に失敗しました: submission_id=%s", submission_id)
+        return jsonify({"ok": False, "error": "PDFの生成に失敗しました。"}), 500
 
 
 @admin_bp.route("/api/submissions/pdf", methods=["POST"])
 def export_submissions_pdf_bulk():
     """選択した提出の評価帳票を1つの PDF にまとめてダウンロード。"""
-    payload = request.get_json(silent=True) or {}
-    ids = payload.get("ids") or []
-    if not isinstance(ids, list) or not ids:
-        return jsonify({"ok": False, "error": "提出が選択されていません。"}), 400
+    try:
+        payload = request.get_json(silent=True) or {}
+        ids = payload.get("ids") or []
+        if not isinstance(ids, list) or not ids:
+            return jsonify({"ok": False, "error": "提出が選択されていません。"}), 400
 
-    wanted = {str(i) for i in ids if i}
-    by_id = {}
-    for submission in get_submissions():
-        sid = submission.get("id")
-        if sid in wanted:
-            by_id[sid] = _submission_for_pdf(submission)
+        wanted = {str(i) for i in ids if i}
+        by_id = {}
+        for submission in get_submissions():
+            sid = submission.get("id")
+            if sid in wanted:
+                by_id[sid] = _submission_for_pdf(submission)
 
-    ordered = [by_id[str(i)] for i in ids if str(i) in by_id]
-    if not ordered:
-        return jsonify({"ok": False, "error": "対象の提出データが見つかりません。"}), 404
+        ordered = [by_id[str(i)] for i in ids if str(i) in by_id]
+        if not ordered:
+            return jsonify({"ok": False, "error": "対象の提出データが見つかりません。"}), 404
 
-    return _pdf_response(
-        ordered,
-        download_name=f"vibe_speak_news_reports_{len(ordered)}.pdf",
-        inline=False,
-    )
+        return _pdf_response(
+            ordered,
+            download_name=f"vibe_speak_news_reports_{len(ordered)}.pdf",
+            inline=False,
+        )
+    except Exception:
+        logger.exception("一括PDFの生成に失敗しました")
+        return jsonify({"ok": False, "error": "PDFの生成に失敗しました。"}), 500
