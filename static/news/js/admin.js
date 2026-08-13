@@ -228,6 +228,20 @@
     }, 600);
   }
 
+  function setLessonTitle(title) {
+    const value = String(title || "").trim();
+    const lessonTitleEl = document.getElementById("lesson-title");
+    if (lessonTitleEl) lessonTitleEl.value = value;
+    if (archiveTitle) archiveTitle.value = value;
+  }
+
+  function getLessonTitle() {
+    const lessonTitleEl = document.getElementById("lesson-title");
+    const fromLesson = lessonTitleEl ? lessonTitleEl.value.trim() : "";
+    if (fromLesson) return fromLesson;
+    return archiveTitle ? archiveTitle.value.trim() : "";
+  }
+
   function selectCnn10EpisodeForLesson(episode, highlight) {
     const urlEl = document.getElementById("youtube-url");
     const startEl = document.getElementById("start-time");
@@ -236,6 +250,7 @@
 
     suppressAutoScriptFill = true;
     if (urlEl) urlEl.value = episode.url || "";
+    setLessonTitle(episode.title || "");
     if (highlight?.ok) {
       if (startEl) startEl.value = highlight.start_display || formatTime(highlight.start_sec);
       if (endEl) endEl.value = highlight.end_display || formatTime(highlight.end_sec);
@@ -786,6 +801,7 @@
     const c = cls.current;
     suppressAutoScriptFill = true;
     document.getElementById("youtube-url").value = c.source_url || "";
+    setLessonTitle(c.title || "");
     document.getElementById("start-time").value = formatTime(c.start_seconds || 0);
     document.getElementById("end-time").value = formatTime(c.end_seconds || 0);
     document.getElementById("lesson-script").value = c.script || "";
@@ -1072,6 +1088,7 @@
       const payload = {
         class_id: classId,
         url: document.getElementById("youtube-url").value.trim(),
+        title: getLessonTitle(),
         start_time: document.getElementById("start-time").value.trim(),
         end_time: document.getElementById("end-time").value.trim(),
         script: document.getElementById("lesson-script").value.trim(),
@@ -1114,7 +1131,7 @@
         const res = await fetch("/news/admin/api/class/archive", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ class_id: classId, title: archiveTitle ? archiveTitle.value.trim() : "" }),
+          body: JSON.stringify({ class_id: classId, title: getLessonTitle() }),
         });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || "アーカイブに失敗しました");
@@ -1377,6 +1394,19 @@
     el.addEventListener("input", scheduleAutoScriptFill);
     el.addEventListener("change", scheduleAutoScriptFill);
   });
+
+  const lessonTitleEl = document.getElementById("lesson-title");
+  if (lessonTitleEl) {
+    lessonTitleEl.addEventListener("input", () => {
+      if (archiveTitle) archiveTitle.value = lessonTitleEl.value;
+    });
+  }
+  if (archiveTitle) {
+    archiveTitle.addEventListener("input", () => {
+      const titleInput = document.getElementById("lesson-title");
+      if (titleInput) titleInput.value = archiveTitle.value;
+    });
+  }
 
   const lessonScriptEl = document.getElementById("lesson-script");
   if (lessonScriptEl) {

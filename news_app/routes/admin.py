@@ -46,6 +46,7 @@ from news_app.services.storage import (
     set_active_class,
     update_class_current,
     update_settings,
+    update_submission_lesson_title,
     _normalize_vocabulary_data,
     _normalize_warmup_questions,
 )
@@ -245,9 +246,13 @@ def api_save_lesson():
 
         existing = (get_class(class_id) or {}).get("current") or {}
         existing_script = str(existing.get("script") or "").strip()
+        title = str(data.get("title") or "").strip()
+        if not title:
+            title = fetch_youtube_title(url or video_id)
         lesson_payload: dict = {
             "source_url": url,
             "video_id": video_id,
+            "title": title,
             "start_seconds": start_sec,
             "end_seconds": end_sec,
             "script": script,
@@ -266,6 +271,12 @@ def api_save_lesson():
             lesson_payload,
             require_student_info=require_student_info,
         )
+        if title:
+            update_submission_lesson_title(
+                class_id,
+                lesson_key(video_id, start_sec, end_sec),
+                title,
+            )
         return jsonify(
             {
                 "ok": True,
@@ -515,8 +526,10 @@ def api_archive_lesson():
     class_id = str(data.get("class_id") or get_active_class_id()).strip()
     try:
         title = str(data.get("title") or "").strip()
+        current = (get_class(class_id) or {}).get("current") or {}
         if not title:
-            current = (get_class(class_id) or {}).get("current") or {}
+            title = str(current.get("title") or "").strip()
+        if not title:
             title = fetch_youtube_title(current.get("source_url") or current.get("video_id") or "")
         cls = archive_class_current(class_id, title)
         return jsonify(

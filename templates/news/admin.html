@@ -299,7 +299,7 @@
         </div>
         <div class="flex shrink-0 flex-col items-stretch gap-1 sm:flex-row sm:items-center">
           <input type="text" id="archive-title" class="compact-input w-full sm:w-28"
-            placeholder="保存名">
+            placeholder="保存名" value="{{ current.title or '' }}">
           <button type="button" id="archive-btn"
             class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100"
             {% if not active_class %}disabled{% endif %}>
@@ -321,6 +321,12 @@
           <input type="url" id="youtube-url" name="url" required
             value="{{ current.source_url }}"
             class="compact-input w-full" placeholder="https://youtu.be/... または watch?v=...">
+        </div>
+        <div>
+          <label class="mb-0.5 block text-[11px] font-medium text-slate-600" for="lesson-title">動画タイトル</label>
+          <input type="text" id="lesson-title" name="title"
+            value="{{ current.title or '' }}"
+            class="compact-input w-full" placeholder="CNN10から選ぶと自動入力されます。編集できます">
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
@@ -575,6 +581,6 @@
   window.ADMIN_WARMUP_IMAGE_URL = {{ (current.warmup_image_url or '')|tojson }};
   window.ADMIN_WARMUP_QUESTIONS = {{ (current.warmup_questions or [])|tojson }};
 </script>
-<script src="{{ url_for('static', filename='news/js/youtube-transcript.js', v='20260814a') }}"></script>
-<script src="{{ url_for('static', filename='news/js/admin.js', v='20260814a') }}"></script>
+<script src="{{ url_for('static', filename='news/js/youtube-transcript.js', v='20260814b') }}"></script>
+<script src="{{ url_for('static', filename='news/js/admin.js', v='20260814b') }}"></script>
 {% endblock %}

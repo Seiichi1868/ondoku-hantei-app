@@ -45,6 +45,7 @@ DEFAULT_EVALUATION_CRITERIA = {
 DEFAULT_CLASS_CURRENT = {
     "source_url": "",
     "video_id": "",
+    "title": "",
     "start_seconds": 0,
     "end_seconds": 0,
     "script": "",
@@ -229,6 +230,7 @@ def _normalize_current(raw: dict | None) -> dict:
         {
             "source_url": str(raw.get("source_url") or "").strip(),
             "video_id": str(raw.get("video_id") or "").strip(),
+            "title": str(raw.get("title") or raw.get("video_title") or "").strip(),
             "start_seconds": _coerce_nonnegative_int(raw.get("start_seconds"), 0),
             "end_seconds": _coerce_nonnegative_int(raw.get("end_seconds"), 0),
             "script": str(raw.get("script") or "").strip(),
@@ -524,9 +526,9 @@ def restore_class_archive(class_id: str, archive_index: int) -> dict:
         raise ValueError("指定されたアーカイブが見つかりません。")
 
     restored = deepcopy(archive[archive_index])
-    restored.pop("title", None)
+    restored_title = str(restored.get("title") or "").strip()
     restored.pop("archived_at", None)
-    cls["current"] = _normalize_current(restored)
+    cls["current"] = _normalize_current({**restored, "title": restored_title})
     save_state(state)
     return cls
 
