@@ -1383,7 +1383,9 @@
     }
     if (resultsPdfSelectedBtn) {
       resultsPdfSelectedBtn.disabled = selectedCount === 0;
-      resultsPdfSelectedBtn.textContent = selectedCount ? `選択PDF（${selectedCount}件）` : "選択PDF";
+      resultsPdfSelectedBtn.textContent = selectedCount
+        ? `選択PDF帳票ダウンロード（${selectedCount}件）`
+        : "選択PDF帳票ダウンロード";
     }
   }
 
@@ -1534,11 +1536,40 @@
       if (pdfBtn) {
         const id = pdfBtn.dataset.id;
         if (!id) return;
-        window.open(
-          `/news/admin/api/submissions/${encodeURIComponent(id)}/pdf`,
-          "_blank",
-          "noopener,noreferrer"
-        );
+        if (!confirm("この生徒の帳票をPDFで出力しますか？")) return;
+        const originalLabel = pdfBtn.textContent;
+        pdfBtn.disabled = true;
+        pdfBtn.textContent = "生成中…";
+        try {
+          const res = await fetch(`/news/admin/api/submissions/${encodeURIComponent(id)}/pdf`);
+          if (!res.ok) {
+            let message = "PDFの生成に失敗しました。";
+            try {
+              const data = await res.json();
+              if (data && data.error) message = data.error;
+            } catch (_) {
+              /* ignore */
+            }
+            throw new Error(message);
+          }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const opened = window.open(url, "_blank", "noopener,noreferrer");
+          if (!opened) {
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `vibe_speak_news_${id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          }
+          setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        } catch (err) {
+          alert(err && err.message ? err.message : "PDFの生成に失敗しました。");
+        } finally {
+          pdfBtn.disabled = false;
+          pdfBtn.textContent = originalLabel || "PDF";
+        }
         return;
       }
       const btn = e.target.closest(".del-submission-btn");
