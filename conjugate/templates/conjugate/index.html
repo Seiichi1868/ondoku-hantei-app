@@ -9,7 +9,7 @@
   <h2 class="text-xl font-extrabold text-teal-700 mb-1">今日の活用ドリルを始めよう</h2>
   <p class="text-sm text-slate-500 mb-5">yo形の例文を見て、tú形に変換して声に出そう。判定はルールベースで即時に返ります。</p>
 
-  <form id="start-form" class="space-y-6">
+  <form id="start-form" class="space-y-6" method="post" action="{{ url_for('conjugate.start_session') }}">
     <div>
       <h3 class="vsc-section-label">出題カテゴリ</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
@@ -69,7 +69,7 @@
     {% endif %}
 
     <button type="submit" id="start-btn" class="vsc-btn-primary w-full">練習を始める</button>
-    <p id="start-error" class="text-sm text-rose-600 hidden"></p>
+    <p id="start-error" class="text-sm text-rose-600 {% if not start_error %}hidden{% endif %}">{{ start_error or "" }}</p>
   </form>
 </section>
 
@@ -85,5 +85,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260814a') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260814c') }}"></script>
 {% endblock %}

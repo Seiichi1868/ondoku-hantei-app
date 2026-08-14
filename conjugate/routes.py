@@ -1,7 +1,8 @@
 """Vibe Speak Conjugate: 生徒（学習者）向けBlueprint。
 
   1. GET  /conjugate/                                    … トップ（カテゴリ・文型選択）
-  2. POST /conjugate/api/sessions                         … セッション作成
+  2. POST /conjugate/api/sessions                         … セッション作成（JS経由）
+  2b.POST /conjugate/start                                … セッション作成（フォーム送信フォールバック）
   3. GET  /conjugate/session/<id>                         … 出題・録音画面
   4. POST /conjugate/api/sessions/<id>/questions/<qid>/targets/<t>/answer … 採点
   5. POST /conjugate/api/sessions/<id>/finish              … セッション終了・サマリ保存
@@ -12,7 +13,7 @@ import mimetypes
 import uuid
 from pathlib import Path
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
 from conjugate.audio_convert import normalize_audio_file
@@ -48,6 +49,19 @@ main_bp = Blueprint(
 )
 
 
+START_ERROR_MESSAGES = {
+    "no_questions": "出題できる問題がありません。管理画面でカテゴリと文型の設定を確認してください。",
+}
+
+
+@main_bp.after_request
+def _revalidate_html(response):
+    """HTMLは常に再検証させ、古いHTML（＝古いJS/CSSのURL）が残らないようにする。"""
+    if response.mimetype == "text/html":
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
+
 @main_bp.route("/health")
 def health():
     return jsonify({"ok": True, "app": "conjugate"})
@@ -59,6 +73,7 @@ def index():
     return render_template(
         "conjugate/index.html",
         settings=settings,
+        start_error=START_ERROR_MESSAGES.get(request.args.get("error", "")),
         category_labels=CATEGORY_LABELS,
         category_order=CATEGORY_ORDER,
         tense_labels=TENSE_LABELS,
@@ -66,25 +81,24 @@ def index():
     )
 
 
-@main_bp.route("/api/sessions", methods=["POST"])
-def create_session():
+def _prepare_session(raw_categories, raw_tenses, raw_count, raw_prioritize_weak) -> dict:
+    """選択内容を検証・正規化して、未保存のセッションを組み立てる。"""
     ensure_dirs()
     settings = load_settings()
-    payload = request.get_json(silent=True) or {}
 
-    categories = [c for c in (payload.get("categories") or settings["enabled_categories"]) if c in CATEGORY_ORDER]
+    categories = [c for c in (raw_categories or settings["enabled_categories"]) if c in CATEGORY_ORDER]
     categories = [c for c in categories if c in settings["enabled_categories"]] or settings["enabled_categories"]
 
-    tenses = [t for t in (payload.get("tenses") or settings["enabled_tenses"]) if t in TENSE_ORDER]
+    tenses = [t for t in (raw_tenses or settings["enabled_tenses"]) if t in TENSE_ORDER]
     tenses = [t for t in tenses if t in settings["enabled_tenses"]] or settings["enabled_tenses"]
 
     try:
-        count = int(payload.get("count") or settings["questions_per_session"])
+        count = int(raw_count or settings["questions_per_session"])
     except (TypeError, ValueError):
         count = settings["questions_per_session"]
     count = max(3, min(50, count))
 
-    prioritize_weak = bool(payload.get("prioritize_weak_verbs", settings["prioritize_weak_verbs"]))
+    prioritize_weak = bool(settings["prioritize_weak_verbs"] if raw_prioritize_weak is None else raw_prioritize_weak)
     gustar_enabled = bool(settings["gustar_enabled"])
     gustar_count = settings["gustar_per_session"] if gustar_enabled else 0
 
@@ -98,7 +112,7 @@ def create_session():
         prioritize_weak=prioritize_weak,
     )
 
-    session = {
+    return {
         "session_id": new_session_id(),
         "categories": categories,
         "tenses": tenses,
@@ -109,8 +123,39 @@ def create_session():
         "current_index": 0,
         "status": "in_progress",
     }
+
+
+@main_bp.route("/api/sessions", methods=["POST"])
+def create_session():
+    payload = request.get_json(silent=True) or {}
+    session = _prepare_session(
+        payload.get("categories"),
+        payload.get("tenses"),
+        payload.get("count"),
+        payload.get("prioritize_weak_verbs"),
+    )
+    if not session["questions"]:
+        return jsonify({"ok": False, "error": START_ERROR_MESSAGES["no_questions"]}), 400
+
     save_session(session)
     return jsonify({"ok": True, "session_id": session["session_id"]}), 201
+
+
+@main_bp.route("/start", methods=["POST"])
+def start_session():
+    """index.jsが読み込めない環境でも練習を開始できるフォーム送信の受け口。"""
+    session = _prepare_session(
+        request.form.getlist("category"),
+        request.form.getlist("tense"),
+        request.form.get("count"),
+        "prioritize_weak_verbs" in request.form,
+    )
+    if not session["questions"]:
+        return redirect(url_for("conjugate.index", error="no_questions"), code=303)
+
+    save_session(session)
+    # 303にしてPOST→GETの読み替えをクライアントに依存させない
+    return redirect(url_for("conjugate.quiz_screen", session_id=session["session_id"]), code=303)
 
 
 @main_bp.route("/session/<session_id>")
