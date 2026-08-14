@@ -1,0 +1,273 @@
+"""JSONファイルによる永続化（conjugate独自。他アプリとは別ファイル・別スキーマ）。
+
+- conjugate_settings.json    : 出題カテゴリ・文型・ASR設定・判定の厳しさ等
+- conjugate_submissions.json : セッション終了時の結果サマリ（配列）
+- conjugate_weak_verbs.json  : 動詞ごとの誤答回数集計（弱点優先出題に利用）
+- sessions/<id>.json         : 進行中の出題セッション
+"""
+import json
+import threading
+import uuid
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+
+from conjugate.config import (
+    DEFAULT_ASR_ENGINE,
+    DEFAULT_ENABLED_CATEGORIES,
+    DEFAULT_ENABLED_TENSES,
+    DEFAULT_GUSTAR_ENABLED,
+    DEFAULT_GUSTAR_PER_SESSION,
+    DEFAULT_PRIORITIZE_WEAK_VERBS,
+    DEFAULT_QUESTIONS_PER_SESSION,
+    DEFAULT_STRICTNESS,
+    DEFAULT_TARGETS_PER_QUESTION,
+    DEFAULT_WHISPER_MODEL,
+    SESSIONS_DIR,
+    SETTINGS_FILE,
+    SUBMISSIONS_FILE,
+    WEAK_VERBS_FILE,
+    ensure_dirs,
+)
+from conjugate.data.conjugations import TENSE_ORDER
+from conjugate.data.verbs import CATEGORY_ORDER
+
+_lock = threading.Lock()
+_session_locks: dict[str, threading.Lock] = {}
+_session_locks_guard = threading.Lock()
+
+JST = timezone(timedelta(hours=9))
+
+
+def _now_iso() -> str:
+    return datetime.now(JST).isoformat(timespec="seconds")
+
+
+def _read_json(path, default):
+    if not path.is_file():
+        return deepcopy(default)
+    try:
+        with path.open(encoding="utf-8") as handle:
+            return json.load(handle)
+    except (json.JSONDecodeError, OSError):
+        return deepcopy(default)
+
+
+def _write_json(path, data) -> None:
+    ensure_dirs()
+    tmp_path = path.with_suffix(".json.tmp")
+    with tmp_path.open("w", encoding="utf-8") as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+    tmp_path.replace(path)
+
+
+# ── 設定 ────────────────────────────────────────────────────
+
+DEFAULT_SETTINGS = {
+    "enabled_categories": list(DEFAULT_ENABLED_CATEGORIES),
+    "enabled_tenses": list(DEFAULT_ENABLED_TENSES),
+    "asr_engine": DEFAULT_ASR_ENGINE,
+    "whisper_model": DEFAULT_WHISPER_MODEL,
+    "strictness": DEFAULT_STRICTNESS,
+    "questions_per_session": DEFAULT_QUESTIONS_PER_SESSION,
+    "targets_per_question": DEFAULT_TARGETS_PER_QUESTION,
+    "gustar_enabled": DEFAULT_GUSTAR_ENABLED,
+    "gustar_per_session": DEFAULT_GUSTAR_PER_SESSION,
+    "prioritize_weak_verbs": DEFAULT_PRIORITIZE_WEAK_VERBS,
+}
+
+
+def _normalize_settings(raw: dict | None) -> dict:
+    data = deepcopy(DEFAULT_SETTINGS)
+    if not isinstance(raw, dict):
+        return data
+
+    categories = raw.get("enabled_categories")
+    if isinstance(categories, list):
+        filtered = [c for c in categories if c in CATEGORY_ORDER]
+        data["enabled_categories"] = filtered or list(DEFAULT_ENABLED_CATEGORIES)
+
+    tenses = raw.get("enabled_tenses")
+    if isinstance(tenses, list):
+        filtered = [t for t in tenses if t in TENSE_ORDER]
+        data["enabled_tenses"] = filtered or list(DEFAULT_ENABLED_TENSES)
+
+    if raw.get("asr_engine") in ("whisper", "web_speech"):
+        data["asr_engine"] = raw["asr_engine"]
+    if raw.get("whisper_model") in ("whisper-1", "gpt-4o-mini-transcribe"):
+        data["whisper_model"] = raw["whisper_model"]
+    if raw.get("strictness") in ("lenient", "strict"):
+        data["strictness"] = raw["strictness"]
+
+    try:
+        qps = int(raw.get("questions_per_session", DEFAULT_QUESTIONS_PER_SESSION))
+        data["questions_per_session"] = max(3, min(50, qps))
+    except (TypeError, ValueError):
+        pass
+
+    try:
+        tpq = int(raw.get("targets_per_question", DEFAULT_TARGETS_PER_QUESTION))
+        data["targets_per_question"] = 2 if tpq >= 2 else 1
+    except (TypeError, ValueError):
+        pass
+
+    if "gustar_enabled" in raw:
+        data["gustar_enabled"] = bool(raw.get("gustar_enabled"))
+
+    try:
+        gps = int(raw.get("gustar_per_session", DEFAULT_GUSTAR_PER_SESSION))
+        data["gustar_per_session"] = max(0, min(5, gps))
+    except (TypeError, ValueError):
+        pass
+
+    if "prioritize_weak_verbs" in raw:
+        data["prioritize_weak_verbs"] = bool(raw.get("prioritize_weak_verbs"))
+
+    return data
+
+
+def load_settings() -> dict:
+    ensure_dirs()
+    with _lock:
+        return _normalize_settings(_read_json(SETTINGS_FILE, DEFAULT_SETTINGS))
+
+
+def save_settings(data: dict) -> dict:
+    normalized = _normalize_settings(data)
+    with _lock:
+        _write_json(SETTINGS_FILE, normalized)
+    return normalized
+
+
+# ── セッション（進行中の出題） ───────────────────────────────
+
+def _safe_id(value: str) -> str:
+    return "".join(c for c in str(value) if c.isalnum() or c == "-")
+
+
+def _session_path(session_id: str):
+    return SESSIONS_DIR / f"{_safe_id(session_id)}.json"
+
+
+def get_session_lock(session_id: str) -> threading.Lock:
+    safe_id = _safe_id(session_id)
+    with _session_locks_guard:
+        lock = _session_locks.get(safe_id)
+        if lock is None:
+            lock = threading.Lock()
+            _session_locks[safe_id] = lock
+        return lock
+
+
+def new_session_id() -> str:
+    return uuid.uuid4().hex[:16]
+
+
+def save_session(session: dict) -> dict:
+    session["updated_at"] = _now_iso()
+    ensure_dirs()
+    path = _session_path(session["session_id"])
+    with _lock:
+        tmp_path = path.with_suffix(".json.tmp")
+        with tmp_path.open("w", encoding="utf-8") as handle:
+            json.dump(session, handle, ensure_ascii=False, indent=2)
+        tmp_path.replace(path)
+    return session
+
+
+def load_session(session_id: str) -> dict | None:
+    ensure_dirs()
+    path = _session_path(session_id)
+    if not path.is_file():
+        return None
+    with _lock:
+        try:
+            with path.open(encoding="utf-8") as handle:
+                return json.load(handle)
+        except (json.JSONDecodeError, OSError):
+            return None
+
+
+# ── セッション結果サマリ ─────────────────────────────────────
+
+def load_submissions() -> list[dict]:
+    ensure_dirs()
+    with _lock:
+        data = _read_json(SUBMISSIONS_FILE, [])
+    return data if isinstance(data, list) else []
+
+
+def save_submission(entry: dict) -> dict:
+    ensure_dirs()
+    entry = {"id": uuid.uuid4().hex[:12], "submitted_at": _now_iso(), **entry}
+    with _lock:
+        submissions = _read_json(SUBMISSIONS_FILE, [])
+        if not isinstance(submissions, list):
+            submissions = []
+        submissions.append(entry)
+        # 直近500件のみ保持（無制限肥大化を防ぐ）
+        submissions = submissions[-500:]
+        _write_json(SUBMISSIONS_FILE, submissions)
+    return entry
+
+
+def get_submissions(limit: int = 50) -> list[dict]:
+    return list(reversed(load_submissions()))[:limit]
+
+
+# ── 弱点動詞集計 ─────────────────────────────────────────────
+
+def load_weak_verbs() -> dict:
+    ensure_dirs()
+    with _lock:
+        data = _read_json(WEAK_VERBS_FILE, {})
+    return data if isinstance(data, dict) else {}
+
+
+def record_answer_result(verb_id: int, infinitive: str, level: str) -> None:
+    """1問の採点結果を弱点動詞集計に反映する。"""
+    with _lock:
+        stats = _read_json(WEAK_VERBS_FILE, {})
+        if not isinstance(stats, dict):
+            stats = {}
+        key = str(verb_id)
+        entry = stats.get(key) or {"infinitive": infinitive, "miss_count": 0, "correct_count": 0}
+        entry["infinitive"] = infinitive
+        if level == "correct":
+            entry["correct_count"] = entry.get("correct_count", 0) + 1
+            entry["miss_count"] = max(0, entry.get("miss_count", 0) - 1)
+        else:
+            entry["miss_count"] = entry.get("miss_count", 0) + 1
+        entry["last_result"] = level
+        entry["last_seen"] = _now_iso()
+        stats[key] = entry
+        _write_json(WEAK_VERBS_FILE, stats)
+
+
+def _numeric_verb_ids(stats: dict) -> list[tuple[str, dict]]:
+    """gustar等の非数値キーを除いた、通常動詞（verb_id）分のみ抽出。"""
+    return [(k, v) for k, v in stats.items() if k.isdigit()]
+
+
+def top_weak_verb_ids(limit: int = 20) -> list[int]:
+    stats = load_weak_verbs()
+    ranked = sorted(
+        _numeric_verb_ids(stats),
+        key=lambda kv: (kv[1].get("miss_count", 0)),
+        reverse=True,
+    )
+    return [int(k) for k, v in ranked if v.get("miss_count", 0) > 0][:limit]
+
+
+def weak_verbs_report(limit: int = 15) -> list[dict]:
+    stats = load_weak_verbs()
+    ranked = sorted(
+        stats.items(),
+        key=lambda kv: (kv[1].get("miss_count", 0)),
+        reverse=True,
+    )
+    result = []
+    for verb_id, entry in ranked[:limit]:
+        if entry.get("miss_count", 0) <= 0:
+            continue
+        result.append({"verb_id": int(verb_id) if verb_id.isdigit() else verb_id, **entry})
+    return result

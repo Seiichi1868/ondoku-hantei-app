@@ -53,3 +53,7 @@ data/debate/audio/*
 # Level Check app: 録音データ・セッションデータ（data/level_check/*.json は上の *.json ルールで除外済み）
 data/level_check/audio/*
 data/level_check/sessions/*
+
+# Vibe Speak Conjugate: 一時音声・セッションデータ（data/conjugate/*.json は上の *.json ルールで除外済み）
+data/conjugate/audio_tmp/*
+data/conjugate/sessions/*

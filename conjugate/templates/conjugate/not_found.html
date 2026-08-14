@@ -1,0 +1,9 @@
+{% extends "conjugate/base.html" %}
+{% block title %}見つかりません - Vibe Speak Conjugate{% endblock %}
+{% block body %}
+<section class="vsc-card text-center">
+  <p class="text-lg font-bold text-brand-dark mb-2">セッションが見つかりません</p>
+  <p class="text-sm text-slate-500 mb-4">リンクが古いか、セッションの有効期限が切れている可能性があります。</p>
+  <a href="{{ url_for('conjugate.index') }}" class="vsc-btn-primary inline-block">トップへ戻る</a>
+</section>
+{% endblock %}

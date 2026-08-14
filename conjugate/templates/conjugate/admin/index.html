@@ -1,0 +1,160 @@
+{% extends "conjugate/base.html" %}
+{% block title %}管理画面 - Vibe Speak Conjugate{% endblock %}
+{% block header_actions %}
+<a href="{{ url_for('conjugate.index') }}" class="text-xs text-slate-400 hover:text-brand">練習画面へ</a>
+{% endblock %}
+
+{% block body %}
+<section class="vsc-card mb-6">
+  <h2 class="text-lg font-extrabold text-brand-dark mb-1">管理画面</h2>
+  <p class="text-sm text-slate-500 mb-5">
+    出題カテゴリ・文型、音声認識エンジン、判定の厳しさなどを切り替えます。
+    データセット: 動詞{{ settings.enabled_categories|length }}/{{ category_order|length }}カテゴリ有効、
+    gustar特殊構文編 {{ gustar_example_count }}例文。
+    OpenAI APIキー: {% if api_key_configured %}<span class="text-emerald-600 font-semibold">設定済み</span>{% else %}<span class="text-rose-600 font-semibold">未設定（Whisperは利用不可）</span>{% endif %}
+  </p>
+
+  <form id="settings-form" class="space-y-6">
+    <div>
+      <h3 class="vsc-section-label">出題カテゴリ（4グループ）</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+        {% for cat in category_order %}
+        <label class="vsc-check-chip">
+          <input type="checkbox" name="enabled_categories" value="{{ cat }}" {% if cat in settings.enabled_categories %}checked{% endif %}>
+          <span>{{ category_labels[cat] }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div>
+      <h3 class="vsc-section-label">出題する文型</h3>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+        {% for t in tense_order %}
+        <label class="vsc-check-chip">
+          <input type="checkbox" name="enabled_tenses" value="{{ t }}" {% if t in settings.enabled_tenses %}checked{% endif %}>
+          <span>{{ tense_labels[t] }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="text-xs text-slate-400 mt-1">段階的実装の推奨: まず現在形のみで動作確認し、その後進行形・近接未来・点過去を追加。</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <h3 class="vsc-section-label">音声認識エンジン</h3>
+        <select name="asr_engine" class="vsc-select mt-2">
+          <option value="whisper" {% if settings.asr_engine == "whisper" %}selected{% endif %}>Whisper API（既定・Chrome/Safari両対応）</option>
+          <option value="web_speech" {% if settings.asr_engine == "web_speech" %}selected{% endif %}>Web Speech API（Chrome限定・低遅延モード）</option>
+        </select>
+      </div>
+      <div>
+        <h3 class="vsc-section-label">Whisperモデル</h3>
+        <select name="whisper_model" class="vsc-select mt-2">
+          {% for key, info in whisper_models.items() %}
+          <option value="{{ key }}" {% if settings.whisper_model == key %}selected{% endif %}>{{ info.label }}（${{ info.cost_per_min_usd }}/分）</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <h3 class="vsc-section-label">判定の厳しさ</h3>
+        <select name="strictness" class="vsc-select mt-2">
+          <option value="lenient" {% if settings.strictness == "lenient" %}selected{% endif %}>寛容モード（アクセント・表記ゆれを許容）</option>
+          <option value="strict" {% if settings.strictness == "strict" %}selected{% endif %}>厳密モード（アクセントの違いも指摘）</option>
+        </select>
+      </div>
+      <div>
+        <h3 class="vsc-section-label">1問あたりの対象文型数</h3>
+        <select name="targets_per_question" class="vsc-select mt-2">
+          <option value="1" {% if settings.targets_per_question == 1 %}selected{% endif %}>1種類</option>
+          <option value="2" {% if settings.targets_per_question == 2 %}selected{% endif %}>1〜2種類</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <h3 class="vsc-section-label">既定の出題数</h3>
+        <input type="number" name="questions_per_session" min="3" max="50" value="{{ settings.questions_per_session }}" class="vsc-select mt-2">
+      </div>
+      <div>
+        <h3 class="vsc-section-label">弱点動詞の優先出題（既定）</h3>
+        <label class="vsc-check-chip mt-2">
+          <input type="checkbox" name="prioritize_weak_verbs" {% if settings.prioritize_weak_verbs %}checked{% endif %}>
+          <span>デフォルトでONにする</span>
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <h3 class="vsc-section-label">gustar特殊構文編（#29専用モジュール）</h3>
+      <div class="flex flex-col sm:flex-row gap-4 mt-2">
+        <label class="vsc-check-chip">
+          <input type="checkbox" name="gustar_enabled" {% if settings.gustar_enabled %}checked{% endif %}>
+          <span>有効にする</span>
+        </label>
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-slate-500">1セッションあたり</span>
+          <input type="number" name="gustar_per_session" min="0" max="5" value="{{ settings.gustar_per_session }}" class="vsc-select w-20">
+          <span class="text-sm text-slate-500">問</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h3 class="vsc-section-label">管理パスワード</h3>
+      <input type="password" name="admin_password" placeholder="保存には管理パスワードが必要です" class="vsc-select mt-2" autocomplete="off">
+    </div>
+
+    <button type="submit" id="save-btn" class="vsc-btn-primary w-full">設定を保存</button>
+    <p id="save-message" class="text-sm hidden"></p>
+  </form>
+</section>
+
+<section class="vsc-card mb-6">
+  <h3 class="text-sm font-bold text-slate-600 mb-3">弱点動詞（誤答が多い順）</h3>
+  {% if weak_verbs %}
+  <ul class="space-y-1 text-sm">
+    {% for w in weak_verbs %}
+    <li class="flex justify-between border-b border-slate-100 py-1">
+      <span>{{ w.infinitive }}</span>
+      <span class="text-rose-500">誤答 {{ w.miss_count }} 回</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-sm text-slate-400">まだ誤答データがありません。</p>
+  {% endif %}
+</section>
+
+<section class="vsc-card">
+  <h3 class="text-sm font-bold text-slate-600 mb-3">直近のセッション</h3>
+  {% if recent_submissions %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-slate-400 text-xs">
+        <tr><th class="text-left py-1">日時</th><th class="text-left">正答率</th><th class="text-left">問数</th></tr>
+      </thead>
+      <tbody>
+        {% for s in recent_submissions %}
+        <tr class="border-t border-slate-100">
+          <td class="py-1">{{ s.submitted_at }}</td>
+          <td>{{ s.accuracy }}%</td>
+          <td>{{ s.correct }}/{{ s.total }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-400">まだセッションの記録がありません。</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260814a') }}"></script>
+{% endblock %}

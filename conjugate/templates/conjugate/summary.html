@@ -1,0 +1,52 @@
+{% extends "conjugate/base.html" %}
+{% block title %}結果 - Vibe Speak Conjugate{% endblock %}
+
+{% block body %}
+<section class="vsc-card mb-6 text-center">
+  <p class="text-sm text-slate-500 mb-1">セッション結果</p>
+  <div class="text-5xl font-extrabold text-brand-dark">{{ summary.accuracy }}%</div>
+  <p class="text-sm text-slate-500 mt-1">{{ summary.correct }} / {{ summary.total }} 問 正解</p>
+
+  <div class="grid grid-cols-4 gap-2 mt-6 text-xs">
+    <div class="vsc-stat-chip vsc-stat-correct">
+      <div class="text-lg font-bold">{{ summary.level_counts.correct }}</div>
+      <div>正解</div>
+    </div>
+    <div class="vsc-stat-chip vsc-stat-warn">
+      <div class="text-lg font-bold">{{ summary.level_counts.pronoun_error }}</div>
+      <div>代名詞ミス</div>
+    </div>
+    <div class="vsc-stat-chip vsc-stat-warn">
+      <div class="text-lg font-bold">{{ summary.level_counts.conjugation_error }}</div>
+      <div>活用形間違い</div>
+    </div>
+    <div class="vsc-stat-chip vsc-stat-bad">
+      <div class="text-lg font-bold">{{ summary.level_counts.way_off }}</div>
+      <div>全く違う</div>
+    </div>
+  </div>
+</section>
+
+{% if summary.weak_items %}
+<section class="vsc-card mb-6">
+  <h3 class="text-sm font-bold text-slate-600 mb-3">今回の弱点（正解できなかった問題）</h3>
+  <ul class="space-y-2">
+    {% for item in summary.weak_items %}
+    <li class="vsc-weak-item">
+      <div class="flex items-center justify-between">
+        <span class="font-bold text-brand-dark">{{ item.infinitive }}</span>
+        <span class="text-xs text-slate-400">{{ tense_labels.get(item.target, item.target) }}</span>
+      </div>
+      <div class="text-xs text-slate-500">{{ item.meaning_ja }}</div>
+      <div class="text-sm mt-1">あなたの発話: 「{{ item.transcript or "（認識できず）" }}」</div>
+      <div class="text-sm text-emerald-700">正解: {{ item.expected_sentence }}</div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<div class="flex flex-col sm:flex-row gap-3">
+  <a href="{{ url_for('conjugate.index') }}" class="vsc-btn-primary flex-1 text-center">もう一度練習する</a>
+</div>
+{% endblock %}
