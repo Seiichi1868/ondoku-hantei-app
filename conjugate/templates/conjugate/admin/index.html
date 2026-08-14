@@ -1,12 +1,12 @@
 {% extends "conjugate/base.html" %}
 {% block title %}管理画面 - Vibe Speak Conjugate{% endblock %}
 {% block header_actions %}
-<a href="{{ url_for('conjugate.index') }}" class="text-xs text-slate-400 hover:text-brand">練習画面へ</a>
+<a href="{{ url_for('conjugate.index') }}" class="text-xs text-slate-400 hover:text-teal-600">練習画面へ</a>
 {% endblock %}
 
 {% block body %}
 <section class="vsc-card mb-6">
-  <h2 class="text-lg font-extrabold text-brand-dark mb-1">管理画面</h2>
+  <h2 class="text-lg font-extrabold text-teal-700 mb-1">管理画面</h2>
   <p class="text-sm text-slate-500 mb-5">
     出題カテゴリ・文型、音声認識エンジン、判定の厳しさなどを切り替えます。
     データセット: 動詞{{ settings.enabled_categories|length }}/{{ category_order|length }}カテゴリ有効、

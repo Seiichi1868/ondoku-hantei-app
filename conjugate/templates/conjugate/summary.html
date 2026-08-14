@@ -4,7 +4,7 @@
 {% block body %}
 <section class="vsc-card mb-6 text-center">
   <p class="text-sm text-slate-500 mb-1">セッション結果</p>
-  <div class="text-5xl font-extrabold text-brand-dark">{{ summary.accuracy }}%</div>
+  <div class="text-5xl font-extrabold bg-gradient-to-r from-sky-700 via-teal-700 to-emerald-700 bg-clip-text text-transparent">{{ summary.accuracy }}%</div>
   <p class="text-sm text-slate-500 mt-1">{{ summary.correct }} / {{ summary.total }} 問 正解</p>
 
   <div class="grid grid-cols-4 gap-2 mt-6 text-xs">
@@ -34,7 +34,7 @@
     {% for item in summary.weak_items %}
     <li class="vsc-weak-item">
       <div class="flex items-center justify-between">
-        <span class="font-bold text-brand-dark">{{ item.infinitive }}</span>
+        <span class="font-bold text-teal-700">{{ item.infinitive }}</span>
         <span class="text-xs text-slate-400">{{ tense_labels.get(item.target, item.target) }}</span>
       </div>
       <div class="text-xs text-slate-500">{{ item.meaning_ja }}</div>

@@ -1,41 +1,37 @@
-:root {
-  --vsc-cream: #f7f2ea;
-  --vsc-brown: #8a3f2c;
-  --vsc-brown-dark: #5f2a1d;
-  --vsc-orange: #f4784a;
-}
-
 * {
   font-family: 'Outfit', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
 }
 
-.vsc-body {
-  background: var(--vsc-cream);
-  background-image: radial-gradient(circle at 10% 0%, rgba(244, 120, 74, 0.08), transparent 40%),
-    radial-gradient(circle at 90% 10%, rgba(138, 63, 44, 0.06), transparent 45%);
+.vsc-bg-image {
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 .vsc-glass-header {
-  background: rgba(247, 242, 234, 0.85);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(138, 63, 44, 0.12);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(153, 246, 228, 0.6);
 }
 
-.text-brand-dark { color: var(--vsc-brown-dark); }
-.bg-brand { background-color: var(--vsc-brown); }
+/* ── 汎用カード（glass） ─────────────────────────── */
 
 .vsc-card {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(153, 246, 228, 0.55);
+  box-shadow: 0 10px 40px rgba(15, 118, 110, 0.09), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 10px 30px rgba(138, 63, 44, 0.08);
-  border: 1px solid rgba(138, 63, 44, 0.06);
 }
 
 .vsc-section-label {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--vsc-brown-dark);
+  color: rgb(15 118 110);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -46,28 +42,34 @@
   gap: 8px;
   padding: 10px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(138, 63, 44, 0.15);
-  background: rgba(138, 63, 44, 0.02);
+  border: 1px solid rgb(204 251 241);
+  background: rgba(255, 255, 255, 0.65);
   font-size: 0.88rem;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
-.vsc-check-chip:hover { background: rgba(244, 120, 74, 0.08); }
-.vsc-check-chip input { accent-color: var(--vsc-orange); }
+.vsc-check-chip:hover { background: rgba(224, 242, 254, 0.7); }
+.vsc-check-chip input { accent-color: rgb(13 148 136); }
 
 .vsc-select {
   width: 100%;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(138, 63, 44, 0.2);
-  background: #fff;
+  border: 1px solid rgb(204 251 241);
+  background: rgba(255, 255, 255, 0.85);
   font-size: 0.9rem;
+  color: rgb(30 41 59);
+}
+.vsc-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(56 189 248);
+  border-color: rgb(125 211 252);
 }
 
 .vsc-note {
-  background: rgba(244, 120, 74, 0.1);
-  border: 1px solid rgba(244, 120, 74, 0.25);
-  color: var(--vsc-brown-dark);
+  background: rgba(224, 242, 254, 0.55);
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  color: rgb(14 116 144);
   padding: 10px 14px;
   border-radius: 12px;
   font-size: 0.85rem;
@@ -75,7 +77,7 @@
 
 .vsc-btn-primary {
   display: inline-block;
-  background: linear-gradient(135deg, var(--vsc-orange), var(--vsc-brown));
+  background: linear-gradient(90deg, rgb(2 132 199), rgb(13 148 136), rgb(5 150 105));
   color: #fff;
   font-weight: 700;
   padding: 14px 20px;
@@ -83,20 +85,22 @@
   text-align: center;
   border: none;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  box-shadow: 0 8px 20px rgba(244, 120, 74, 0.3);
+  transition: filter 0.12s ease, transform 0.12s ease;
+  box-shadow: 0 8px 20px rgba(13, 148, 136, 0.25);
 }
-.vsc-btn-primary:hover { transform: translateY(-1px); }
+.vsc-btn-primary:hover { filter: brightness(1.06); transform: translateY(-1px); }
 .vsc-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
 /* ── 出題スライド ─────────────────────────────── */
 
 .vsc-slide-card {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(153, 246, 228, 0.6);
+  box-shadow: 0 16px 40px rgba(15, 118, 110, 0.12), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
   border-radius: 24px;
   padding: 28px 24px;
-  box-shadow: 0 16px 40px rgba(138, 63, 44, 0.12);
-  border: 1px solid rgba(138, 63, 44, 0.08);
 }
 
 .vsc-slide-topbar {
@@ -110,20 +114,23 @@
   font-weight: 600;
   padding: 4px 12px;
   border-radius: 999px;
-  background: rgba(138, 63, 44, 0.08);
-  color: var(--vsc-brown-dark);
+  background: rgba(45, 212, 191, 0.12);
+  color: rgb(15 118 110);
 }
 .vsc-pill-accent {
-  background: rgba(244, 120, 74, 0.15);
-  color: var(--vsc-orange);
+  background: rgba(56, 189, 248, 0.15);
+  color: rgb(3 105 161);
 }
 
 .vsc-slide-title {
   font-size: 2.4rem;
   font-weight: 800;
-  color: var(--vsc-brown-dark);
   letter-spacing: 0.01em;
   line-height: 1.1;
+  background: linear-gradient(90deg, rgb(3 105 161), rgb(15 118 110), rgb(4 120 87));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .vsc-slide-subtitle {
@@ -151,17 +158,17 @@
 }
 
 .vsc-diamond-item-target {
-  background: rgba(244, 120, 74, 0.06);
+  background: rgba(56, 189, 248, 0.08);
 }
 
 .vsc-diamond-item-active {
-  background: rgba(244, 120, 74, 0.16);
+  background: rgba(20, 184, 166, 0.14);
   font-weight: 700;
-  color: var(--vsc-brown-dark);
+  color: rgb(15 118 110);
 }
 
 .vsc-diamond {
-  color: var(--vsc-orange);
+  color: rgb(20 184 166);
   font-size: 0.85rem;
   flex-shrink: 0;
 }
@@ -172,7 +179,7 @@
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--vsc-orange);
+  background: linear-gradient(90deg, rgb(2 132 199), rgb(5 150 105));
   color: #fff;
   white-space: nowrap;
 }
@@ -182,13 +189,13 @@
   text-align: center;
   font-size: 1.1rem;
   font-weight: 700;
-  color: var(--vsc-brown-dark);
-  border-top: 2px dashed rgba(138, 63, 44, 0.2);
+  color: rgb(15 118 110);
+  border-top: 2px dashed rgba(45, 212, 191, 0.35);
   padding-top: 16px;
 }
 
 .vsc-btn-record {
-  background: var(--vsc-brown);
+  background: linear-gradient(90deg, rgb(2 132 199), rgb(13 148 136));
   color: #fff;
   font-weight: 700;
   font-size: 1.05rem;
@@ -196,7 +203,7 @@
   border-radius: 999px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 10px 24px rgba(138, 63, 44, 0.3);
+  box-shadow: 0 10px 24px rgba(13, 148, 136, 0.3);
   transition: transform 0.12s ease;
 }
 .vsc-btn-record:hover { transform: scale(1.03); }
@@ -222,23 +229,23 @@
   width: 200px;
   height: 8px;
   border-radius: 999px;
-  background: rgba(138, 63, 44, 0.1);
+  background: rgba(45, 212, 191, 0.15);
   overflow: hidden;
 }
 .vsc-volume-bar {
   height: 100%;
   width: 0%;
-  background: var(--vsc-orange);
+  background: linear-gradient(90deg, rgb(56 189 248), rgb(20 184 166));
   transition: width 0.08s linear;
 }
 
 .vsc-step-dot {
   padding: 2px 10px;
   border-radius: 999px;
-  background: rgba(138, 63, 44, 0.06);
+  background: rgba(45, 212, 191, 0.1);
 }
 .vsc-step-dot-active {
-  background: var(--vsc-orange);
+  background: rgb(13 148 136);
   color: #fff;
   font-weight: 700;
 }
@@ -251,8 +258,8 @@
   border-radius: 14px;
   padding: 14px 16px;
 }
-.vsc-feedback-correct { background: rgba(16, 185, 129, 0.1); color: #047857; border: 1px solid rgba(16, 185, 129, 0.3); }
-.vsc-feedback-warn { background: rgba(244, 120, 74, 0.1); color: #9a3412; border: 1px solid rgba(244, 120, 74, 0.3); }
+.vsc-feedback-correct { background: rgba(16, 185, 129, 0.12); color: #047857; border: 1px solid rgba(16, 185, 129, 0.3); }
+.vsc-feedback-warn { background: rgba(245, 158, 11, 0.12); color: #92400e; border: 1px solid rgba(245, 158, 11, 0.3); }
 .vsc-feedback-bad { background: rgba(225, 29, 72, 0.08); color: #9f1239; border: 1px solid rgba(225, 29, 72, 0.25); }
 
 .vsc-stat-chip {
@@ -260,11 +267,12 @@
   padding: 10px 4px;
 }
 .vsc-stat-correct { background: rgba(16, 185, 129, 0.12); color: #047857; }
-.vsc-stat-warn { background: rgba(244, 120, 74, 0.12); color: #9a3412; }
+.vsc-stat-warn { background: rgba(245, 158, 11, 0.12); color: #92400e; }
 .vsc-stat-bad { background: rgba(225, 29, 72, 0.1); color: #9f1239; }
 
 .vsc-weak-item {
-  border: 1px solid rgba(138, 63, 44, 0.1);
+  border: 1px solid rgba(153, 246, 228, 0.6);
+  background: rgba(255, 255, 255, 0.5);
   border-radius: 12px;
   padding: 10px 14px;
 }

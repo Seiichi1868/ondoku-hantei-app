@@ -8,29 +8,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260814a') }}">
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: { DEFAULT: '#8a3f2c', dark: '#5f2a1d', light: '#c96b4a' },
-            accent: { DEFAULT: '#f4784a', light: '#ffb08a' },
-          }
-        }
-      }
-    }
-  </script>
+  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260814b') }}">
   {% block head %}{% endblock %}
 </head>
 <body class="relative min-h-screen text-slate-800 antialiased vsc-body">
+  <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
+    <div class="vsc-bg-image absolute inset-0 scale-105 opacity-[0.38]"
+      style="background-image: url('{{ url_for('static', filename='news/images/nature-bg.jpg') }}');"></div>
+    <div class="absolute inset-0 bg-gradient-to-br from-sky-100/75 via-white/55 to-emerald-100/70"></div>
+    <div class="absolute inset-0 bg-gradient-to-t from-emerald-50/40 via-transparent to-sky-50/30"></div>
+  </div>
+
   <header class="vsc-glass-header sticky top-0 z-40">
     <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
       <a href="{{ url_for('conjugate.index') }}" class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-brand flex items-center justify-center text-white text-lg font-bold shadow">活</div>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-600 to-emerald-600 flex items-center justify-center text-white text-lg font-bold shadow">活</div>
         <div>
-          <h1 class="text-base font-bold text-brand-dark leading-tight">Vibe Speak Conjugate</h1>
-          <p class="text-xs text-slate-500">活用瞬発トレーナー（tú形）</p>
+          <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-sky-700 via-teal-700 to-emerald-700 bg-clip-text text-transparent leading-tight">Vibe Speak Conjugate</h1>
+          <p class="text-xs text-teal-700/70">活用瞬発トレーナー（tú形）</p>
         </div>
       </a>
       <div class="flex items-center gap-2">
