@@ -892,43 +892,127 @@
 
 /* ── オープニング ───────────────────────────── */
 
-@keyframes vscIntroFade {
-  0% { opacity: 0; transform: translateY(10px) scale(0.98); }
-  28% { opacity: 1; transform: translateY(0) scale(1); }
-  78% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-8px) scale(1.02); }
-}
-@keyframes vscOrbFloat {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(0, -12px, 0); }
-}
-.vsc-intro-card {
-  animation: vscIntroFade 2.1s ease both;
+.vsc-splash {
+  --splash-ms: 2000ms;
+  position: fixed;
+  inset: 0;
+  z-index: 70;
   overflow: hidden;
-  width: min(100%, 42rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 16px;
+  background: linear-gradient(160deg, #E9EFDF 0%, #DCE8CC 100%);
+  animation: vscSplashOut var(--splash-ms) ease forwards;
 }
-.vsc-intro-orb { animation: vscOrbFloat 2.8s ease-in-out infinite; }
-.vsc-intro-glass-label {
+
+.vsc-splash-blob {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--accent-green-light);
+  filter: blur(60px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.vsc-splash-blob--1 { width: 260px; height: 260px; top: -60px; left: -40px; }
+.vsc-splash-blob--2 { width: 200px; height: 200px; bottom: -50px; right: -30px; }
+
+.vsc-splash-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: min(100%, 22rem);
+}
+
+.vsc-splash-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: var(--accent-green-light);
   color: var(--ok-text);
-  letter-spacing: 0.22em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  animation: vscSplashLogo var(--splash-ms) ease both;
 }
-.vsc-intro-glass-logo {
-  display: block;
-  max-width: 100%;
-  font-size: clamp(1.15rem, 9vw - 0.55rem, 3rem);
+.vsc-splash-logo svg {
+  width: 40px;
+  height: 40px;
+}
+
+.vsc-splash-eyebrow {
+  color: var(--accent-green);
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  font-size: 13px;
+  text-transform: uppercase;
+  animation: vscSplashLogo var(--splash-ms) ease both;
+}
+
+.vsc-splash-morph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 1.35em;
+  margin: 10px 0 4px;
   font-weight: 700;
-  line-height: 1.15;
-  white-space: nowrap;
-  padding: 0.06em 0 0.1em;
-  letter-spacing: -0.04em;
+  font-size: clamp(1.75rem, 7vw, 2.25rem);
+  letter-spacing: -0.03em;
   color: var(--text-primary);
+  line-height: 1.2;
 }
-.vsc-intro-glass-sub {
+.vsc-splash-morph-from,
+.vsc-splash-morph-to {
+  grid-area: 1 / 1;
+  opacity: 0;
+}
+.vsc-splash-morph-from { animation: vscMorphFrom var(--splash-ms) ease both; }
+.vsc-splash-morph-to { animation: vscMorphTo var(--splash-ms) ease both; }
+
+.vsc-splash-title {
+  font-family: var(--font-family);
+  font-weight: var(--heading-weight);
+  font-size: clamp(1.4rem, 6.4vw, 2.5rem);
+  color: var(--text-primary);
+  margin: 8px 0;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  animation: vscSplashTitle var(--splash-ms) ease both;
+}
+
+.vsc-splash-tagline {
   color: var(--text-secondary);
+  font-size: 15px;
+  animation: vscSplashTitle var(--splash-ms) ease both;
 }
-@media (min-width: 640px) {
-  .vsc-intro-glass-label { letter-spacing: 0.35em; }
-  .vsc-intro-glass-logo { letter-spacing: -0.025em; }
+
+@keyframes vscSplashOut {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; pointer-events: none; }
+}
+@keyframes vscSplashLogo {
+  0% { opacity: 0; transform: scale(0.92); }
+  25%, 80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes vscMorphFrom {
+  0%, 24% { opacity: 0; }
+  32%, 42% { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+@keyframes vscMorphTo {
+  0%, 42% { opacity: 0; }
+  55%, 100% { opacity: 1; }
+}
+@keyframes vscSplashTitle {
+  0%, 58% { opacity: 0; transform: translateY(8px); }
+  78%, 100% { opacity: 1; transform: translateY(0); }
 }
 
 .vsc-bg-pick {

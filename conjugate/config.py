@@ -87,7 +87,7 @@ BACKGROUND_PRESETS = {
 DEFAULT_BACKGROUND_ID = "meadow"
 DEFAULT_BACKGROUND_OPACITY = 0.18
 DEFAULT_OPENING_ENABLED = True
-DEFAULT_OPENING_MS = 1950
+DEFAULT_OPENING_MS = 2000
 
 
 def resolve_background(background_id: str | None = None) -> dict:

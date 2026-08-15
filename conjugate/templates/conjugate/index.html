@@ -1,5 +1,5 @@
 {% extends "conjugate/base.html" %}
-{% from "conjugate/macros.html" import svg_flame, svg_hash, svg_check, svg_walk, svg_heart, svg_message, svg_sun %}
+{% from "conjugate/macros.html" import svg_flame, svg_hash, svg_check, svg_walk, svg_heart, svg_message, svg_sun, svg_user %}
 {% block title %}Vibe Speak Conjugate - 練習を始める{% endblock %}
 {% block header_actions %}
 <a href="{{ url_for('conjugate_admin.admin_page') }}" class="vsc-link-quiet">管理</a>
@@ -7,19 +7,18 @@
 
 {% block body %}
 {% if appearance.opening_enabled %}
-<div id="opening-overlay"
-  class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden p-4 sm:p-6"
-  style="background: var(--bg-primary);">
-  <div class="vsc-bg-image absolute inset-0 scale-110"
-    style="background-image: url('{{ appearance.background_image_url }}'); opacity: {{ appearance.background_opacity }};"></div>
-  <div class="vsc-bg-wash absolute inset-0"
-    style="opacity: {{ 1 - appearance.background_opacity }};"></div>
-  <div class="vsc-intro-orb absolute -left-16 top-14 h-48 w-48 rounded-full blur-3xl" style="background: rgba(200, 230, 160, 0.55);"></div>
-  <div class="vsc-intro-orb absolute -right-12 bottom-16 h-56 w-56 rounded-full blur-3xl" style="background: rgba(124, 179, 66, 0.28); animation-delay: .35s"></div>
-  <div class="vsc-intro-card relative text-center px-1 sm:px-4">
-    <p class="vsc-intro-glass-label mb-2 text-[10px] sm:text-[11px] font-semibold uppercase">Welcome to</p>
-    <h1 class="vsc-intro-glass-logo">Vibe Speak Conjugate</h1>
-    <p class="vsc-intro-glass-sub mt-3 text-xs sm:text-sm font-medium">See. Transform. Speak the form.</p>
+<div id="opening-overlay" class="vsc-splash" role="presentation">
+  <span class="vsc-splash-blob vsc-splash-blob--1" aria-hidden="true"></span>
+  <span class="vsc-splash-blob vsc-splash-blob--2" aria-hidden="true"></span>
+  <div class="vsc-splash-inner">
+    <div class="vsc-splash-logo" aria-hidden="true">{{ svg_user() }}</div>
+    <p class="vsc-splash-eyebrow">Welcome to</p>
+    <div class="vsc-splash-morph" aria-hidden="true">
+      <span class="vsc-splash-morph-from">hablo</span>
+      <span class="vsc-splash-morph-to">hablas</span>
+    </div>
+    <h1 class="vsc-splash-title">Vibe Speak Conjugate</h1>
+    <p class="vsc-splash-tagline">See. Transform. Speak the form.</p>
   </div>
 </div>
 {% endif %}
@@ -151,5 +150,5 @@
 <script>
   window.CONJUGATE_OPENING_MS = {{ appearance.opening_ms | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260815e') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260815f') }}"></script>
 {% endblock %}

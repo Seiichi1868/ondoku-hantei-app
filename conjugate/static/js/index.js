@@ -1,11 +1,9 @@
 (() => {
   const openingOverlay = document.getElementById("opening-overlay");
   if (openingOverlay) {
-    const openingMs = Number(window.CONJUGATE_OPENING_MS || 1950);
-    setTimeout(() => {
-      openingOverlay.classList.add("opacity-0", "pointer-events-none", "transition-opacity", "duration-300");
-      setTimeout(() => openingOverlay.remove(), 320);
-    }, Math.max(400, openingMs));
+    const openingMs = Math.max(400, Number(window.CONJUGATE_OPENING_MS || 2000));
+    openingOverlay.style.setProperty("--splash-ms", `${openingMs}ms`);
+    setTimeout(() => openingOverlay.remove(), openingMs + 40);
   }
 
   const form = document.getElementById("start-form");
