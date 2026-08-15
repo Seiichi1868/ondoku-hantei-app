@@ -276,3 +276,15 @@
   border-radius: 12px;
   padding: 10px 14px;
 }
+
+.vsc-cost-hint {
+  position: fixed;
+  right: 10px;
+  bottom: 8px;
+  font-size: 10px;
+  line-height: 1;
+  color: rgba(100, 116, 139, 0.32);
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
+}

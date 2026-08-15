@@ -32,6 +32,29 @@ DEFAULT_WHISPER_MODEL = os.environ.get("CONJUGATE_WHISPER_MODEL", "whisper-1")
 WHISPER_TIMEOUT_SEC = float(os.environ.get("CONJUGATE_WHISPER_TIMEOUT_SEC", "30"))
 WHISPER_MAX_RETRIES = int(os.environ.get("CONJUGATE_WHISPER_MAX_RETRIES", "1"))
 
+# Whisper課金の円換算。レートは環境変数で上書き可能（他アプリには依存しない）。
+try:
+    USD_JPY = float(os.environ.get("CONJUGATE_USD_JPY", "150"))
+except ValueError:
+    USD_JPY = 150.0
+
+
+def whisper_cost_usd(model: str, duration_sec: float) -> float:
+    """OpenAI Whisper は1秒単位課金。最低1秒としてUSDコストを返す。"""
+    info = WHISPER_MODELS.get(model) or WHISPER_MODELS[DEFAULT_WHISPER_MODEL]
+    billed_sec = max(1, int(duration_sec + 0.999999))
+    return (billed_sec / 60.0) * float(info["cost_per_min_usd"])
+
+
+def format_jpy_amount(jpy: float) -> str:
+    """結果画面用。通貨記号なしの数字だけ。0.1円なら '0.1'。"""
+    if jpy <= 0:
+        return "0"
+    if jpy < 0.1:
+        text = f"{jpy:.2f}".rstrip("0").rstrip(".")
+        return text or "0"
+    return f"{jpy:.1f}"
+
 MAX_AUDIO_BYTES = 8 * 1024 * 1024
 ALLOWED_AUDIO_EXTENSIONS = {"webm", "wav", "mp3", "m4a", "ogg", "mp4", "mpeg", "mpga"}
 

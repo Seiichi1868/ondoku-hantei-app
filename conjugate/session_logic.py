@@ -2,6 +2,7 @@
 import random
 import uuid
 
+from conjugate.config import USD_JPY, format_jpy_amount
 from conjugate.data.conjugations import TENSE_ORDER, build_forms
 from conjugate.data.gustar import GUSTAR_EXAMPLES
 from conjugate.data.verbs import VERBS_BY_ID, verbs_by_category
@@ -156,6 +157,9 @@ def build_summary(session: dict) -> dict:
                 )
 
     accuracy = round((correct / total) * 100, 1) if total else 0.0
+    usage = session.get("usage") or {}
+    cost_usd = float(usage.get("cost_usd") or 0)
+    cost_jpy = cost_usd * USD_JPY
 
     return {
         "total": total,
@@ -163,4 +167,5 @@ def build_summary(session: dict) -> dict:
         "accuracy": accuracy,
         "level_counts": level_counts,
         "weak_items": weak_items,
+        "cost_jpy_display": format_jpy_amount(cost_jpy),
     }

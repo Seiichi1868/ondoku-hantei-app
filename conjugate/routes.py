@@ -16,12 +16,13 @@ from pathlib import Path
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
-from conjugate.audio_convert import normalize_audio_file
+from conjugate.audio_convert import audio_duration_sec, normalize_audio_file
 from conjugate.config import (
     ALLOWED_AUDIO_EXTENSIONS,
     AUDIO_TMP_DIR,
     MAX_AUDIO_BYTES,
     ensure_dirs,
+    whisper_cost_usd,
 )
 from conjugate.data.conjugations import TENSE_LABELS, TENSE_ORDER
 from conjugate.data.verbs import CATEGORY_LABELS, CATEGORY_ORDER
@@ -122,6 +123,7 @@ def _prepare_session(raw_categories, raw_tenses, raw_count, raw_prioritize_weak)
         "questions": questions,
         "current_index": 0,
         "status": "in_progress",
+        "usage": {"whisper_seconds": 0.0, "whisper_calls": 0, "cost_usd": 0.0},
     }
 
 
@@ -190,6 +192,14 @@ def _resolve_extension(filename: str, mimetype: str | None) -> str:
     return guessed.lstrip(".").lower() or "webm"
 
 
+def _add_whisper_usage(session: dict, model: str, duration_sec: float) -> None:
+    usage = session.setdefault("usage", {"whisper_seconds": 0.0, "whisper_calls": 0, "cost_usd": 0.0})
+    billed_sec = max(1, int(duration_sec + 0.999999))
+    usage["whisper_seconds"] = float(usage.get("whisper_seconds") or 0) + billed_sec
+    usage["whisper_calls"] = int(usage.get("whisper_calls") or 0) + 1
+    usage["cost_usd"] = float(usage.get("cost_usd") or 0) + whisper_cost_usd(model, billed_sec)
+
+
 def _find_question(session: dict, question_id: str) -> dict | None:
     for q in session["questions"]:
         if q["question_id"] == question_id:
@@ -230,12 +240,14 @@ def submit_answer(session_id, question_id, target):
 
                 norm_path = normalize_audio_file(tmp_path)
                 whisper_model = session.get("whisper_model", "whisper-1")
+                duration_sec = audio_duration_sec(norm_path)
                 try:
                     transcript = transcribe_audio(norm_path, model=whisper_model, language="es")
                 except Exception as exc:  # noqa: BLE001
                     logger.exception("Whisper transcription failed")
                     return jsonify({"ok": False, "error": f"文字起こしに失敗しました: {exc}"}), 502
                 transcript_source = "whisper"
+                _add_whisper_usage(session, whisper_model, duration_sec)
             finally:
                 tmp_path.unlink(missing_ok=True)
                 norm_candidate = tmp_path.with_suffix(".norm.wav")
