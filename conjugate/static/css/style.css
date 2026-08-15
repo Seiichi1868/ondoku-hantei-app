@@ -299,28 +299,40 @@
   0%, 100% { transform: translate3d(0, 0, 0); }
   50% { transform: translate3d(0, -12px, 0); }
 }
-.vsc-intro-card { animation: vscIntroFade 2.1s ease both; overflow: visible; }
+.vsc-intro-card {
+  animation: vscIntroFade 2.1s ease both;
+  overflow: hidden;
+  width: min(100%, 42rem);
+}
 .vsc-intro-orb { animation: vscOrbFloat 2.8s ease-in-out infinite; }
 .vsc-intro-glass-label {
   color: rgba(13, 148, 136, 0.88);
+  letter-spacing: 0.22em;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 8px rgba(255, 255, 255, 0.25);
 }
 .vsc-intro-glass-logo {
-  display: inline-block;
-  line-height: 1.28;
-  padding: 0.12em 0.08em 0.22em;
-  letter-spacing: -0.01em;
+  display: block;
+  max-width: 100%;
+  font-size: clamp(1.15rem, 9vw - 0.55rem, 3rem);
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+  padding: 0.06em 0 0.1em;
+  letter-spacing: -0.04em;
   background: linear-gradient(168deg, rgba(56, 189, 248, 0.82) 0%, rgba(3, 105, 161, 0.96) 30%, rgba(15, 118, 110, 0.98) 62%, rgba(4, 120, 87, 1) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   -webkit-text-stroke: 0.3px rgba(255, 255, 255, 0.22);
   paint-order: stroke fill;
-  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.45)) drop-shadow(0 4px 14px rgba(14, 116, 144, 0.2));
 }
 .vsc-intro-glass-sub {
   color: rgba(100, 116, 139, 0.92);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 6px rgba(255, 255, 255, 0.2);
+}
+@media (min-width: 640px) {
+  .vsc-intro-glass-label { letter-spacing: 0.35em; }
+  .vsc-intro-glass-logo { letter-spacing: -0.025em; }
 }
 
 .vsc-bg-pick {

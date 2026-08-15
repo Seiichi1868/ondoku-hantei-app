@@ -7,7 +7,7 @@
 {% block body %}
 {% if appearance.opening_enabled %}
 <div id="opening-overlay"
-  class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-6">
+  class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-4 sm:p-6">
   <div class="vsc-bg-image absolute inset-0 scale-110"
     style="background-image: url('{{ appearance.background_image_url }}'); opacity: {{ appearance.background_opacity }};"></div>
   <div class="absolute inset-0"
@@ -17,10 +17,10 @@
   </div>
   <div class="vsc-intro-orb absolute -left-16 top-14 h-48 w-48 rounded-full bg-sky-200/45 blur-3xl"></div>
   <div class="vsc-intro-orb absolute -right-12 bottom-16 h-56 w-56 rounded-full bg-emerald-200/45 blur-3xl" style="animation-delay: .35s"></div>
-  <div class="vsc-intro-card relative text-center px-4">
-    <p class="vsc-intro-glass-label mb-2 text-[11px] font-semibold uppercase tracking-[0.35em]">Welcome to</p>
-    <h1 class="vsc-intro-glass-logo text-4xl font-bold sm:text-5xl">Vibe Speak Conjugate</h1>
-    <p class="vsc-intro-glass-sub mt-3 text-sm font-medium">See. Transform. Speak the form.</p>
+  <div class="vsc-intro-card relative text-center px-1 sm:px-4">
+    <p class="vsc-intro-glass-label mb-2 text-[10px] sm:text-[11px] font-semibold uppercase">Welcome to</p>
+    <h1 class="vsc-intro-glass-logo">Vibe Speak Conjugate</h1>
+    <p class="vsc-intro-glass-sub mt-3 text-xs sm:text-sm font-medium">See. Transform. Speak the form.</p>
   </div>
 </div>
 {% endif %}
