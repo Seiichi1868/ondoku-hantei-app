@@ -117,10 +117,10 @@ def public_question(question: dict) -> dict:
     return q
 
 
-def grade_target(question: dict, target: str, transcript: str, strict: bool) -> dict:
+def grade_target(question: dict, target: str, transcript: str, strict: bool, source: str = "speech") -> dict:
     if question["kind"] == "gustar":
         item = GUSTAR_BY_ID[question["gustar_id"]]
-        result = grade_gustar(item, transcript, strict=strict)
+        result = grade_gustar(item, transcript, strict=strict, source=source)
         record_answer_result(verb_id="gustar", infinitive="gustar", level=result["level"])
         progress = record_progress(verb_id=None, tense=None, is_correct=result["level"] == "correct")
         result["newly_mastered"] = False
@@ -128,7 +128,7 @@ def grade_target(question: dict, target: str, transcript: str, strict: bool) -> 
         return result
 
     verb = VERBS_BY_ID[question["verb_id"]]
-    result = grade_regular(verb, target, transcript, strict=strict)
+    result = grade_regular(verb, target, transcript, strict=strict, source=source)
     record_answer_result(verb_id=verb["id"], infinitive=verb["infinitive"], level=result["level"])
     progress = record_progress(
         verb_id=verb["id"],

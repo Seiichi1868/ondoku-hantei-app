@@ -28,18 +28,30 @@
 
   <ul id="sentence-list" class="vsc-form-list"></ul>
 
-  <div class="vsc-prompt">活用して声に出そう！</div>
+  <div class="vsc-prompt">活用して答えよう！</div>
 
   <div id="recording-area" class="mt-5">
     <div id="target-stepper" class="flex items-center gap-2 mb-3 text-xs" style="color: var(--text-secondary);"></div>
 
-    <div class="flex flex-col items-center gap-3">
-      <div id="volume-meter" class="vsc-volume-track hidden">
-        <div id="volume-bar" class="vsc-volume-bar"></div>
+    <div id="answer-controls">
+      <div class="flex flex-col items-center gap-3">
+        <div id="volume-meter" class="vsc-volume-track hidden">
+          <div id="volume-bar" class="vsc-volume-bar"></div>
+        </div>
+        <button id="record-btn" type="button" class="vsc-btn-record">発話して録音</button>
+        <button id="stop-btn" type="button" class="vsc-btn-stop hidden">録音を終了</button>
+        <p id="recording-status" class="text-sm" style="color: var(--text-secondary);"></p>
       </div>
-      <button id="record-btn" type="button" class="vsc-btn-record">発話して録音</button>
-      <button id="stop-btn" type="button" class="vsc-btn-stop hidden">録音を終了</button>
-      <p id="recording-status" class="text-sm" style="color: var(--text-secondary);"></p>
+
+      <div id="type-answer-block" class="vsc-type-block">
+        <p class="vsc-or-divider">発話できないときはタイプして解答</p>
+        <form id="type-form" class="vsc-type-form" autocomplete="off">
+          <label class="sr-only" for="type-input">tú形のスペル</label>
+          <input id="type-input" class="vsc-type-input" type="text" lang="es" inputmode="text" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="tú形をタイプ（例: hablas）">
+          <button id="type-submit-btn" type="submit" class="vsc-btn-secondary vsc-type-submit">解答する</button>
+        </form>
+        <p class="vsc-type-hint">アクセント記号は省略しても大丈夫です</p>
+      </div>
     </div>
 
     <div id="feedback-box" class="hidden mt-4"></div>
@@ -58,5 +70,5 @@
   window.CONJUGATE_TENSE_LABELS = {{ tense_labels | tojson }};
   window.CONJUGATE_CATEGORY_LABELS = {{ category_labels | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/quiz.js', v='20260815e') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/quiz.js', v='20260815g') }}"></script>
 {% endblock %}

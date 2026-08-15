@@ -106,7 +106,13 @@ def _pronoun_only_mismatch(expected_tokens: list[str], actual_tokens: list[str])
     return bool(core_expected) and core_actual == core_expected
 
 
-def grade_regular(verb: dict, tense: str, transcript: str, strict: bool = False) -> dict:
+def _empty_answer_message(source: str) -> str:
+    if source == "typed":
+        return "入力が空です。スペルをタイプしてください。"
+    return "発話が認識できませんでした。もう一度はっきり発話してください。"
+
+
+def grade_regular(verb: dict, tense: str, transcript: str, strict: bool = False, source: str = "speech") -> dict:
     """通常の99語ドリル（現在形/進行形/近接未来/点過去）の採点。"""
     forms = build_forms(verb)[tense]
     expected_sentence = forms["tu"]
@@ -123,7 +129,7 @@ def grade_regular(verb: dict, tense: str, transcript: str, strict: bool = False)
 
     if not actual_norm:
         result["level"] = "way_off"
-        result["message"] = "発話が認識できませんでした。もう一度はっきり発話してください。"
+        result["message"] = _empty_answer_message(source)
         return result
 
     expected_tokens = _core_tokens(expected_norm)
@@ -168,7 +174,7 @@ def grade_regular(verb: dict, tense: str, transcript: str, strict: bool = False)
     return result
 
 
-def grade_gustar(item: dict, transcript: str, strict: bool = False) -> dict:
+def grade_gustar(item: dict, transcript: str, strict: bool = False, source: str = "speech") -> dict:
     """#29 gustar 特殊構文モードの採点（動詞は不変、me→teのみ変化）。"""
     expected_sentence = item["tu_sentence"]
     yo_sentence = item["yo_sentence"]
@@ -184,7 +190,7 @@ def grade_gustar(item: dict, transcript: str, strict: bool = False) -> dict:
 
     if not actual_norm:
         result["level"] = "way_off"
-        result["message"] = "発話が認識できませんでした。もう一度はっきり発話してください。"
+        result["message"] = _empty_answer_message(source)
         return result
 
     expected_tokens = _core_tokens(expected_norm)

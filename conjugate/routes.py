@@ -10,6 +10,9 @@
   7. POST /conjugate/api/sessions/<id>/finish              … セッション終了・サマリ保存
   8. GET  /conjugate/session/<id>/summary                  … 結果画面
   9. GET  /conjugate/manifest.json                         … PWA manifest
+ 10. POST /conjugate/api/vocab                            … 語彙4択セッション作成
+ 11. GET  /conjugate/vocab/<id>                           … 語彙4択画面
+ 12. POST /conjugate/api/vocab/<id>/questions/<qid>/answer … 語彙4択の解答
 """
 import logging
 import mimetypes
@@ -44,6 +47,15 @@ from conjugate.storage import (
     weak_verbs_report,
 )
 from conjugate.transcription import keep_spanish_transcript, transcribe_audio
+from conjugate.vocab import (
+    DEFAULT_VOCAB_COUNT,
+    DIRECTION_LABELS,
+    DIRECTIONS,
+    build_vocab_questions,
+    build_vocab_summary,
+    grade_vocab_choice,
+    public_vocab_question,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -225,6 +237,8 @@ def quiz_screen(session_id):
     session = load_session(session_id)
     if not session:
         return render_template("conjugate/not_found.html"), 404
+    if session.get("kind") == "vocab":
+        return redirect(url_for("conjugate.vocab_screen", session_id=session_id))
     return render_template(
         "conjugate/quiz.html",
         session_id=session_id,
@@ -239,6 +253,10 @@ def get_session_api(session_id):
     session = load_session(session_id)
     if not session:
         return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
+    if session.get("kind") == "vocab":
+        public = dict(session)
+        public["questions"] = [public_vocab_question(q) for q in session["questions"]]
+        return jsonify({"ok": True, "session": public})
     public = dict(session)
     public["questions"] = [public_question(q) for q in session["questions"]]
     return jsonify({"ok": True, "session": public})
@@ -273,6 +291,8 @@ def submit_answer(session_id, question_id, target):
         session = load_session(session_id)
         if not session:
             return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
+        if session.get("kind") == "vocab":
+            return jsonify({"ok": False, "error": "このセッションは語彙クイズです。"}), 400
         question = _find_question(session, question_id)
         if not question:
             return jsonify({"ok": False, "error": "問題が見つかりません。"}), 404
@@ -281,6 +301,7 @@ def submit_answer(session_id, question_id, target):
 
         transcript = ""
         transcript_source = "text"
+        answer_source = "speech"
 
         if "audio" in request.files and request.files["audio"].filename:
             audio_file = request.files["audio"]
@@ -315,12 +336,18 @@ def submit_answer(session_id, question_id, target):
         else:
             payload = request.form or request.get_json(silent=True) or {}
             transcript = keep_spanish_transcript(str(payload.get("transcript") or ""))
-            transcript_source = "web_speech"
-            if not transcript:
-                return jsonify({"ok": False, "error": "音声ファイルまたは認識テキストがありません。"}), 400
+            if str(payload.get("answer_mode") or "") == "typed":
+                transcript_source = "typed"
+                answer_source = "typed"
+                if not transcript:
+                    return jsonify({"ok": False, "error": "解答が空です。スペルをタイプしてください。"}), 400
+            else:
+                transcript_source = "web_speech"
+                if not transcript:
+                    return jsonify({"ok": False, "error": "音声ファイルまたは認識テキストがありません。"}), 400
 
         strict = session.get("strictness") == "strict"
-        result = grade_target(question, target, transcript, strict)
+        result = grade_target(question, target, transcript, strict, source=answer_source)
         result["transcript_source"] = transcript_source
 
         question.setdefault("answers", {})[target] = result
@@ -345,23 +372,26 @@ def finish_session(session_id):
         session = load_session(session_id)
         if not session:
             return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
-
-        summary = build_summary(session)
+        if session.get("kind") == "vocab":
+            summary = build_vocab_summary(session)
+        else:
+            summary = build_summary(session)
         session["status"] = "done"
         session["summary"] = summary
         save_session(session)
 
-        save_submission(
-            {
-                "session_id": session_id,
-                "categories": session.get("categories", []),
-                "tenses": session.get("tenses", []),
-                "total": summary["total"],
-                "correct": summary["correct"],
-                "accuracy": summary["accuracy"],
-                "level_counts": summary["level_counts"],
-            }
-        )
+        if session.get("kind") != "vocab":
+            save_submission(
+                {
+                    "session_id": session_id,
+                    "categories": session.get("categories", []),
+                    "tenses": session.get("tenses", []),
+                    "total": summary["total"],
+                    "correct": summary["correct"],
+                    "accuracy": summary["accuracy"],
+                    "level_counts": summary["level_counts"],
+                }
+            )
 
     return jsonify({"ok": True, "summary": summary})
 
@@ -371,6 +401,8 @@ def summary_screen(session_id):
     session = load_session(session_id)
     if not session:
         return render_template("conjugate/not_found.html"), 404
+    if session.get("kind") == "vocab":
+        return redirect(url_for("conjugate.vocab_summary_screen", session_id=session_id))
     summary = session.get("summary") or build_summary(session)
     return render_template(
         "conjugate/summary.html",
@@ -385,3 +417,118 @@ def summary_screen(session_id):
 @main_bp.route("/api/weak-verbs")
 def weak_verbs_api():
     return jsonify({"ok": True, "weak_verbs": weak_verbs_report()})
+
+
+def _prepare_vocab_session(raw_direction, raw_count) -> dict:
+    direction = str(raw_direction or "ja_to_es")
+    if direction not in DIRECTIONS:
+        direction = "ja_to_es"
+    try:
+        count = int(raw_count or DEFAULT_VOCAB_COUNT)
+    except (TypeError, ValueError):
+        count = DEFAULT_VOCAB_COUNT
+    questions = build_vocab_questions(direction, count)
+    return {
+        "session_id": new_session_id(),
+        "kind": "vocab",
+        "direction": direction,
+        "questions": questions,
+        "status": "in_progress",
+    }
+
+
+@main_bp.route("/api/vocab", methods=["POST"])
+def create_vocab_session():
+    payload = request.get_json(silent=True) or {}
+    session = _prepare_vocab_session(payload.get("direction"), payload.get("count"))
+    if not session["questions"]:
+        return jsonify({"ok": False, "error": "出題できる単語が足りません。"}), 400
+    save_session(session)
+    return jsonify({"ok": True, "session_id": session["session_id"]}), 201
+
+
+@main_bp.route("/vocab/start", methods=["POST"])
+def start_vocab_session():
+    session = _prepare_vocab_session(request.form.get("direction"), request.form.get("count"))
+    if not session["questions"]:
+        return redirect(url_for("conjugate.index"), code=303)
+    save_session(session)
+    return redirect(url_for("conjugate.vocab_screen", session_id=session["session_id"]), code=303)
+
+
+@main_bp.route("/vocab/<session_id>")
+def vocab_screen(session_id):
+    session = load_session(session_id)
+    if not session or session.get("kind") != "vocab":
+        return render_template("conjugate/not_found.html"), 404
+    return render_template(
+        "conjugate/vocab.html",
+        session_id=session_id,
+        direction=session.get("direction", "ja_to_es"),
+        direction_label=DIRECTION_LABELS.get(session.get("direction"), ""),
+    )
+
+
+@main_bp.route("/api/vocab/<session_id>", methods=["GET"])
+def get_vocab_session_api(session_id):
+    session = load_session(session_id)
+    if not session or session.get("kind") != "vocab":
+        return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
+    public = dict(session)
+    public["questions"] = [public_vocab_question(q) for q in session["questions"]]
+    return jsonify({"ok": True, "session": public})
+
+
+@main_bp.route("/api/vocab/<session_id>/questions/<question_id>/answer", methods=["POST"])
+def submit_vocab_answer(session_id, question_id):
+    payload = request.get_json(silent=True) or request.form or {}
+    choice_id = str(payload.get("choice_id") or "")
+    if not choice_id:
+        return jsonify({"ok": False, "error": "選択肢を選んでください。"}), 400
+
+    with get_session_lock(session_id):
+        session = load_session(session_id)
+        if not session or session.get("kind") != "vocab":
+            return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
+        question = _find_question(session, question_id)
+        if not question:
+            return jsonify({"ok": False, "error": "問題が見つかりません。"}), 404
+        valid_ids = {c["id"] for c in question.get("choices", [])}
+        if choice_id not in valid_ids:
+            return jsonify({"ok": False, "error": "不正な選択肢です。"}), 400
+        if question.get("answer"):
+            return jsonify({"ok": True, "result": question["answer"], "already_answered": True})
+
+        result = grade_vocab_choice(question, choice_id)
+        question["answer"] = result
+        question["status"] = "done"
+        save_session(session)
+        return jsonify({"ok": True, "result": result})
+
+
+@main_bp.route("/api/vocab/<session_id>/finish", methods=["POST"])
+def finish_vocab_session(session_id):
+    with get_session_lock(session_id):
+        session = load_session(session_id)
+        if not session or session.get("kind") != "vocab":
+            return jsonify({"ok": False, "error": "セッションが見つかりません。"}), 404
+        summary = build_vocab_summary(session)
+        session["status"] = "done"
+        session["summary"] = summary
+        save_session(session)
+    return jsonify({"ok": True, "summary": summary})
+
+
+@main_bp.route("/vocab/<session_id>/summary")
+def vocab_summary_screen(session_id):
+    session = load_session(session_id)
+    if not session or session.get("kind") != "vocab":
+        return render_template("conjugate/not_found.html"), 404
+    summary = session.get("summary") or build_vocab_summary(session)
+    return render_template(
+        "conjugate/vocab_summary.html",
+        session=session,
+        summary=summary,
+        progress=progress_summary(),
+        direction_label=DIRECTION_LABELS.get(session.get("direction"), ""),
+    )

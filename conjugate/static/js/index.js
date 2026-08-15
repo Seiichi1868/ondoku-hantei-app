@@ -113,4 +113,28 @@
       }
     });
   });
+
+  async function startVocab({ direction, button }) {
+    errorEl.classList.add("hidden");
+    button.disabled = true;
+    try {
+      const res = await fetch("/conjugate/api/vocab", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction, count: 10 }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "語彙クイズの開始に失敗しました。");
+      window.location.href = `/conjugate/vocab/${data.session_id}`;
+    } catch (err) {
+      showError(err.message);
+      button.disabled = false;
+    }
+  }
+
+  document.querySelectorAll("[data-vocab-direction]").forEach((el) => {
+    el.addEventListener("click", async () => {
+      await startVocab({ direction: el.dataset.vocabDirection, button: el });
+    });
+  });
 })();

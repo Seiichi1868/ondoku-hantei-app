@@ -24,6 +24,10 @@
   const nextBtn = document.getElementById("next-btn");
   const volumeMeter = document.getElementById("volume-meter");
   const volumeBar = document.getElementById("volume-bar");
+  const typeAnswerBlock = document.getElementById("type-answer-block");
+  const typeForm = document.getElementById("type-form");
+  const typeInput = document.getElementById("type-input");
+  const typeSubmitBtn = document.getElementById("type-submit-btn");
 
   let session = null;
   let questionIndex = 0;
@@ -90,6 +94,10 @@
     recordBtn.classList.remove("hidden");
     stopBtn.classList.add("hidden");
     recordingStatus.textContent = "";
+    typeAnswerBlock.classList.remove("hidden");
+    typeInput.value = "";
+    typeInput.disabled = false;
+    typeSubmitBtn.disabled = false;
     updateProgress();
     renderTargetStepper(q);
 
@@ -161,12 +169,20 @@
       <div class="font-bold">${info.label}</div>
       <div class="text-sm mt-1">${result.message}</div>
       ${result.newly_mastered ? '<div class="vsc-mastered-toast">習得バッジを獲得！</div>' : ""}
-      <div class="text-xs mt-2" style="color: var(--text-secondary);">認識結果: 「${result.transcript || "（認識できませんでした）"}」</div>
+      <div class="text-xs mt-2" style="color: var(--text-secondary);">${result.transcript_source === "typed" ? "入力" : "認識結果"}: 「${result.transcript || "（空）"}」</div>
     `;
     feedbackBox.classList.remove("hidden");
   }
 
-  async function submitAnswer({ audioBlob, mimeType, transcript }) {
+  function lockAnswerControls() {
+    recordBtn.classList.add("hidden");
+    stopBtn.classList.add("hidden");
+    typeAnswerBlock.classList.add("hidden");
+    typeInput.disabled = true;
+    typeSubmitBtn.disabled = true;
+  }
+
+  async function submitAnswer({ audioBlob, mimeType, transcript, answerMode }) {
     const q = currentQuestion();
     const target = currentTarget();
     const url = `/conjugate/api/sessions/${SESSION_ID}/questions/${q.question_id}/targets/${target}/answer`;
@@ -176,6 +192,7 @@
       formData.append("audio", audioBlob, `answer.${extensionFor(mimeType || "audio/webm")}`);
     } else {
       formData.append("transcript", transcript || "");
+      if (answerMode) formData.append("answer_mode", answerMode);
     }
 
     recordingStatus.textContent = "判定中...";
@@ -185,8 +202,7 @@
     recordingStatus.textContent = "";
     showFeedback(data.result);
 
-    recordBtn.classList.add("hidden");
-    stopBtn.classList.add("hidden");
+    lockAnswerControls();
     nextBtn.classList.remove("hidden");
     nextBtn.textContent = isLastTargetOfQuestion() ? (isLastQuestion() ? "結果を見る →" : "次の問題へ →") : "次の文型へ →";
   }
@@ -299,11 +315,15 @@
         recordingStatus.textContent = "";
         setMicError(err.message);
         recordBtn.classList.remove("hidden");
+        typeInput.disabled = false;
+        typeSubmitBtn.disabled = false;
       }
     });
 
     recordBtn.classList.add("hidden");
     stopBtn.classList.remove("hidden");
+    typeInput.disabled = true;
+    typeSubmitBtn.disabled = true;
     recordingStatus.textContent = "録音中... 発話が終わったら「録音を終了」を押してください。";
     mediaRecorder.start();
   }
@@ -325,9 +345,13 @@
 
     recordBtn.classList.add("hidden");
     stopBtn.classList.remove("hidden");
+    typeInput.disabled = true;
+    typeSubmitBtn.disabled = true;
     recordingStatus.textContent = "録音中（低遅延モード）... 発話が終わると自動で判定します。";
 
+    let speechGotResult = false;
     speechRecognizer.addEventListener("result", async (event) => {
+      speechGotResult = true;
       const transcript = event.results[0][0].transcript;
       stopBtn.classList.add("hidden");
       try {
@@ -336,16 +360,28 @@
         recordingStatus.textContent = "";
         setMicError(err.message);
         recordBtn.classList.remove("hidden");
+        typeInput.disabled = false;
+        typeSubmitBtn.disabled = false;
       }
     });
     speechRecognizer.addEventListener("error", () => {
       recordingStatus.textContent = "";
       stopBtn.classList.add("hidden");
       recordBtn.classList.remove("hidden");
+      typeInput.disabled = false;
+      typeSubmitBtn.disabled = false;
       setMicError("音声認識でエラーが発生しました。もう一度お試しください。");
     });
     speechRecognizer.addEventListener("end", () => {
       stopBtn.classList.add("hidden");
+      if (!speechGotResult) {
+        recordBtn.classList.remove("hidden");
+        typeInput.disabled = false;
+        typeSubmitBtn.disabled = false;
+        if (!recordingStatus.textContent) {
+          recordingStatus.textContent = "";
+        }
+      }
     });
 
     try {
@@ -354,6 +390,8 @@
       setMicError("音声認識を開始できませんでした。");
       recordBtn.classList.remove("hidden");
       stopBtn.classList.add("hidden");
+      typeInput.disabled = false;
+      typeSubmitBtn.disabled = false;
     }
   }
 
@@ -375,8 +413,33 @@
     }
   }
 
+  async function handleTypeSubmit(event) {
+    event.preventDefault();
+    const transcript = (typeInput.value || "").trim();
+    if (!transcript) {
+      setMicError("スペルをタイプしてから解答してください。");
+      typeInput.focus();
+      return;
+    }
+    setMicError("");
+    feedbackBox.classList.add("hidden");
+    recordBtn.classList.add("hidden");
+    typeSubmitBtn.disabled = true;
+    typeInput.disabled = true;
+    try {
+      await submitAnswer({ transcript, answerMode: "typed" });
+    } catch (err) {
+      recordingStatus.textContent = "";
+      setMicError(err.message);
+      recordBtn.classList.remove("hidden");
+      typeSubmitBtn.disabled = false;
+      typeInput.disabled = false;
+    }
+  }
+
   recordBtn.addEventListener("click", handleRecordClick);
   stopBtn.addEventListener("click", handleStopClick);
+  typeForm.addEventListener("submit", handleTypeSubmit);
   nextBtn.addEventListener("click", handleNext);
 
   (async () => {

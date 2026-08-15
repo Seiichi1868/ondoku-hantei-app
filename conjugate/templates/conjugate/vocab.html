@@ -1,0 +1,35 @@
+{% extends "conjugate/base.html" %}
+{% block title %}意味クイズ - Vibe Speak Conjugate{% endblock %}
+{% block greeting %}意味クイズ{% endblock %}
+{% block header_actions %}
+<span id="progress-label" class="vsc-progress-chip">0/0問</span>
+{% endblock %}
+
+{% block body %}
+<div id="vocab-error-banner" class="hidden vsc-banner-error"></div>
+
+<section id="question-card" class="vsc-slide-card">
+  <div class="vsc-slide-topbar">
+    <span id="direction-pill" class="vsc-pill">{{ direction_label }}</span>
+    <span class="vsc-pill vsc-pill-accent">4択</span>
+  </div>
+
+  <p id="prompt-kicker" class="vsc-slide-subtitle text-center"></p>
+  <h2 id="prompt-word" class="vsc-prompt-word"></h2>
+
+  <div id="choice-list" class="vsc-choice-list"></div>
+
+  <div id="feedback-box" class="hidden mt-4"></div>
+
+  <div class="mt-5 flex justify-end">
+    <button id="next-btn" type="button" class="vsc-btn-primary hidden">次の問題へ →</button>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.CONJUGATE_VOCAB_SESSION_ID = {{ session_id | tojson }};
+</script>
+<script src="{{ url_for('conjugate.static', filename='js/vocab.js', v='20260815a') }}"></script>
+{% endblock %}

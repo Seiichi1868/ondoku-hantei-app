@@ -1,0 +1,38 @@
+{% extends "conjugate/base.html" %}
+{% block title %}意味クイズの結果 - Vibe Speak Conjugate{% endblock %}
+{% block greeting %}お疲れさま{% endblock %}
+
+{% block body %}
+<section class="vsc-card mb-4 text-center">
+  <p class="text-sm mb-1" style="color: var(--text-secondary);">意味クイズ（{{ direction_label }}）</p>
+  <div class="text-5xl font-extrabold" style="color: var(--text-primary);">{{ summary.accuracy }}%</div>
+  <p class="text-sm mt-1" style="color: var(--text-secondary);">{{ summary.correct }} / {{ summary.total }} 問 正解</p>
+
+  {% if progress %}
+  <p class="mt-4 text-sm font-semibold">🔥 {{ progress.current_streak }} Days　・　習得 {{ progress.mastered_count }}/{{ progress.total_verbs }}語</p>
+  {% endif %}
+</section>
+
+{% if summary.weak_items %}
+<section class="vsc-card mb-4">
+  <h3 class="text-sm font-bold mb-3" style="color: var(--text-primary);">今回まちがえた単語</h3>
+  <ul class="space-y-2">
+    {% for item in summary.weak_items %}
+    <li class="vsc-weak-item">
+      <div class="flex items-center justify-between gap-2">
+        <span class="font-bold">{{ item.infinitive }}</span>
+        <span class="text-xs" style="color: var(--text-secondary);">{{ item.meaning_ja }}</span>
+      </div>
+      <div class="text-sm mt-1">あなたの解答: 「{{ item.chosen_label }}」</div>
+      <div class="text-sm" style="color: var(--ok-text);">正解: {{ item.correct_label }}</div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<div class="flex flex-col sm:flex-row gap-3">
+  <a href="{{ url_for('conjugate.index') }}" class="vsc-btn-primary flex-1 text-center">ホームへ戻る</a>
+  <a href="{{ url_for('conjugate.verbs_page') }}" class="vsc-btn-secondary flex-1 text-center">動詞一覧を見る</a>
+</div>
+{% endblock %}

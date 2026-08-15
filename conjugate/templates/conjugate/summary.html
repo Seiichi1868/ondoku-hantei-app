@@ -51,7 +51,7 @@
         <span class="text-xs" style="color: var(--text-secondary);">{{ tense_labels.get(item.target, item.target) }}</span>
       </div>
       <div class="text-xs" style="color: var(--text-secondary);">{{ item.meaning_ja }}</div>
-      <div class="text-sm mt-1">あなたの発話: 「{{ item.transcript or "（認識できず）" }}」</div>
+      <div class="text-sm mt-1">あなたの解答: 「{{ item.transcript or "（認識できず）" }}」</div>
       <div class="text-sm" style="color: var(--ok-text);">正解: {{ item.expected_sentence }}</div>
     </li>
     {% endfor %}
