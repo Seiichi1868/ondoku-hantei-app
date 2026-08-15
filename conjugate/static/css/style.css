@@ -299,13 +299,17 @@
   0%, 100% { transform: translate3d(0, 0, 0); }
   50% { transform: translate3d(0, -12px, 0); }
 }
-.vsc-intro-card { animation: vscIntroFade 2.1s ease both; }
+.vsc-intro-card { animation: vscIntroFade 2.1s ease both; overflow: visible; }
 .vsc-intro-orb { animation: vscOrbFloat 2.8s ease-in-out infinite; }
 .vsc-intro-glass-label {
   color: rgba(13, 148, 136, 0.88);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 8px rgba(255, 255, 255, 0.25);
 }
 .vsc-intro-glass-logo {
+  display: inline-block;
+  line-height: 1.28;
+  padding: 0.12em 0.08em 0.22em;
+  letter-spacing: -0.01em;
   background: linear-gradient(168deg, rgba(56, 189, 248, 0.82) 0%, rgba(3, 105, 161, 0.96) 30%, rgba(15, 118, 110, 0.98) 62%, rgba(4, 120, 87, 1) 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -352,4 +356,39 @@
 .vsc-opacity-slider {
   accent-color: rgb(13 148 136);
   cursor: pointer;
+}
+
+.vsc-admin-page main {
+  padding-top: 0.75rem;
+  padding-bottom: 1.5rem;
+}
+.vsc-admin-page .vsc-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  margin-bottom: 0.7rem;
+}
+.vsc-admin-page .vsc-card:last-child {
+  margin-bottom: 0;
+}
+.vsc-admin-page .vsc-check-chip {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  gap: 6px;
+}
+.vsc-admin-page .vsc-select {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+}
+.vsc-admin-page .vsc-section-label {
+  font-size: 0.7rem;
+}
+.vsc-admin-page .vsc-btn-primary {
+  padding: 10px 16px;
+  border-radius: 12px;
+}
+.vsc-admin-page .vsc-bg-thumb {
+  width: 48px;
+  height: 30px;
 }

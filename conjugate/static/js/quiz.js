@@ -119,7 +119,7 @@
       categoryPill.textContent = CATEGORY_LABELS[q.category] || q.category;
 
       const target = currentTarget();
-      tenseTargetPill.textContent = `→ ${TENSE_LABELS[target] || target} をtúに変換`;
+      tenseTargetPill.textContent = `→ ${TENSE_LABELS[target] || target} に変換`;
 
       sentenceList.innerHTML = "";
       Object.keys(q.forms).forEach((tense) => {

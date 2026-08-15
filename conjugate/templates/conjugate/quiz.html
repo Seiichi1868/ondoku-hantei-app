@@ -27,7 +27,7 @@
 
   <ul id="sentence-list" class="vsc-diamond-list"></ul>
 
-  <div class="vsc-prompt">Túの活用にしてみよう！</div>
+  <div class="vsc-prompt">活用して声に出そう！</div>
 
   <div id="recording-area" class="mt-5">
     <div id="target-stepper" class="flex items-center gap-2 mb-3 text-xs text-slate-400"></div>
@@ -57,5 +57,5 @@
   window.CONJUGATE_TENSE_LABELS = {{ tense_labels | tojson }};
   window.CONJUGATE_CATEGORY_LABELS = {{ category_labels | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/quiz.js', v='20260815b') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/quiz.js', v='20260815c') }}"></script>
 {% endblock %}

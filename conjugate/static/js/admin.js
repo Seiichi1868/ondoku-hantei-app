@@ -8,6 +8,7 @@
   const bgOpacityValue = document.getElementById("bg-opacity-value");
   const bgLabel = document.getElementById("bg-current-label");
   const pageBg = document.getElementById("page-bg-layer");
+  const pageWash = document.getElementById("page-bg-wash");
   if (!form) return;
 
   function showMessage(message, isError) {
@@ -17,9 +18,11 @@
   }
 
   function applyBackgroundPreview(imageUrl, opacity) {
-    if (!pageBg) return;
-    if (imageUrl) pageBg.style.backgroundImage = `url('${imageUrl}')`;
-    if (typeof opacity === "number") pageBg.style.opacity = String(opacity);
+    if (pageBg && imageUrl) pageBg.style.backgroundImage = `url('${imageUrl}')`;
+    if (typeof opacity === "number") {
+      if (pageBg) pageBg.style.opacity = String(opacity);
+      if (pageWash) pageWash.style.opacity = String(Math.max(0, 1 - opacity));
+    }
   }
 
   document.querySelectorAll(".vsc-bg-pick").forEach((button) => {

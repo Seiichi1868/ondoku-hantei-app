@@ -10,21 +10,24 @@
   class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-6">
   <div class="vsc-bg-image absolute inset-0 scale-110"
     style="background-image: url('{{ appearance.background_image_url }}'); opacity: {{ appearance.background_opacity }};"></div>
-  <div class="absolute inset-0 bg-gradient-to-br from-white/70 via-sky-50/55 to-emerald-50/65"></div>
-  <div class="absolute inset-0 bg-white/20"></div>
+  <div class="absolute inset-0"
+    style="opacity: {{ 1 - appearance.background_opacity }};">
+    <div class="absolute inset-0 bg-gradient-to-br from-white via-sky-50 to-emerald-50"></div>
+    <div class="absolute inset-0 bg-white/20"></div>
+  </div>
   <div class="vsc-intro-orb absolute -left-16 top-14 h-48 w-48 rounded-full bg-sky-200/45 blur-3xl"></div>
   <div class="vsc-intro-orb absolute -right-12 bottom-16 h-56 w-56 rounded-full bg-emerald-200/45 blur-3xl" style="animation-delay: .35s"></div>
-  <div class="vsc-intro-card relative text-center">
+  <div class="vsc-intro-card relative text-center px-4">
     <p class="vsc-intro-glass-label mb-2 text-[11px] font-semibold uppercase tracking-[0.35em]">Welcome to</p>
-    <h1 class="vsc-intro-glass-logo text-4xl font-bold tracking-tight sm:text-5xl">Vibe Speak Conjugate</h1>
-    <p class="vsc-intro-glass-sub mt-3 text-sm font-medium">See. Transform. Speak the tú form.</p>
+    <h1 class="vsc-intro-glass-logo text-4xl font-bold sm:text-5xl">Vibe Speak Conjugate</h1>
+    <p class="vsc-intro-glass-sub mt-3 text-sm font-medium">See. Transform. Speak the form.</p>
   </div>
 </div>
 {% endif %}
 
 <section class="vsc-card mb-6">
   <h2 class="text-xl font-extrabold text-teal-700 mb-1">今日の活用ドリルを始めよう</h2>
-  <p class="text-sm text-slate-500 mb-5">yo形の例文を見て、tú形に変換して声に出そう。判定はルールベースで即時に返ります。</p>
+  <p class="text-sm text-slate-500 mb-5">例文を見て、指定の人称・文型に変換して声に出そう。判定はルールベースで即時に返ります。</p>
 
   <form id="start-form" class="space-y-6" method="post" action="{{ url_for('conjugate.start_session') }}">
     <div>
@@ -94,7 +97,7 @@
   <h3 class="text-sm font-bold text-slate-500 mb-2">使い方</h3>
   <ol class="text-sm text-slate-600 list-decimal list-inside space-y-1">
     <li>動詞の原形・日本語訳・yo形の例文が表示されます。</li>
-    <li>ハイライトされた文型をtú形に変換して声に出してください。</li>
+    <li>ハイライトされた文型を、指定の人称に変換して声に出してください。</li>
     <li>マイクの録音が自動でWhisper APIに送られ、判定されます。</li>
     <li>セッション終了後、正答率と弱点動詞が確認できます。</li>
   </ol>
@@ -105,5 +108,5 @@
 <script>
   window.CONJUGATE_OPENING_MS = {{ appearance.opening_ms | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260815b') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260815c') }}"></script>
 {% endblock %}
