@@ -8,7 +8,6 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('conjugate.static', filename='icons/icon-180.png') }}">
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('conjugate.static', filename='icons/icon-32.png') }}">
   <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('conjugate.static', filename='icons/icon-16.png') }}">
-  <link rel="icon" type="image/svg+xml" href="{{ url_for('conjugate.static', filename='icons/icon.svg') }}">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -18,11 +17,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260815h') }}">
+  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260815i') }}">
   {% block head %}{% endblock %}
 </head>
 <body class="relative min-h-screen antialiased vsc-body {% block body_class %}{% endblock %}">
-  {% from "conjugate/macros.html" import svg_home, svg_mic, svg_book, svg_user, svg_settings %}
+  {% from "conjugate/macros.html" import brand_logo, svg_home, svg_mic, svg_book, svg_user, svg_settings %}
   <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
     <div id="page-bg-layer" class="vsc-bg-image absolute inset-0 scale-105"
       style="background-image: url('{{ appearance.background_image_url }}'); opacity: {{ appearance.background_opacity }};"></div>
@@ -33,7 +32,7 @@
   <header class="vsc-topbar">
     <div class="vsc-shell vsc-topbar-inner">
       <a href="{{ url_for('conjugate.index') }}" class="vsc-brand">
-        <span class="vsc-avatar" aria-hidden="true">{{ svg_user() }}</span>
+        {{ brand_logo() }}
         <div>
           <p class="vsc-greeting-kicker">Vibe Speak Conjugate</p>
           <h1 class="vsc-greeting">{% block greeting %}{{ greeting }}！{% endblock %}</h1>

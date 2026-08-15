@@ -1,5 +1,5 @@
 {% extends "conjugate/base.html" %}
-{% from "conjugate/macros.html" import svg_flame, svg_hash, svg_check, svg_walk, svg_heart, svg_message, svg_sun, svg_user %}
+{% from "conjugate/macros.html" import brand_logo, svg_flame, svg_hash, svg_check, svg_walk, svg_heart, svg_message, svg_sun %}
 {% block title %}Vibe Speak Conjugate - 練習を始める{% endblock %}
 {% block header_actions %}
 <a href="{{ url_for('conjugate_admin.admin_page') }}" class="vsc-link-quiet">管理</a>
@@ -11,7 +11,7 @@
   <span class="vsc-splash-blob vsc-splash-blob--1" aria-hidden="true"></span>
   <span class="vsc-splash-blob vsc-splash-blob--2" aria-hidden="true"></span>
   <div class="vsc-splash-inner">
-    <div class="vsc-splash-logo" aria-hidden="true">{{ svg_user() }}</div>
+    {{ brand_logo('vsc-splash-logo') }}
     <p class="vsc-splash-eyebrow">Welcome to</p>
     <div class="vsc-splash-morph" aria-hidden="true">
       <span class="vsc-splash-morph-from">hablo</span>

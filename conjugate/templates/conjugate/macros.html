@@ -1,3 +1,7 @@
+{% macro brand_logo(class_name='vsc-brand-logo') -%}
+<img class="{{ class_name }}" src="{{ url_for('conjugate.static', filename='icons/icon-512.png') }}" width="512" height="512" alt="" decoding="async" aria-hidden="true">
+{%- endmacro %}
+
 {% macro svg_home() -%}
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/></svg>
 {%- endmacro %}

@@ -85,21 +85,13 @@
   text-decoration: none;
 }
 
-.vsc-avatar {
+.vsc-brand-logo {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: var(--accent-green-light);
-  color: var(--ok-text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 22%;
+  object-fit: cover;
+  display: block;
   flex-shrink: 0;
-}
-
-.vsc-avatar svg {
-  width: 20px;
-  height: 20px;
 }
 
 .vsc-greeting-kicker {
@@ -930,20 +922,13 @@
 }
 
 .vsc-splash-logo {
-  width: 88px;
-  height: 88px;
-  border-radius: 50%;
-  background: var(--accent-green-light);
-  color: var(--ok-text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 112px;
+  height: 112px;
+  border-radius: 22%;
+  object-fit: cover;
+  display: block;
   margin-bottom: 24px;
   animation: vscSplashLogo var(--splash-ms) ease both;
-}
-.vsc-splash-logo svg {
-  width: 40px;
-  height: 40px;
 }
 
 .vsc-splash-eyebrow {
