@@ -9,13 +9,14 @@
   6. POST /conjugate/api/sessions/<id>/questions/<qid>/targets/<t>/answer … 採点
   7. POST /conjugate/api/sessions/<id>/finish              … セッション終了・サマリ保存
   8. GET  /conjugate/session/<id>/summary                  … 結果画面
+  9. GET  /conjugate/manifest.json                         … PWA manifest
 """
 import logging
 import mimetypes
 import uuid
 from pathlib import Path
 
-from flask import Blueprint, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, jsonify, redirect, render_template, request, send_from_directory, url_for
 from werkzeug.utils import secure_filename
 
 from conjugate.appearance import appearance_context
@@ -77,6 +78,16 @@ def _revalidate_html(response):
 @main_bp.route("/health")
 def health():
     return jsonify({"ok": True, "app": "conjugate"})
+
+
+@main_bp.route("/manifest.json")
+def web_app_manifest():
+    """PWA manifest は /conjugate/ 配下に置き、scope が練習画面全体を覆うようにする。"""
+    return send_from_directory(
+        Path(main_bp.root_path) / "static",
+        "manifest.json",
+        mimetype="application/manifest+json",
+    )
 
 
 @main_bp.route("/")

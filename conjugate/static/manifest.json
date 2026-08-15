@@ -1,0 +1,38 @@
+{
+  "id": "/conjugate/",
+  "name": "Vibe Speak Conjugate",
+  "short_name": "Conjugate",
+  "description": "スペイン語tú活用の瞬発力トレーニング",
+  "lang": "ja",
+  "start_url": "/conjugate/",
+  "scope": "/conjugate/",
+  "display": "standalone",
+  "background_color": "#E9EFDF",
+  "theme_color": "#7CB342",
+  "icons": [
+    {
+      "src": "/conjugate/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/conjugate/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/conjugate/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/conjugate/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

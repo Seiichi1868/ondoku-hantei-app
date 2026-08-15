@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Vibe Speak Conjugate{% endblock %}</title>
+  <link rel="manifest" href="{{ url_for('conjugate.web_app_manifest') }}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('conjugate.static', filename='icons/icon-180.png') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('conjugate.static', filename='icons/icon-32.png') }}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('conjugate.static', filename='icons/icon-16.png') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('conjugate.static', filename='icons/icon.svg') }}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Conjugate">
+  <meta name="theme-color" content="#7CB342">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
