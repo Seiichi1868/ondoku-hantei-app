@@ -7,28 +7,26 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260815d') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260815e') }}">
   {% block head %}{% endblock %}
 </head>
-<body class="relative min-h-screen text-slate-800 antialiased vsc-body {% block body_class %}{% endblock %}">
+<body class="relative min-h-screen antialiased vsc-body {% block body_class %}{% endblock %}">
+  {% from "conjugate/macros.html" import svg_home, svg_mic, svg_book, svg_user, svg_settings %}
   <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
     <div id="page-bg-layer" class="vsc-bg-image absolute inset-0 scale-105"
       style="background-image: url('{{ appearance.background_image_url }}'); opacity: {{ appearance.background_opacity }};"></div>
-    <div id="page-bg-wash" class="absolute inset-0"
-      style="opacity: {{ 1 - appearance.background_opacity }};">
-      <div class="absolute inset-0 bg-gradient-to-br from-sky-100 via-white to-emerald-100"></div>
-      <div class="absolute inset-0 bg-gradient-to-t from-emerald-50/80 via-transparent to-sky-50/60"></div>
-    </div>
+    <div id="page-bg-wash" class="vsc-bg-wash absolute inset-0"
+      style="opacity: {{ 1 - appearance.background_opacity }};"></div>
   </div>
 
-  <header class="vsc-glass-header sticky top-0 z-40">
-    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-      <a href="{{ url_for('conjugate.index') }}" class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-600 to-emerald-600 flex items-center justify-center text-white text-lg font-bold shadow">活</div>
+  <header class="vsc-topbar">
+    <div class="vsc-shell vsc-topbar-inner">
+      <a href="{{ url_for('conjugate.index') }}" class="vsc-brand">
+        <span class="vsc-avatar" aria-hidden="true">{{ svg_user() }}</span>
         <div>
-          <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-sky-700 via-teal-700 to-emerald-700 bg-clip-text text-transparent leading-tight">Vibe Speak Conjugate</h1>
-          <p class="text-xs text-teal-700/70">活用瞬発トレーナー</p>
+          <p class="vsc-greeting-kicker">Vibe Speak Conjugate</p>
+          <h1 class="vsc-greeting">{% block greeting %}{{ greeting }}！{% endblock %}</h1>
         </div>
       </a>
       <div class="flex items-center gap-2">
@@ -37,9 +35,32 @@
     </div>
   </header>
 
-  <main class="max-w-3xl mx-auto px-4 py-6 pb-16 {% block main_class %}{% endblock %}">
+  <main class="vsc-shell vsc-main {% block main_class %}{% endblock %}">
     {% block body %}{% endblock %}
   </main>
+
+  {% if show_bottom_nav %}
+  <nav class="vsc-bottom-nav" aria-label="メインナビ">
+    <div class="vsc-bottom-nav-bar">
+      <a href="{{ url_for('conjugate.index') }}" class="vsc-nav-item{% if nav_active == 'home' %} is-active{% endif %}">
+        {{ svg_home() }}
+        <span class="vsc-nav-label">ホーム</span>
+      </a>
+      <a href="{{ url_for('conjugate.index') }}#practice" class="vsc-nav-item{% if nav_active == 'practice' %} is-active{% endif %}">
+        {{ svg_mic() }}
+        <span class="vsc-nav-label">練習</span>
+      </a>
+      <a href="{{ url_for('conjugate.verbs_page') }}" class="vsc-nav-item{% if nav_active == 'verbs' %} is-active{% endif %}">
+        {{ svg_book() }}
+        <span class="vsc-nav-label">動詞</span>
+      </a>
+      <a href="{{ url_for('conjugate.profile_page') }}" class="vsc-nav-item{% if nav_active == 'profile' %} is-active{% endif %}">
+        {{ svg_user() }}
+        <span class="vsc-nav-label">記録</span>
+      </a>
+    </div>
+  </nav>
+  {% endif %}
 
   {% block scripts %}{% endblock %}
 </body>

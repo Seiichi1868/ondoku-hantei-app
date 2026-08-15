@@ -2,8 +2,8 @@
 {% block title %}見つかりません - Vibe Speak Conjugate{% endblock %}
 {% block body %}
 <section class="vsc-card text-center">
-  <p class="text-lg font-bold text-teal-700 mb-2">セッションが見つかりません</p>
-  <p class="text-sm text-slate-500 mb-4">リンクが古いか、セッションの有効期限が切れている可能性があります。</p>
+  <p class="text-lg font-bold mb-2">セッションが見つかりません</p>
+  <p class="text-sm mb-4" style="color: var(--text-secondary);">リンクが古いか、セッションの有効期限が切れている可能性があります。</p>
   <a href="{{ url_for('conjugate.index') }}" class="vsc-btn-primary inline-block">トップへ戻る</a>
 </section>
 {% endblock %}

@@ -1,12 +1,14 @@
 """Vibe Speak Conjugate: 生徒（学習者）向けBlueprint。
 
-  1. GET  /conjugate/                                    … トップ（カテゴリ・文型選択）
-  2. POST /conjugate/api/sessions                         … セッション作成（JS経由）
-  2b.POST /conjugate/start                                … セッション作成（フォーム送信フォールバック）
-  3. GET  /conjugate/session/<id>                         … 出題・録音画面
-  4. POST /conjugate/api/sessions/<id>/questions/<qid>/targets/<t>/answer … 採点
-  5. POST /conjugate/api/sessions/<id>/finish              … セッション終了・サマリ保存
-  6. GET  /conjugate/session/<id>/summary                  … 結果画面
+  1. GET  /conjugate/                                    … トップ（統計・カテゴリ導線）
+  2. GET  /conjugate/verbs                               … 動詞一覧（習得バッジ）
+  3. GET  /conjugate/profile                             … 記録・履歴
+  4. POST /conjugate/api/sessions                         … セッション作成（JS経由）
+  4b.POST /conjugate/start                                … セッション作成（フォーム送信フォールバック）
+  5. GET  /conjugate/session/<id>                         … 出題・録音画面
+  6. POST /conjugate/api/sessions/<id>/questions/<qid>/targets/<t>/answer … 採点
+  7. POST /conjugate/api/sessions/<id>/finish              … セッション終了・サマリ保存
+  8. GET  /conjugate/session/<id>/summary                  … 結果画面
 """
 import logging
 import mimetypes
@@ -26,13 +28,16 @@ from conjugate.config import (
     whisper_cost_usd,
 )
 from conjugate.data.conjugations import TENSE_LABELS, TENSE_ORDER
-from conjugate.data.verbs import CATEGORY_LABELS, CATEGORY_ORDER
+from conjugate.data.verbs import CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_SHORT, drillable_verbs
 from conjugate.session_logic import build_session_questions, build_summary, grade_target, public_question
 from conjugate.storage import (
     get_session_lock,
+    get_submissions,
     load_session,
     load_settings,
     new_session_id,
+    progress_summary,
+    progress_verbs,
     save_session,
     save_submission,
     weak_verbs_report,
@@ -77,14 +82,52 @@ def health():
 @main_bp.route("/")
 def index():
     settings = load_settings()
+    progress = progress_summary()
+    weak = weak_verbs_report(limit=3)
+    verb_counts = {cat: 0 for cat in CATEGORY_ORDER}
+    for verb in drillable_verbs():
+        verb_counts[verb["category"]] = verb_counts.get(verb["category"], 0) + 1
     return render_template(
         "conjugate/index.html",
         settings=settings,
         start_error=START_ERROR_MESSAGES.get(request.args.get("error", "")),
         category_labels=CATEGORY_LABELS,
+        category_short=CATEGORY_SHORT,
         category_order=CATEGORY_ORDER,
+        category_counts=verb_counts,
         tense_labels=TENSE_LABELS,
         tense_order=TENSE_ORDER,
+        progress=progress,
+        weak_verbs=weak,
+    )
+
+
+@main_bp.route("/verbs")
+def verbs_page():
+    grouped = {cat: [] for cat in CATEGORY_ORDER}
+    for row in progress_verbs():
+        grouped.setdefault(row["category"], []).append(row)
+    progress = progress_summary()
+    return render_template(
+        "conjugate/verbs.html",
+        grouped_verbs=grouped,
+        category_labels=CATEGORY_LABELS,
+        category_short=CATEGORY_SHORT,
+        category_order=CATEGORY_ORDER,
+        tense_labels=TENSE_LABELS,
+        progress=progress,
+    )
+
+
+@main_bp.route("/profile")
+def profile_page():
+    return render_template(
+        "conjugate/profile.html",
+        progress=progress_summary(),
+        recent_submissions=get_submissions(limit=8),
+        weak_verbs=weak_verbs_report(limit=8),
+        category_labels=CATEGORY_LABELS,
+        tense_labels=TENSE_LABELS,
     )
 
 
@@ -270,6 +313,14 @@ def submit_answer(session_id, question_id, target):
         result["transcript_source"] = transcript_source
 
         question.setdefault("answers", {})[target] = result
+        if result.get("newly_mastered") and question.get("kind") == "verb":
+            session.setdefault("newly_mastered", []).append(
+                {
+                    "infinitive": question.get("infinitive"),
+                    "meaning_ja": question.get("meaning_ja", ""),
+                    "target": target,
+                }
+            )
         if all(t in question["answers"] for t in question["targets"]):
             question["status"] = "done"
         save_session(session)
@@ -314,6 +365,7 @@ def summary_screen(session_id):
         "conjugate/summary.html",
         session=session,
         summary=summary,
+        progress=progress_summary(),
         category_labels=CATEGORY_LABELS,
         tense_labels=TENSE_LABELS,
     )

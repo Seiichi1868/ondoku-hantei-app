@@ -3,6 +3,7 @@
 - conjugate_settings.json    : 出題カテゴリ・文型・ASR設定・判定の厳しさ等
 - conjugate_submissions.json : セッション終了時の結果サマリ（配列）
 - conjugate_weak_verbs.json  : 動詞ごとの誤答回数集計（弱点優先出題に利用）
+- conjugate_progress.json    : ストリーク・累計練習数・動詞ごとの習得状況
 - sessions/<id>.json         : 進行中の出題セッション
 """
 import json
@@ -27,6 +28,7 @@ from conjugate.config import (
     DEFAULT_STRICTNESS,
     DEFAULT_TARGETS_PER_QUESTION,
     DEFAULT_WHISPER_MODEL,
+    PROGRESS_FILE,
     SESSIONS_DIR,
     SETTINGS_FILE,
     SUBMISSIONS_FILE,
@@ -37,6 +39,7 @@ from conjugate.config import (
 )
 from conjugate.data.conjugations import TENSE_ORDER
 from conjugate.data.verbs import CATEGORY_ORDER
+from conjugate.progress import apply_attempt, normalize_progress, progress_view, verb_progress_list
 
 _lock = threading.Lock()
 _session_locks: dict[str, threading.Lock] = {}
@@ -292,3 +295,30 @@ def weak_verbs_report(limit: int = 15) -> list[dict]:
             continue
         result.append({"verb_id": int(verb_id) if verb_id.isdigit() else verb_id, **entry})
     return result
+
+
+# ── 学習進捗（ストリーク・累計・習得） ─────────────────────
+
+def load_progress() -> dict:
+    ensure_dirs()
+    with _lock:
+        return normalize_progress(_read_json(PROGRESS_FILE, {}))
+
+
+def record_progress(*, verb_id=None, tense: str | None = None, is_correct: bool = False) -> dict:
+    """判定1回分を進捗に反映し、更新後のサマリを返す。"""
+    with _lock:
+        data = normalize_progress(_read_json(PROGRESS_FILE, {}))
+        delta = apply_attempt(data, verb_id=verb_id, tense=tense, is_correct=is_correct)
+        _write_json(PROGRESS_FILE, data)
+        view = progress_view(data)
+        view.update(delta)
+        return view
+
+
+def progress_summary() -> dict:
+    return progress_view(load_progress())
+
+
+def progress_verbs() -> list[dict]:
+    return verb_progress_list(load_progress())

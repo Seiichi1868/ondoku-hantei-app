@@ -1,11 +1,12 @@
 {% extends "conjugate/base.html" %}
 {% block title %}練習中 - Vibe Speak Conjugate{% endblock %}
+{% block greeting %}練習中{% endblock %}
 {% block header_actions %}
-<span id="progress-label" class="text-xs font-semibold text-teal-700 bg-teal-500/10 px-3 py-1 rounded-full">0/0問</span>
+<span id="progress-label" class="vsc-progress-chip">0/0問</span>
 {% endblock %}
 
 {% block body %}
-<div id="mic-error-banner" class="hidden mb-4 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2"></div>
+<div id="mic-error-banner" class="hidden vsc-banner-error"></div>
 
 <section id="question-card" class="vsc-slide-card">
   <div class="vsc-slide-topbar">
@@ -22,23 +23,23 @@
   <div id="gustar-header-block" class="hidden">
     <h2 class="vsc-slide-title">gustar特殊構文編</h2>
     <p id="gustar-topic" class="vsc-slide-subtitle"></p>
-    <p class="vsc-note">💡 gustarは活用しません。変わるのは me→te だけです。</p>
+    <p class="vsc-note">gustarは活用しません。変わるのは me→te だけです。</p>
   </div>
 
-  <ul id="sentence-list" class="vsc-diamond-list"></ul>
+  <ul id="sentence-list" class="vsc-form-list"></ul>
 
   <div class="vsc-prompt">活用して声に出そう！</div>
 
   <div id="recording-area" class="mt-5">
-    <div id="target-stepper" class="flex items-center gap-2 mb-3 text-xs text-slate-400"></div>
+    <div id="target-stepper" class="flex items-center gap-2 mb-3 text-xs" style="color: var(--text-secondary);"></div>
 
     <div class="flex flex-col items-center gap-3">
       <div id="volume-meter" class="vsc-volume-track hidden">
         <div id="volume-bar" class="vsc-volume-bar"></div>
       </div>
-      <button id="record-btn" type="button" class="vsc-btn-record">🎤 発話して録音</button>
-      <button id="stop-btn" type="button" class="vsc-btn-stop hidden">■ 録音を終了</button>
-      <p id="recording-status" class="text-sm text-slate-400"></p>
+      <button id="record-btn" type="button" class="vsc-btn-record">発話して録音</button>
+      <button id="stop-btn" type="button" class="vsc-btn-stop hidden">録音を終了</button>
+      <p id="recording-status" class="text-sm" style="color: var(--text-secondary);"></p>
     </div>
 
     <div id="feedback-box" class="hidden mt-4"></div>
@@ -57,5 +58,5 @@
   window.CONJUGATE_TENSE_LABELS = {{ tense_labels | tojson }};
   window.CONJUGATE_CATEGORY_LABELS = {{ category_labels | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/quiz.js', v='20260815c') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/quiz.js', v='20260815e') }}"></script>
 {% endblock %}

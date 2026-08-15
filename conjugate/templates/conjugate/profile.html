@@ -1,0 +1,91 @@
+{% extends "conjugate/base.html" %}
+{% from "conjugate/macros.html" import svg_user, svg_star, svg_flame, svg_trophy, svg_book, svg_clock, svg_settings, svg_chevron %}
+{% block title %}記録 - Vibe Speak Conjugate{% endblock %}
+{% block greeting %}{{ greeting }}！{% endblock %}
+
+{% block body %}
+<section class="vsc-profile-head">
+  <div class="vsc-profile-identity">
+    <span class="vsc-profile-avatar">{{ svg_user() }}</span>
+    <div>
+      <p class="vsc-profile-name">Learner</p>
+      <span class="vsc-level-badge">{{ svg_star() }} Level {{ progress.level }} Learner</span>
+    </div>
+  </div>
+  <div class="vsc-metric-stack">
+    <div class="vsc-metric-card">
+      <span class="vsc-stat-icon vsc-stat-icon-green">{{ svg_flame() }}</span>
+      <div class="vsc-metric-copy">
+        <div class="vsc-metric-value">{{ progress.current_streak }}d</div>
+        <div class="vsc-metric-label">Streak</div>
+      </div>
+    </div>
+    <div class="vsc-metric-card">
+      <span class="vsc-stat-icon vsc-stat-icon-lime">{{ svg_trophy() }}</span>
+      <div class="vsc-metric-copy">
+        <div class="vsc-metric-value">{{ progress.total_attempts }}</div>
+        <div class="vsc-metric-label">Quiz Count</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="vsc-mini-stats">
+  <div class="vsc-mini-stat">
+    <div class="vsc-mini-stat-value">{{ progress.xp }} XP</div>
+    <div class="vsc-mini-stat-label">習得ポイント</div>
+  </div>
+  <div class="vsc-mini-stat">
+    <div class="vsc-mini-stat-value">{{ progress.mastered_count }}/{{ progress.total_verbs }}</div>
+    <div class="vsc-mini-stat-label">習得済み</div>
+  </div>
+  <div class="vsc-mini-stat">
+    <div class="vsc-mini-stat-value">🔥 {{ progress.longest_streak }}</div>
+    <div class="vsc-mini-stat-label">最長ストリーク</div>
+  </div>
+</div>
+
+<nav class="vsc-menu-list mb-4">
+  <a class="vsc-menu-item" href="{{ url_for('conjugate.verbs_page') }}">
+    <span class="vsc-stat-icon vsc-stat-icon-mint">{{ svg_book() }}</span>
+    <span class="vsc-menu-item-title">動詞一覧</span>
+    <span class="vsc-menu-chevron">{{ svg_chevron() }}</span>
+  </a>
+  <a class="vsc-menu-item" href="#history">
+    <span class="vsc-stat-icon vsc-stat-icon-lime">{{ svg_clock() }}</span>
+    <span class="vsc-menu-item-title">練習履歴</span>
+    <span class="vsc-menu-chevron">{{ svg_chevron() }}</span>
+  </a>
+  <a class="vsc-menu-item" href="{{ url_for('conjugate_admin.admin_page') }}">
+    <span class="vsc-stat-icon vsc-stat-icon-green">{{ svg_settings() }}</span>
+    <span class="vsc-menu-item-title">管理画面</span>
+    <span class="vsc-menu-chevron">{{ svg_chevron() }}</span>
+  </a>
+</nav>
+
+<section class="vsc-card mb-4" id="history">
+  <h3 class="text-sm font-bold mb-2">練習履歴</h3>
+  {% if recent_submissions %}
+    {% for s in recent_submissions %}
+    <div class="vsc-history-row">
+      <span>{{ s.submitted_at }}</span>
+      <span>{{ s.correct }}/{{ s.total }}　{{ s.accuracy }}%</span>
+    </div>
+    {% endfor %}
+  {% else %}
+  <p class="text-sm" style="color: var(--text-secondary);">まだセッションの記録がありません。</p>
+  {% endif %}
+</section>
+
+{% if weak_verbs %}
+<section class="vsc-card">
+  <h3 class="text-sm font-bold mb-2">弱点動詞</h3>
+  {% for w in weak_verbs %}
+  <div class="vsc-history-row">
+    <span>{{ w.infinitive }}</span>
+    <span style="color: var(--danger-text);">誤答 {{ w.miss_count }} 回</span>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

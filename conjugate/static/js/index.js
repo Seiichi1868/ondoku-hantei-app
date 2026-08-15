@@ -19,15 +19,21 @@
     errorEl.classList.remove("hidden");
   }
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  function selectedTenses() {
+    return Array.from(form.querySelectorAll('input[name="tense"]:checked')).map((el) => el.value);
+  }
+
+  function selectedCount() {
+    const select = form.querySelector('select[name="count"]');
+    return parseInt(select.value, 10);
+  }
+
+  function selectedCategories() {
+    return Array.from(form.querySelectorAll('input[name="category"]:checked')).map((el) => el.value);
+  }
+
+  async function startSession({ categories, tenses, count, prioritizeWeak, label }) {
     errorEl.classList.add("hidden");
-
-    const categories = Array.from(form.querySelectorAll('input[name="category"]:checked')).map((el) => el.value);
-    const tenses = Array.from(form.querySelectorAll('input[name="tense"]:checked')).map((el) => el.value);
-    const count = parseInt(form.querySelector('select[name="count"]').value, 10);
-    const prioritizeWeak = form.querySelector('input[name="prioritize_weak_verbs"]').checked;
-
     if (!categories.length) {
       showError("出題カテゴリを1つ以上選んでください。");
       return;
@@ -37,6 +43,7 @@
       return;
     }
 
+    const original = btn.textContent;
     btn.disabled = true;
     btn.textContent = "準備中...";
 
@@ -57,7 +64,55 @@
     } catch (err) {
       showError(err.message);
       btn.disabled = false;
-      btn.textContent = "練習を始める";
+      btn.textContent = label || original || "今日の練習を始める";
     }
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await startSession({
+      categories: selectedCategories(),
+      tenses: selectedTenses(),
+      count: selectedCount(),
+      prioritizeWeak: form.querySelector('input[name="prioritize_weak_verbs"]').checked,
+      label: "今日の練習を始める",
+    });
+  });
+
+  document.querySelectorAll("[data-start]").forEach((el) => {
+    el.addEventListener("click", async () => {
+      const mode = el.dataset.start;
+      const tenses = selectedTenses();
+      const count = selectedCount();
+      if (mode === "review") {
+        await startSession({
+          categories: selectedCategories(),
+          tenses,
+          count,
+          prioritizeWeak: true,
+          label: "今日の練習を始める",
+        });
+        return;
+      }
+      if (mode === "motion") {
+        await startSession({
+          categories: ["motion_daily"],
+          tenses,
+          count,
+          prioritizeWeak: false,
+          label: "今日の練習を始める",
+        });
+        return;
+      }
+      if (mode === "category") {
+        await startSession({
+          categories: [el.dataset.category],
+          tenses,
+          count,
+          prioritizeWeak: false,
+          label: "今日の練習を始める",
+        });
+      }
+    });
   });
 })();

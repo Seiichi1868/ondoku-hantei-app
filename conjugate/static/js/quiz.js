@@ -102,8 +102,8 @@
 
       sentenceList.innerHTML = "";
       const li = document.createElement("li");
-      li.className = "vsc-diamond-item vsc-diamond-item-target";
-      li.innerHTML = `<span class="vsc-diamond">◆</span><span>${q.yo_sentence}</span>`;
+      li.className = "vsc-form-item vsc-form-item-target";
+      li.innerHTML = `<span class="vsc-form-bullet"></span><span>${q.yo_sentence}</span>`;
       sentenceList.appendChild(li);
     } else {
       verbHeaderBlock.classList.remove("hidden");
@@ -126,9 +126,9 @@
         const li = document.createElement("li");
         const isTarget = q.targets.includes(tense);
         const isCurrentTarget = tense === target;
-        li.className = `vsc-diamond-item ${isTarget ? "vsc-diamond-item-target" : ""} ${isCurrentTarget ? "vsc-diamond-item-active" : ""}`;
+        li.className = `vsc-form-item ${isTarget ? "vsc-form-item-target" : ""} ${isCurrentTarget ? "vsc-form-item-active" : ""}`;
         const badge = isTarget ? `<span class="vsc-mini-badge">${isCurrentTarget ? "今回の対象" : "対象"}</span>` : "";
-        li.innerHTML = `<span class="vsc-diamond">◆</span><span>${q.forms[tense].yo}</span>${badge}`;
+        li.innerHTML = `<span class="vsc-form-bullet"></span><span>${q.forms[tense].yo}</span>${badge}`;
         sentenceList.appendChild(li);
       });
     }
@@ -160,7 +160,8 @@
     feedbackBox.innerHTML = `
       <div class="font-bold">${info.label}</div>
       <div class="text-sm mt-1">${result.message}</div>
-      <div class="text-xs mt-2 text-slate-500">認識結果: 「${result.transcript || "（認識できませんでした）"}」</div>
+      ${result.newly_mastered ? '<div class="vsc-mastered-toast">習得バッジを獲得！</div>' : ""}
+      <div class="text-xs mt-2" style="color: var(--text-secondary);">認識結果: 「${result.transcript || "（認識できませんでした）"}」</div>
     `;
     feedbackBox.classList.remove("hidden");
   }

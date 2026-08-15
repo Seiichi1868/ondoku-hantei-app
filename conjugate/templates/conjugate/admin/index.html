@@ -1,19 +1,20 @@
 {% extends "conjugate/base.html" %}
 {% block title %}管理画面 - Vibe Speak Conjugate{% endblock %}
 {% block body_class %}vsc-admin-page{% endblock %}
+{% block greeting %}管理画面{% endblock %}
 {% block header_actions %}
-<a href="{{ url_for('conjugate.index') }}" class="text-xs text-slate-400 hover:text-teal-600">練習画面へ</a>
+<a href="{{ url_for('conjugate.index') }}" class="vsc-link-quiet">練習画面へ</a>
 {% endblock %}
 
 {% block body %}
 <form id="settings-form">
 <section class="vsc-card">
-  <h2 class="text-lg font-extrabold text-teal-700 mb-1">管理画面</h2>
-  <p class="text-xs text-slate-500 mb-3">
+  <h2 class="text-lg font-extrabold mb-1">管理画面</h2>
+  <p class="text-xs mb-3" style="color: var(--text-secondary);">
     出題カテゴリ・文型、音声認識エンジン、判定の厳しさなどを切り替えます。
     データセット: 動詞{{ settings.enabled_categories|length }}/{{ category_order|length }}カテゴリ有効、
     gustar特殊構文編 {{ gustar_example_count }}例文。
-    OpenAI APIキー: {% if api_key_configured %}<span class="text-emerald-600 font-semibold">設定済み</span>{% else %}<span class="text-rose-600 font-semibold">未設定（Whisperは利用不可）</span>{% endif %}
+    OpenAI APIキー: {% if api_key_configured %}<span class="font-semibold" style="color: var(--ok-text);">設定済み</span>{% else %}<span class="font-semibold" style="color: var(--danger-text);">未設定（Whisperは利用不可）</span>{% endif %}
   </p>
 
   <div class="space-y-3">
@@ -39,7 +40,7 @@
         </label>
         {% endfor %}
       </div>
-      <p class="text-xs text-slate-400 mt-1">段階的実装の推奨: まず現在形のみで動作確認し、その後進行形・近接未来・点過去を追加。</p>
+      <p class="text-xs mt-1" style="color: var(--text-secondary);">段階的実装の推奨: まず現在形のみで動作確認し、その後進行形・近接未来・点過去を追加。</p>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -99,9 +100,9 @@
           <span>有効にする</span>
         </label>
         <div class="flex items-center gap-2">
-          <span class="text-sm text-slate-500">1セッションあたり</span>
+          <span class="text-sm" style="color: var(--text-secondary);">1セッションあたり</span>
           <input type="number" name="gustar_per_session" min="0" max="5" value="{{ settings.gustar_per_session }}" class="vsc-select w-20">
-          <span class="text-sm text-slate-500">問</span>
+          <span class="text-sm" style="color: var(--text-secondary);">問</span>
         </div>
       </div>
     </div>
@@ -109,32 +110,32 @@
 </section>
 
 <section class="vsc-card">
-  <h3 class="text-sm font-bold text-slate-600 mb-2">弱点動詞（誤答が多い順）</h3>
+  <h3 class="text-sm font-bold mb-2">弱点動詞（誤答が多い順）</h3>
   {% if weak_verbs %}
   <ul class="space-y-1 text-sm">
     {% for w in weak_verbs %}
-    <li class="flex justify-between border-b border-slate-100 py-1">
+    <li class="flex justify-between py-1" style="border-bottom: 1px solid #EEF2E6;">
       <span>{{ w.infinitive }}</span>
-      <span class="text-rose-500">誤答 {{ w.miss_count }} 回</span>
+      <span style="color: var(--danger-text);">誤答 {{ w.miss_count }} 回</span>
     </li>
     {% endfor %}
   </ul>
   {% else %}
-  <p class="text-sm text-slate-400">まだ誤答データがありません。</p>
+  <p class="text-sm" style="color: var(--text-secondary);">まだ誤答データがありません。</p>
   {% endif %}
 </section>
 
 <section class="vsc-card">
-  <h3 class="text-sm font-bold text-slate-600 mb-2">直近のセッション</h3>
+  <h3 class="text-sm font-bold mb-2">直近のセッション</h3>
   {% if recent_submissions %}
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
-      <thead class="text-slate-400 text-xs">
+      <thead style="color: var(--text-secondary); font-size: 12px;">
         <tr><th class="text-left py-1">日時</th><th class="text-left">正答率</th><th class="text-left">問数</th></tr>
       </thead>
       <tbody>
         {% for s in recent_submissions %}
-        <tr class="border-t border-slate-100">
+        <tr style="border-top: 1px solid #EEF2E6;">
           <td class="py-1">{{ s.submitted_at }}</td>
           <td>{{ s.accuracy }}%</td>
           <td>{{ s.correct }}/{{ s.total }}</td>
@@ -144,16 +145,16 @@
     </table>
   </div>
   {% else %}
-  <p class="text-sm text-slate-400">まだセッションの記録がありません。</p>
+  <p class="text-sm" style="color: var(--text-secondary);">まだセッションの記録がありません。</p>
   {% endif %}
 </section>
 
 <section class="vsc-card">
   <div class="flex items-center justify-between gap-2 mb-2">
-    <h3 class="text-sm font-bold text-slate-600">背景とオープニング</h3>
-    <span id="bg-current-label" class="text-xs text-teal-700 font-medium">{{ appearance.background_label }}</span>
+    <h3 class="text-sm font-bold">背景とオープニング</h3>
+    <span id="bg-current-label" class="text-xs font-medium" style="color: var(--ok-text);">{{ appearance.background_label }}</span>
   </div>
-  <p class="text-xs text-slate-400 mb-2">このアプリ専用の画像です。他アプリの設定とは連動しません。</p>
+  <p class="text-xs mb-2" style="color: var(--text-secondary);">このアプリ専用の画像です。他アプリの設定とは連動しません。</p>
 
   <input type="hidden" name="background_id" id="background-id" value="{{ appearance.background_id }}">
   <div id="bg-picker" class="flex flex-wrap gap-1.5 mb-2">
@@ -171,7 +172,7 @@
   </div>
 
   <div class="mb-3">
-    <label for="bg-opacity-slider" class="block text-xs text-slate-600 font-medium mb-1">
+    <label for="bg-opacity-slider" class="block text-xs font-medium mb-1">
       透過 <span id="bg-opacity-value">{{ (appearance.background_opacity * 100)|round|int }}</span>%
     </label>
     <input id="bg-opacity-slider" type="range" min="0" max="100" step="1"
@@ -180,14 +181,14 @@
     <input type="hidden" name="background_opacity" id="background-opacity" value="{{ appearance.background_opacity }}">
   </div>
 
-  <h3 class="text-sm font-bold text-slate-600 mb-2">オープニング</h3>
+  <h3 class="text-sm font-bold mb-2">オープニング</h3>
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
     <label class="vsc-check-chip">
       <input type="checkbox" name="opening_enabled" {% if appearance.opening_enabled %}checked{% endif %}>
       <span>トップ画面でオープニングを表示する</span>
     </label>
     <div>
-      <label class="block text-xs text-slate-600 font-medium mb-1">表示時間（ミリ秒）</label>
+      <label class="block text-xs font-medium mb-1">表示時間（ミリ秒）</label>
       <input type="number" name="opening_ms" min="400" max="8000" step="50" value="{{ appearance.opening_ms }}" class="vsc-select">
     </div>
   </div>
@@ -203,5 +204,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260815c') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260815e') }}"></script>
 {% endblock %}

@@ -1,0 +1,69 @@
+{% extends "conjugate/base.html" %}
+{% from "conjugate/macros.html" import svg_check %}
+{% block title %}動詞一覧 - Vibe Speak Conjugate{% endblock %}
+{% block greeting %}動詞一覧{% endblock %}
+
+{% block body %}
+<section class="mb-3">
+  <h2 class="vsc-hero-title" style="font-size: 1.35rem;">習得済み {{ progress.mastered_count }}/{{ progress.total_verbs }}語</h2>
+  <div class="vsc-progress-track">
+    <div class="vsc-progress-fill" style="width: {{ progress.mastered_percent }}%;"></div>
+  </div>
+</section>
+
+<div class="vsc-filter-row" id="verb-filters">
+  <button type="button" class="vsc-filter-chip is-active" data-filter="all">すべて</button>
+  <button type="button" class="vsc-filter-chip" data-filter="mastered">習得済み</button>
+  <button type="button" class="vsc-filter-chip" data-filter="learning">未習得</button>
+</div>
+
+{% for cat in category_order %}
+  {% if grouped_verbs.get(cat) %}
+  <section class="vsc-verb-group" data-group>
+    <h3 class="vsc-verb-group-title">{{ category_labels[cat] }}</h3>
+    {% for verb in grouped_verbs[cat] %}
+    <article class="vsc-verb-item{% if verb.mastered %} is-mastered{% endif %}" data-mastered="{{ '1' if verb.mastered else '0' }}">
+      <div class="vsc-verb-copy">
+        <div class="vsc-verb-name">{{ verb.infinitive }}</div>
+        <div class="vsc-verb-meaning">{{ verb.meaning_ja }}</div>
+      </div>
+      {% if verb.mastered %}
+      <span class="vsc-master-mark" title="習得済み">{{ svg_check() }}</span>
+      {% else %}
+      <div class="vsc-dots" aria-label="連続正解 {{ verb.consecutive_correct }}/3">
+        {% for i in range(3) %}
+        <span class="vsc-dot{% if verb.consecutive_correct > i %} is-on{% endif %}"></span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </section>
+  {% endif %}
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const chips = document.querySelectorAll("#verb-filters .vsc-filter-chip");
+  const items = document.querySelectorAll("[data-mastered]");
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chips.forEach((el) => el.classList.remove("is-active"));
+      chip.classList.add("is-active");
+      const filter = chip.dataset.filter;
+      items.forEach((item) => {
+        const mastered = item.dataset.mastered === "1";
+        const show = filter === "all" || (filter === "mastered" && mastered) || (filter === "learning" && !mastered);
+        item.style.display = show ? "" : "none";
+      });
+      document.querySelectorAll("[data-group]").forEach((group) => {
+        const visible = Array.from(group.querySelectorAll("[data-mastered]")).some((el) => el.style.display !== "none");
+        group.style.display = visible ? "" : "none";
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

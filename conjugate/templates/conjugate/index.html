@@ -1,22 +1,21 @@
 {% extends "conjugate/base.html" %}
+{% from "conjugate/macros.html" import svg_flame, svg_hash, svg_check, svg_walk, svg_heart, svg_message, svg_sun %}
 {% block title %}Vibe Speak Conjugate - 練習を始める{% endblock %}
 {% block header_actions %}
-<a href="{{ url_for('conjugate_admin.admin_page') }}" class="text-xs text-slate-400 hover:text-teal-600">管理画面</a>
+<a href="{{ url_for('conjugate_admin.admin_page') }}" class="vsc-link-quiet">管理</a>
 {% endblock %}
 
 {% block body %}
 {% if appearance.opening_enabled %}
 <div id="opening-overlay"
-  class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-4 sm:p-6">
+  class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden p-4 sm:p-6"
+  style="background: var(--bg-primary);">
   <div class="vsc-bg-image absolute inset-0 scale-110"
     style="background-image: url('{{ appearance.background_image_url }}'); opacity: {{ appearance.background_opacity }};"></div>
-  <div class="absolute inset-0"
-    style="opacity: {{ 1 - appearance.background_opacity }};">
-    <div class="absolute inset-0 bg-gradient-to-br from-white via-sky-50 to-emerald-50"></div>
-    <div class="absolute inset-0 bg-white/20"></div>
-  </div>
-  <div class="vsc-intro-orb absolute -left-16 top-14 h-48 w-48 rounded-full bg-sky-200/45 blur-3xl"></div>
-  <div class="vsc-intro-orb absolute -right-12 bottom-16 h-56 w-56 rounded-full bg-emerald-200/45 blur-3xl" style="animation-delay: .35s"></div>
+  <div class="vsc-bg-wash absolute inset-0"
+    style="opacity: {{ 1 - appearance.background_opacity }};"></div>
+  <div class="vsc-intro-orb absolute -left-16 top-14 h-48 w-48 rounded-full blur-3xl" style="background: rgba(200, 230, 160, 0.55);"></div>
+  <div class="vsc-intro-orb absolute -right-12 bottom-16 h-56 w-56 rounded-full blur-3xl" style="background: rgba(124, 179, 66, 0.28); animation-delay: .35s"></div>
   <div class="vsc-intro-card relative text-center px-1 sm:px-4">
     <p class="vsc-intro-glass-label mb-2 text-[10px] sm:text-[11px] font-semibold uppercase">Welcome to</p>
     <h1 class="vsc-intro-glass-logo">Vibe Speak Conjugate</h1>
@@ -25,82 +24,126 @@
 </div>
 {% endif %}
 
-<section class="vsc-card mb-6">
-  <h2 class="text-xl font-extrabold text-teal-700 mb-1">今日の活用ドリルを始めよう</h2>
-  <p class="text-sm text-slate-500 mb-5">例文を見て、指定の人称・文型に変換して声に出そう。判定はルールベースで即時に返ります。</p>
+<section class="mb-2">
+  <h2 class="vsc-hero-title">今日も活用の練習、やる？</h2>
+  <form id="start-form" method="post" action="{{ url_for('conjugate.start_session') }}">
+    <button type="submit" id="start-btn" class="vsc-btn-primary w-full">今日の練習を始める</button>
 
-  <form id="start-form" class="space-y-6" method="post" action="{{ url_for('conjugate.start_session') }}">
-    <div>
-      <h3 class="vsc-section-label">出題カテゴリ</h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-        {% for cat in category_order %}
-          {% if cat in settings.enabled_categories %}
-          <label class="vsc-check-chip">
-            <input type="checkbox" name="category" value="{{ cat }}" checked>
-            <span>{{ category_labels[cat] }}</span>
-          </label>
-          {% endif %}
-        {% endfor %}
+    <div class="vsc-stats-row">
+      <div class="vsc-stat-card">
+        <span class="vsc-stat-icon vsc-stat-icon-green">{{ svg_flame() }}</span>
+        <div class="vsc-stat-value">🔥 {{ progress.current_streak }} Days</div>
+        <div class="vsc-stat-label">ストリーク</div>
       </div>
-      {% if not settings.enabled_categories %}
-      <p class="text-xs text-rose-500 mt-2">管理画面でカテゴリを1つ以上有効化してください。</p>
+      <div class="vsc-stat-card">
+        <span class="vsc-stat-icon vsc-stat-icon-lime">{{ svg_hash() }}</span>
+        <div class="vsc-stat-value">{{ progress.total_attempts }}</div>
+        <div class="vsc-stat-label">累計問題数</div>
+      </div>
+      <div class="vsc-stat-card">
+        <span class="vsc-stat-icon vsc-stat-icon-mint">{{ svg_check() }}</span>
+        <div class="vsc-stat-value">{{ progress.mastered_count }}/{{ progress.total_verbs }}</div>
+        <div class="vsc-stat-label">習得済み</div>
+      </div>
+    </div>
+
+    <div class="vsc-promo-card" id="practice">
+      <p class="vsc-promo-kicker">本日のおすすめ</p>
+      {% if weak_verbs %}
+      <h3 class="vsc-promo-title">前回間違えた動詞を復習しよう</h3>
+      <p class="vsc-promo-body">{{ weak_verbs | map(attribute='infinitive') | join(' / ') }}</p>
+      <button type="button" class="vsc-promo-btn" data-start="review">復習を始める</button>
+      {% else %}
+      <h3 class="vsc-promo-title">まずは現在形からウォームアップ</h3>
+      <p class="vsc-promo-body">移動・日常の基本動詞で、今日の1問を始めましょう。</p>
+      <button type="button" class="vsc-promo-btn" data-start="motion">はじめる</button>
       {% endif %}
     </div>
 
-    <div>
-      <h3 class="vsc-section-label">出題する文型</h3>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-        {% for t in tense_order %}
-          {% if t in settings.enabled_tenses %}
-          <label class="vsc-check-chip">
-            <input type="checkbox" name="tense" value="{{ t }}" checked>
-            <span>{{ tense_labels[t] }}</span>
-          </label>
+    <h3 class="vsc-section-label mb-2">カテゴリから選ぶ</h3>
+    <div class="vsc-category-grid">
+      {% for cat in category_order %}
+        {% if cat in settings.enabled_categories %}
+        <button type="button" class="vsc-category-card" data-start="category" data-category="{{ cat }}">
+          <span class="vsc-category-icon">
+            {% if cat == 'motion_daily' %}{{ svg_walk() }}
+            {% elif cat == 'emotion_state' %}{{ svg_heart() }}
+            {% elif cat == 'communication' %}{{ svg_message() }}
+            {% else %}{{ svg_sun() }}
+            {% endif %}
+          </span>
+          <span class="vsc-category-title">{{ category_short[cat] }}</span>
+          <span class="vsc-category-meta">{{ category_counts[cat] }}語</span>
+        </button>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <details class="vsc-details vsc-card mt-4">
+      <summary>出題の詳細を選ぶ</summary>
+      <div class="space-y-5 mt-4">
+        <div>
+          <h3 class="vsc-section-label">出題カテゴリ</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+            {% for cat in category_order %}
+              {% if cat in settings.enabled_categories %}
+              <label class="vsc-check-chip">
+                <input type="checkbox" name="category" value="{{ cat }}" checked>
+                <span>{{ category_labels[cat] }}</span>
+              </label>
+              {% endif %}
+            {% endfor %}
+          </div>
+          {% if not settings.enabled_categories %}
+          <p class="text-xs mt-2" style="color: var(--danger-text);">管理画面でカテゴリを1つ以上有効化してください。</p>
           {% endif %}
-        {% endfor %}
-      </div>
-      {% if not settings.enabled_tenses %}
-      <p class="text-xs text-rose-500 mt-2">管理画面で文型を1つ以上有効化してください。</p>
-      {% endif %}
-    </div>
+        </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <h3 class="vsc-section-label">出題数</h3>
-        <select name="count" class="vsc-select mt-2">
-          {% for n in [5, 10, 15, 20] %}
-          <option value="{{ n }}" {% if n == settings.questions_per_session %}selected{% endif %}>{{ n }}問</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <h3 class="vsc-section-label">弱点動詞を優先出題</h3>
-        <label class="vsc-check-chip mt-2">
-          <input type="checkbox" name="prioritize_weak_verbs" {% if settings.prioritize_weak_verbs %}checked{% endif %}>
-          <span>前回間違えた動詞を優先する</span>
-        </label>
-      </div>
-    </div>
+        <div>
+          <h3 class="vsc-section-label">出題する文型</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+            {% for t in tense_order %}
+              {% if t in settings.enabled_tenses %}
+              <label class="vsc-check-chip">
+                <input type="checkbox" name="tense" value="{{ t }}" checked>
+                <span>{{ tense_labels[t] }}</span>
+              </label>
+              {% endif %}
+            {% endfor %}
+          </div>
+          {% if not settings.enabled_tenses %}
+          <p class="text-xs mt-2" style="color: var(--danger-text);">管理画面で文型を1つ以上有効化してください。</p>
+          {% endif %}
+        </div>
 
-    {% if settings.gustar_enabled %}
-    <div class="vsc-note">
-      💡 このセッションには「gustar特殊構文編」が {{ settings.gustar_per_session }} 問混ざります（動詞は活用せず、me→teの変化だけを練習）。
-    </div>
-    {% endif %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <h3 class="vsc-section-label">出題数</h3>
+            <select name="count" class="vsc-select mt-2">
+              {% for n in [5, 10, 15, 20] %}
+              <option value="{{ n }}" {% if n == settings.questions_per_session %}selected{% endif %}>{{ n }}問</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <h3 class="vsc-section-label">弱点動詞を優先出題</h3>
+            <label class="vsc-check-chip mt-2">
+              <input type="checkbox" name="prioritize_weak_verbs" {% if settings.prioritize_weak_verbs %}checked{% endif %}>
+              <span>前回間違えた動詞を優先する</span>
+            </label>
+          </div>
+        </div>
 
-    <button type="submit" id="start-btn" class="vsc-btn-primary w-full">練習を始める</button>
-    <p id="start-error" class="text-sm text-rose-600 {% if not start_error %}hidden{% endif %}">{{ start_error or "" }}</p>
+        {% if settings.gustar_enabled %}
+        <div class="vsc-note">
+          このセッションには「gustar特殊構文編」が {{ settings.gustar_per_session }} 問混ざります（動詞は活用せず、me→teの変化だけを練習）。
+        </div>
+        {% endif %}
+      </div>
+    </details>
+
+    <p id="start-error" class="text-sm mt-3 {% if not start_error %}hidden{% endif %}" style="color: var(--danger-text);">{{ start_error or "" }}</p>
   </form>
-</section>
-
-<section class="vsc-card">
-  <h3 class="text-sm font-bold text-slate-500 mb-2">使い方</h3>
-  <ol class="text-sm text-slate-600 list-decimal list-inside space-y-1">
-    <li>動詞の原形・日本語訳・yo形の例文が表示されます。</li>
-    <li>ハイライトされた文型を、指定の人称に変換して声に出してください。</li>
-    <li>マイクの録音が自動でWhisper APIに送られ、判定されます。</li>
-    <li>セッション終了後、正答率と弱点動詞が確認できます。</li>
-  </ol>
 </section>
 {% endblock %}
 
@@ -108,5 +151,5 @@
 <script>
   window.CONJUGATE_OPENING_MS = {{ appearance.opening_ms | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260815c') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260815e') }}"></script>
 {% endblock %}

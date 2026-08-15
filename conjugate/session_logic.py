@@ -7,7 +7,7 @@ from conjugate.data.conjugations import TENSE_ORDER, build_forms
 from conjugate.data.gustar import GUSTAR_EXAMPLES
 from conjugate.data.verbs import VERBS_BY_ID, verbs_by_category
 from conjugate.judge import grade_gustar, grade_regular
-from conjugate.storage import record_answer_result, top_weak_verb_ids
+from conjugate.storage import record_answer_result, record_progress, top_weak_verb_ids
 
 GUSTAR_BY_ID = {item["id"]: item for item in GUSTAR_EXAMPLES}
 
@@ -122,11 +122,21 @@ def grade_target(question: dict, target: str, transcript: str, strict: bool) -> 
         item = GUSTAR_BY_ID[question["gustar_id"]]
         result = grade_gustar(item, transcript, strict=strict)
         record_answer_result(verb_id="gustar", infinitive="gustar", level=result["level"])
+        progress = record_progress(verb_id=None, tense=None, is_correct=result["level"] == "correct")
+        result["newly_mastered"] = False
+        result["progress"] = progress
         return result
 
     verb = VERBS_BY_ID[question["verb_id"]]
     result = grade_regular(verb, target, transcript, strict=strict)
     record_answer_result(verb_id=verb["id"], infinitive=verb["infinitive"], level=result["level"])
+    progress = record_progress(
+        verb_id=verb["id"],
+        tense=target,
+        is_correct=result["level"] == "correct",
+    )
+    result["newly_mastered"] = bool(progress.get("newly_mastered"))
+    result["progress"] = progress
     return result
 
 
@@ -167,5 +177,6 @@ def build_summary(session: dict) -> dict:
         "accuracy": accuracy,
         "level_counts": level_counts,
         "weak_items": weak_items,
+        "newly_mastered": session.get("newly_mastered") or [],
         "cost_jpy_display": format_jpy_amount(cost_jpy),
     }

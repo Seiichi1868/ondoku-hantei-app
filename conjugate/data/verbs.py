@@ -17,6 +17,13 @@ CATEGORY_LABELS = {
     "daily_activity": "日常生活の活動",
 }
 
+CATEGORY_SHORT = {
+    "motion_daily": "移動・日常",
+    "emotion_state": "感情・状態",
+    "communication": "会話",
+    "daily_activity": "日常活動",
+}
+
 CATEGORY_ORDER = ["motion_daily", "emotion_state", "communication", "daily_activity"]
 
 VERBS = [

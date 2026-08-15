@@ -13,7 +13,8 @@
 
   function showMessage(message, isError) {
     messageEl.textContent = message;
-    messageEl.className = `text-sm mt-2 ${isError ? "text-rose-600" : "text-emerald-600"}`;
+    messageEl.className = `text-sm mt-2 ${isError ? "font-semibold" : "font-semibold"}`;
+    messageEl.style.color = isError ? "var(--danger-text)" : "var(--ok-text)";
     messageEl.classList.remove("hidden");
   }
 

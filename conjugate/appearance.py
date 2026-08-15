@@ -1,5 +1,7 @@
-"""表示用の背景・オープニング情報。Flaskのurl_forだけを使い、他アプリには依存しない。"""
-from flask import url_for
+"""表示用の背景・オープニング・ナビ情報。Flaskのurl_forだけを使い、他アプリには依存しない。"""
+from datetime import datetime, timedelta, timezone
+
+from flask import request, url_for
 
 from conjugate.config import (
     BACKGROUND_PRESETS,
@@ -9,6 +11,8 @@ from conjugate.config import (
     resolve_background,
 )
 from conjugate.storage import load_settings
+
+JST = timezone(timedelta(hours=9))
 
 
 def appearance_context(settings: dict | None = None) -> dict:
@@ -26,4 +30,41 @@ def appearance_context(settings: dict | None = None) -> dict:
             key: {**meta, "url": url_for("conjugate.static", filename=meta["image"])}
             for key, meta in BACKGROUND_PRESETS.items()
         },
+        **student_ui_context(),
+    }
+
+
+def student_ui_context() -> dict:
+    try:
+        path = request.path or ""
+    except RuntimeError:
+        path = ""
+    if "/conjugate/admin" in path:
+        nav = "profile"
+        show_bottom_nav = False
+    elif path.rstrip("/").endswith("/verbs"):
+        nav = "verbs"
+        show_bottom_nav = True
+    elif path.rstrip("/").endswith("/profile"):
+        nav = "profile"
+        show_bottom_nav = True
+    elif "/session/" in path:
+        nav = "practice"
+        show_bottom_nav = True
+    else:
+        nav = "home"
+        show_bottom_nav = True
+
+    hour = datetime.now(JST).hour
+    if 5 <= hour < 11:
+        greeting = "おはよう"
+    elif 11 <= hour < 18:
+        greeting = "こんにちは"
+    else:
+        greeting = "こんばんは"
+
+    return {
+        "nav_active": nav,
+        "show_bottom_nav": show_bottom_nav,
+        "greeting": greeting,
     }

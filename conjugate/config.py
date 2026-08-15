@@ -17,6 +17,7 @@ AUDIO_TMP_DIR = DATA_DIR / "audio_tmp"
 SETTINGS_FILE = DATA_DIR / "conjugate_settings.json"
 SUBMISSIONS_FILE = DATA_DIR / "conjugate_submissions.json"
 WEAK_VERBS_FILE = DATA_DIR / "conjugate_weak_verbs.json"
+PROGRESS_FILE = DATA_DIR / "conjugate_progress.json"
 
 ADMIN_PASSWORD = os.environ.get("CONJUGATE_ADMIN_PASSWORD", "2479")
 
@@ -84,7 +85,7 @@ BACKGROUND_PRESETS = {
     "lake": {"label": "湖", "image": "images/bg/lake.jpg"},
 }
 DEFAULT_BACKGROUND_ID = "meadow"
-DEFAULT_BACKGROUND_OPACITY = 0.38
+DEFAULT_BACKGROUND_OPACITY = 0.18
 DEFAULT_OPENING_ENABLED = True
 DEFAULT_OPENING_MS = 1950
 
