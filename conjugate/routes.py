@@ -16,6 +16,7 @@ from pathlib import Path
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
+from conjugate.appearance import appearance_context
 from conjugate.audio_convert import audio_duration_sec, normalize_audio_file
 from conjugate.config import (
     ALLOWED_AUDIO_EXTENSIONS,
@@ -36,7 +37,7 @@ from conjugate.storage import (
     save_submission,
     weak_verbs_report,
 )
-from conjugate.transcription import transcribe_audio
+from conjugate.transcription import keep_spanish_transcript, transcribe_audio
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,11 @@ main_bp = Blueprint(
 START_ERROR_MESSAGES = {
     "no_questions": "出題できる問題がありません。管理画面でカテゴリと文型の設定を確認してください。",
 }
+
+
+@main_bp.context_processor
+def _inject_appearance():
+    return appearance_context()
 
 
 @main_bp.after_request
@@ -254,7 +260,7 @@ def submit_answer(session_id, question_id, target):
                 norm_candidate.unlink(missing_ok=True)
         else:
             payload = request.form or request.get_json(silent=True) or {}
-            transcript = str(payload.get("transcript") or "").strip()
+            transcript = keep_spanish_transcript(str(payload.get("transcript") or ""))
             transcript_source = "web_speech"
             if not transcript:
                 return jsonify({"ok": False, "error": "音声ファイルまたは認識テキストがありません。"}), 400

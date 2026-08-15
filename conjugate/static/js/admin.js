@@ -2,12 +2,43 @@
   const form = document.getElementById("settings-form");
   const btn = document.getElementById("save-btn");
   const messageEl = document.getElementById("save-message");
+  const bgIdInput = document.getElementById("background-id");
+  const bgOpacityInput = document.getElementById("background-opacity");
+  const bgSlider = document.getElementById("bg-opacity-slider");
+  const bgOpacityValue = document.getElementById("bg-opacity-value");
+  const bgLabel = document.getElementById("bg-current-label");
+  const pageBg = document.getElementById("page-bg-layer");
   if (!form) return;
 
   function showMessage(message, isError) {
     messageEl.textContent = message;
-    messageEl.className = `text-sm ${isError ? "text-rose-600" : "text-emerald-600"}`;
+    messageEl.className = `text-sm mt-2 ${isError ? "text-rose-600" : "text-emerald-600"}`;
     messageEl.classList.remove("hidden");
+  }
+
+  function applyBackgroundPreview(imageUrl, opacity) {
+    if (!pageBg) return;
+    if (imageUrl) pageBg.style.backgroundImage = `url('${imageUrl}')`;
+    if (typeof opacity === "number") pageBg.style.opacity = String(opacity);
+  }
+
+  document.querySelectorAll(".vsc-bg-pick").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".vsc-bg-pick").forEach((el) => el.classList.remove("vsc-bg-pick-active"));
+      button.classList.add("vsc-bg-pick-active");
+      if (bgIdInput) bgIdInput.value = button.dataset.bgId || "";
+      if (bgLabel) bgLabel.textContent = button.dataset.bgLabel || "";
+      applyBackgroundPreview(button.dataset.bgImage, undefined);
+    });
+  });
+
+  if (bgSlider) {
+    bgSlider.addEventListener("input", () => {
+      const opacity = Math.max(0, Math.min(100, parseInt(bgSlider.value, 10) || 0)) / 100;
+      if (bgOpacityValue) bgOpacityValue.textContent = String(Math.round(opacity * 100));
+      if (bgOpacityInput) bgOpacityInput.value = String(opacity);
+      applyBackgroundPreview(undefined, opacity);
+    });
   }
 
   form.addEventListener("submit", async (e) => {
@@ -27,6 +58,10 @@
       prioritize_weak_verbs: form.querySelector('input[name="prioritize_weak_verbs"]').checked,
       gustar_enabled: form.querySelector('input[name="gustar_enabled"]').checked,
       gustar_per_session: parseInt(form.querySelector('input[name="gustar_per_session"]').value, 10),
+      background_id: bgIdInput ? bgIdInput.value : "meadow",
+      background_opacity: bgOpacityInput ? parseFloat(bgOpacityInput.value) : 0.38,
+      opening_enabled: form.querySelector('input[name="opening_enabled"]').checked,
+      opening_ms: parseInt(form.querySelector('input[name="opening_ms"]').value, 10),
       admin_password: form.querySelector('input[name="admin_password"]').value,
     };
 

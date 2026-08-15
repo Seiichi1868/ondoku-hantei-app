@@ -288,3 +288,68 @@
   user-select: none;
   z-index: 10;
 }
+
+@keyframes vscIntroFade {
+  0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+  28% { opacity: 1; transform: translateY(0) scale(1); }
+  78% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-8px) scale(1.02); }
+}
+@keyframes vscOrbFloat {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -12px, 0); }
+}
+.vsc-intro-card { animation: vscIntroFade 2.1s ease both; }
+.vsc-intro-orb { animation: vscOrbFloat 2.8s ease-in-out infinite; }
+.vsc-intro-glass-label {
+  color: rgba(13, 148, 136, 0.88);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 8px rgba(255, 255, 255, 0.25);
+}
+.vsc-intro-glass-logo {
+  background: linear-gradient(168deg, rgba(56, 189, 248, 0.82) 0%, rgba(3, 105, 161, 0.96) 30%, rgba(15, 118, 110, 0.98) 62%, rgba(4, 120, 87, 1) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0.3px rgba(255, 255, 255, 0.22);
+  paint-order: stroke fill;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.45)) drop-shadow(0 4px 14px rgba(14, 116, 144, 0.2));
+}
+.vsc-intro-glass-sub {
+  color: rgba(100, 116, 139, 0.92);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 6px rgba(255, 255, 255, 0.2);
+}
+
+.vsc-bg-pick {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+.vsc-bg-pick:hover { border-color: rgba(13, 148, 136, 0.35); }
+.vsc-bg-pick-active {
+  border-color: rgb(13 148 136);
+  box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.25);
+}
+.vsc-bg-thumb {
+  display: block;
+  width: 56px;
+  height: 36px;
+  border-radius: 6px;
+  background-size: cover;
+  background-position: center;
+}
+.vsc-bg-pick-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1;
+}
+.vsc-opacity-slider {
+  accent-color: rgb(13 148 136);
+  cursor: pointer;
+}

@@ -5,6 +5,7 @@
 {% endblock %}
 
 {% block body %}
+<form id="settings-form">
 <section class="vsc-card mb-6">
   <h2 class="text-lg font-extrabold text-teal-700 mb-1">管理画面</h2>
   <p class="text-sm text-slate-500 mb-5">
@@ -14,7 +15,7 @@
     OpenAI APIキー: {% if api_key_configured %}<span class="text-emerald-600 font-semibold">設定済み</span>{% else %}<span class="text-rose-600 font-semibold">未設定（Whisperは利用不可）</span>{% endif %}
   </p>
 
-  <form id="settings-form" class="space-y-6">
+  <div class="space-y-6">
     <div>
       <h3 class="vsc-section-label">出題カテゴリ（4グループ）</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
@@ -103,15 +104,7 @@
         </div>
       </div>
     </div>
-
-    <div>
-      <h3 class="vsc-section-label">管理パスワード</h3>
-      <input type="password" name="admin_password" placeholder="保存には管理パスワードが必要です" class="vsc-select mt-2" autocomplete="off">
-    </div>
-
-    <button type="submit" id="save-btn" class="vsc-btn-primary w-full">設定を保存</button>
-    <p id="save-message" class="text-sm hidden"></p>
-  </form>
+  </div>
 </section>
 
 <section class="vsc-card mb-6">
@@ -130,7 +123,7 @@
   {% endif %}
 </section>
 
-<section class="vsc-card">
+<section class="vsc-card mb-6">
   <h3 class="text-sm font-bold text-slate-600 mb-3">直近のセッション</h3>
   {% if recent_submissions %}
   <div class="overflow-x-auto">
@@ -153,8 +146,61 @@
   <p class="text-sm text-slate-400">まだセッションの記録がありません。</p>
   {% endif %}
 </section>
+
+<section class="vsc-card">
+  <div class="flex items-center justify-between gap-2 mb-3">
+    <h3 class="text-sm font-bold text-slate-600">背景とオープニング</h3>
+    <span id="bg-current-label" class="text-xs text-teal-700 font-medium">{{ appearance.background_label }}</span>
+  </div>
+  <p class="text-xs text-slate-400 mb-3">このアプリ専用の画像です。他アプリの設定とは連動しません。</p>
+
+  <input type="hidden" name="background_id" id="background-id" value="{{ appearance.background_id }}">
+  <div id="bg-picker" class="flex flex-wrap gap-2 mb-4">
+    {% for bg_id, bg in background_presets.items() %}
+    <button type="button"
+      class="vsc-bg-pick{% if bg_id == appearance.background_id %} vsc-bg-pick-active{% endif %}"
+      data-bg-id="{{ bg_id }}"
+      data-bg-image="{{ bg.url }}"
+      data-bg-label="{{ bg.label }}"
+      title="{{ bg.label }}">
+      <span class="vsc-bg-thumb" style="background-image: url('{{ bg.url }}');"></span>
+      <span class="vsc-bg-pick-label">{{ bg.label }}</span>
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="mb-5">
+    <label for="bg-opacity-slider" class="block text-xs text-slate-600 font-medium mb-1">
+      透過 <span id="bg-opacity-value">{{ (appearance.background_opacity * 100)|round|int }}</span>%
+    </label>
+    <input id="bg-opacity-slider" type="range" min="0" max="100" step="1"
+      value="{{ (appearance.background_opacity * 100)|round|int }}"
+      class="vsc-opacity-slider w-full">
+    <input type="hidden" name="background_opacity" id="background-opacity" value="{{ appearance.background_opacity }}">
+  </div>
+
+  <h3 class="text-sm font-bold text-slate-600 mb-2">オープニング</h3>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+    <label class="vsc-check-chip">
+      <input type="checkbox" name="opening_enabled" {% if appearance.opening_enabled %}checked{% endif %}>
+      <span>トップ画面でオープニングを表示する</span>
+    </label>
+    <div>
+      <label class="block text-xs text-slate-600 font-medium mb-1">表示時間（ミリ秒）</label>
+      <input type="number" name="opening_ms" min="400" max="8000" step="50" value="{{ appearance.opening_ms }}" class="vsc-select">
+    </div>
+  </div>
+
+  <div>
+    <h3 class="vsc-section-label">管理パスワード</h3>
+    <input type="password" name="admin_password" placeholder="保存には管理パスワードが必要です" class="vsc-select mt-2" autocomplete="off">
+  </div>
+  <button type="submit" id="save-btn" class="vsc-btn-primary w-full mt-4">設定を保存</button>
+  <p id="save-message" class="text-sm hidden mt-2"></p>
+</section>
+</form>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260814c') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260815b') }}"></script>
 {% endblock %}

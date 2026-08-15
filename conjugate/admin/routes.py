@@ -6,6 +6,7 @@
 """
 from flask import Blueprint, jsonify, render_template, request
 
+from conjugate.appearance import appearance_context
 from conjugate.config import (
     ADMIN_PASSWORD,
     ASR_ENGINES,
@@ -24,6 +25,11 @@ admin_bp = Blueprint(
     url_prefix="/conjugate/admin",
     template_folder="../templates",
 )
+
+
+@admin_bp.context_processor
+def _inject_appearance():
+    return appearance_context()
 
 
 def _require_admin_password(payload: dict):
@@ -103,6 +109,10 @@ def save_settings_api():
         "gustar_enabled",
         "gustar_per_session",
         "prioritize_weak_verbs",
+        "background_id",
+        "background_opacity",
+        "opening_enabled",
+        "opening_ms",
     ):
         if key in payload:
             updates[key] = payload[key]

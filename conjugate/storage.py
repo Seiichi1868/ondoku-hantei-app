@@ -12,11 +12,16 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
 from conjugate.config import (
+    BACKGROUND_PRESETS,
     DEFAULT_ASR_ENGINE,
+    DEFAULT_BACKGROUND_ID,
+    DEFAULT_BACKGROUND_OPACITY,
     DEFAULT_ENABLED_CATEGORIES,
     DEFAULT_ENABLED_TENSES,
     DEFAULT_GUSTAR_ENABLED,
     DEFAULT_GUSTAR_PER_SESSION,
+    DEFAULT_OPENING_ENABLED,
+    DEFAULT_OPENING_MS,
     DEFAULT_PRIORITIZE_WEAK_VERBS,
     DEFAULT_QUESTIONS_PER_SESSION,
     DEFAULT_STRICTNESS,
@@ -26,6 +31,8 @@ from conjugate.config import (
     SETTINGS_FILE,
     SUBMISSIONS_FILE,
     WEAK_VERBS_FILE,
+    clamp_opening_ms,
+    clamp_opacity,
     ensure_dirs,
 )
 from conjugate.data.conjugations import TENSE_ORDER
@@ -73,6 +80,10 @@ DEFAULT_SETTINGS = {
     "gustar_enabled": DEFAULT_GUSTAR_ENABLED,
     "gustar_per_session": DEFAULT_GUSTAR_PER_SESSION,
     "prioritize_weak_verbs": DEFAULT_PRIORITIZE_WEAK_VERBS,
+    "background_id": DEFAULT_BACKGROUND_ID,
+    "background_opacity": DEFAULT_BACKGROUND_OPACITY,
+    "opening_enabled": DEFAULT_OPENING_ENABLED,
+    "opening_ms": DEFAULT_OPENING_MS,
 }
 
 
@@ -121,6 +132,16 @@ def _normalize_settings(raw: dict | None) -> dict:
 
     if "prioritize_weak_verbs" in raw:
         data["prioritize_weak_verbs"] = bool(raw.get("prioritize_weak_verbs"))
+
+    bg_id = raw.get("background_id")
+    if bg_id in BACKGROUND_PRESETS:
+        data["background_id"] = bg_id
+    if "background_opacity" in raw:
+        data["background_opacity"] = clamp_opacity(raw.get("background_opacity"))
+    if "opening_enabled" in raw:
+        data["opening_enabled"] = bool(raw.get("opening_enabled"))
+    if "opening_ms" in raw:
+        data["opening_ms"] = clamp_opening_ms(raw.get("opening_ms"))
 
     return data
 

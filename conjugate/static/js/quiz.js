@@ -320,6 +320,7 @@
     speechRecognizer.lang = "es-ES";
     speechRecognizer.interimResults = false;
     speechRecognizer.maxAlternatives = 1;
+    speechRecognizer.continuous = false;
 
     recordBtn.classList.add("hidden");
     stopBtn.classList.remove("hidden");

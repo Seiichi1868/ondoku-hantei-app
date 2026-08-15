@@ -75,6 +75,45 @@ DEFAULT_GUSTAR_ENABLED = True
 DEFAULT_GUSTAR_PER_SESSION = 1
 DEFAULT_PRIORITIZE_WEAK_VERBS = True
 
+# ── 背景・オープニング（conjugate独自。他アプリの画像・設定は使わない） ─
+BACKGROUND_PRESETS = {
+    "meadow": {"label": "草原", "image": "images/bg/meadow.jpg"},
+    "forest": {"label": "森", "image": "images/bg/forest.jpg"},
+    "mountain": {"label": "山", "image": "images/bg/mountain.jpg"},
+    "ocean": {"label": "海", "image": "images/bg/ocean.jpg"},
+    "lake": {"label": "湖", "image": "images/bg/lake.jpg"},
+}
+DEFAULT_BACKGROUND_ID = "meadow"
+DEFAULT_BACKGROUND_OPACITY = 0.38
+DEFAULT_OPENING_ENABLED = True
+DEFAULT_OPENING_MS = 1950
+
+
+def resolve_background(background_id: str | None = None) -> dict:
+    preset_id = background_id if background_id in BACKGROUND_PRESETS else DEFAULT_BACKGROUND_ID
+    preset = BACKGROUND_PRESETS[preset_id]
+    return {
+        "background_id": preset_id,
+        "background_label": preset["label"],
+        "background_image": preset["image"],
+    }
+
+
+def clamp_opacity(value, default: float = DEFAULT_BACKGROUND_OPACITY) -> float:
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return default
+    return round(max(0.0, min(n, 1.0)), 2)
+
+
+def clamp_opening_ms(value, default: int = DEFAULT_OPENING_MS) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(400, min(8000, n))
+
 
 def get_openai_api_key() -> str:
     return (os.environ.get("OPENAI_API_KEY") or "").strip()

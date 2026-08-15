@@ -1,4 +1,13 @@
 (() => {
+  const openingOverlay = document.getElementById("opening-overlay");
+  if (openingOverlay) {
+    const openingMs = Number(window.CONJUGATE_OPENING_MS || 1950);
+    setTimeout(() => {
+      openingOverlay.classList.add("opacity-0", "pointer-events-none", "transition-opacity", "duration-300");
+      setTimeout(() => openingOverlay.remove(), 320);
+    }, Math.max(400, openingMs));
+  }
+
   const form = document.getElementById("start-form");
   const btn = document.getElementById("start-btn");
   const errorEl = document.getElementById("start-error");

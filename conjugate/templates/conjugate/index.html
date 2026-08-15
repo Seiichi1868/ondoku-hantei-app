@@ -5,6 +5,23 @@
 {% endblock %}
 
 {% block body %}
+{% if appearance.opening_enabled %}
+<div id="opening-overlay"
+  class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-6">
+  <div class="vsc-bg-image absolute inset-0 scale-110"
+    style="background-image: url('{{ appearance.background_image_url }}'); opacity: {{ appearance.background_opacity }};"></div>
+  <div class="absolute inset-0 bg-gradient-to-br from-white/70 via-sky-50/55 to-emerald-50/65"></div>
+  <div class="absolute inset-0 bg-white/20"></div>
+  <div class="vsc-intro-orb absolute -left-16 top-14 h-48 w-48 rounded-full bg-sky-200/45 blur-3xl"></div>
+  <div class="vsc-intro-orb absolute -right-12 bottom-16 h-56 w-56 rounded-full bg-emerald-200/45 blur-3xl" style="animation-delay: .35s"></div>
+  <div class="vsc-intro-card relative text-center">
+    <p class="vsc-intro-glass-label mb-2 text-[11px] font-semibold uppercase tracking-[0.35em]">Welcome to</p>
+    <h1 class="vsc-intro-glass-logo text-4xl font-bold tracking-tight sm:text-5xl">Vibe Speak Conjugate</h1>
+    <p class="vsc-intro-glass-sub mt-3 text-sm font-medium">See. Transform. Speak the tú form.</p>
+  </div>
+</div>
+{% endif %}
+
 <section class="vsc-card mb-6">
   <h2 class="text-xl font-extrabold text-teal-700 mb-1">今日の活用ドリルを始めよう</h2>
   <p class="text-sm text-slate-500 mb-5">yo形の例文を見て、tú形に変換して声に出そう。判定はルールベースで即時に返ります。</p>
@@ -85,5 +102,8 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260814c') }}"></script>
+<script>
+  window.CONJUGATE_OPENING_MS = {{ appearance.opening_ms | tojson }};
+</script>
+<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260815b') }}"></script>
 {% endblock %}

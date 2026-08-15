@@ -8,13 +8,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260815a') }}">
+  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260815b') }}">
   {% block head %}{% endblock %}
 </head>
 <body class="relative min-h-screen text-slate-800 antialiased vsc-body">
   <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
-    <div class="vsc-bg-image absolute inset-0 scale-105 opacity-[0.38]"
-      style="background-image: url('{{ url_for('static', filename='news/images/nature-bg.jpg') }}');"></div>
+    <div id="page-bg-layer" class="vsc-bg-image absolute inset-0 scale-105"
+      style="background-image: url('{{ appearance.background_image_url }}'); opacity: {{ appearance.background_opacity }};"></div>
     <div class="absolute inset-0 bg-gradient-to-br from-sky-100/75 via-white/55 to-emerald-100/70"></div>
     <div class="absolute inset-0 bg-gradient-to-t from-emerald-50/40 via-transparent to-sky-50/30"></div>
   </div>
