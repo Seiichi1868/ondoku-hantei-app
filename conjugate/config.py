@@ -78,12 +78,47 @@ DEFAULT_PRIORITIZE_WEAK_VERBS = True
 
 # ── 背景・オープニング（conjugate独自。他アプリの画像・設定は使わない） ─
 BACKGROUND_PRESETS = {
-    "meadow": {"label": "草原", "image": "images/bg/meadow.jpg"},
-    "forest": {"label": "森", "image": "images/bg/forest.jpg"},
-    "mountain": {"label": "山", "image": "images/bg/mountain.jpg"},
-    "ocean": {"label": "海", "image": "images/bg/ocean.jpg"},
-    "lake": {"label": "湖", "image": "images/bg/lake.jpg"},
+    "meadow": {"label": "草原", "image": "images/bg/meadow.jpg", "style": "photo"},
+    "forest": {"label": "森", "image": "images/bg/forest.jpg", "style": "photo"},
+    "mountain": {"label": "山", "image": "images/bg/mountain.jpg", "style": "photo"},
+    "ocean": {"label": "海", "image": "images/bg/ocean.jpg", "style": "photo"},
+    "lake": {"label": "湖", "image": "images/bg/lake.jpg", "style": "photo"},
+    "anime_mountain": {
+        "label": "朝の山",
+        "image": "images/backgrounds/bg_anime_mountain_01.png",
+        "style": "anime",
+    },
+    "anime_forest": {
+        "label": "霧の森",
+        "image": "images/backgrounds/bg_anime_forest_01.png",
+        "style": "anime",
+    },
+    "anime_clouds": {
+        "label": "雲海",
+        "image": "images/backgrounds/bg_anime_clouds_01.png",
+        "style": "anime",
+    },
+    "anime_hills": {
+        "label": "丘と草原",
+        "image": "images/backgrounds/bg_anime_hills_01.png",
+        "style": "anime",
+    },
+    "anime_lake": {
+        "label": "湖",
+        "image": "images/backgrounds/bg_anime_lake_01.png",
+        "style": "anime",
+    },
+    "anime_coast": {
+        "label": "夕暮れの海",
+        "image": "images/backgrounds/bg_anime_coast_01.png",
+        "style": "anime",
+    },
 }
+BACKGROUND_STYLE_LABELS = {
+    "photo": "実写",
+    "anime": "アニメ風",
+}
+BACKGROUND_STYLE_ORDER = ["photo", "anime"]
 DEFAULT_BACKGROUND_ID = "meadow"
 DEFAULT_BACKGROUND_OPACITY = 0.18
 DEFAULT_OPENING_ENABLED = True
@@ -97,6 +132,7 @@ def resolve_background(background_id: str | None = None) -> dict:
         "background_id": preset_id,
         "background_label": preset["label"],
         "background_image": preset["image"],
+        "background_style": preset.get("style", "photo"),
     }
 
 

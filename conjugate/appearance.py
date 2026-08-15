@@ -5,6 +5,8 @@ from flask import request, url_for
 
 from conjugate.config import (
     BACKGROUND_PRESETS,
+    BACKGROUND_STYLE_LABELS,
+    BACKGROUND_STYLE_ORDER,
     DEFAULT_BACKGROUND_OPACITY,
     DEFAULT_OPENING_ENABLED,
     DEFAULT_OPENING_MS,
@@ -30,6 +32,8 @@ def appearance_context(settings: dict | None = None) -> dict:
             key: {**meta, "url": url_for("conjugate.static", filename=meta["image"])}
             for key, meta in BACKGROUND_PRESETS.items()
         },
+        "background_style_order": BACKGROUND_STYLE_ORDER,
+        "background_style_labels": BACKGROUND_STYLE_LABELS,
         **student_ui_context(),
     }
 

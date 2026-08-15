@@ -157,13 +157,21 @@
   <p class="text-xs mb-2" style="color: var(--text-secondary);">このアプリ専用の画像です。他アプリの設定とは連動しません。</p>
 
   <input type="hidden" name="background_id" id="background-id" value="{{ appearance.background_id }}">
-  <div id="bg-picker" class="flex flex-wrap gap-1.5 mb-2">
+  <div class="vsc-bg-tabs" id="bg-style-tabs">
+    {% for style_id in background_style_order %}
+    <button type="button"
+      class="vsc-bg-tab{% if style_id == appearance.background_style %} is-active{% endif %}"
+      data-bg-style="{{ style_id }}">{{ background_style_labels[style_id] }}</button>
+    {% endfor %}
+  </div>
+  <div id="bg-picker" class="flex flex-wrap gap-1.5 mb-2" data-active-style="{{ appearance.background_style }}">
     {% for bg_id, bg in background_presets.items() %}
     <button type="button"
       class="vsc-bg-pick{% if bg_id == appearance.background_id %} vsc-bg-pick-active{% endif %}"
       data-bg-id="{{ bg_id }}"
       data-bg-image="{{ bg.url }}"
       data-bg-label="{{ bg.label }}"
+      data-bg-style="{{ bg.style }}"
       title="{{ bg.label }}">
       <span class="vsc-bg-thumb" style="background-image: url('{{ bg.url }}');"></span>
       <span class="vsc-bg-pick-label">{{ bg.label }}</span>
@@ -204,5 +212,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260815e') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260815h') }}"></script>
 {% endblock %}

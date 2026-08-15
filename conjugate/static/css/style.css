@@ -1016,6 +1016,31 @@
   78%, 100% { opacity: 1; transform: translateY(0); }
 }
 
+.vsc-bg-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.vsc-bg-tab {
+  border: none;
+  background: #fff;
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+}
+.vsc-bg-tab.is-active {
+  background: var(--nav-ink);
+  color: #fff;
+}
+#bg-picker[data-active-style="photo"] .vsc-bg-pick[data-bg-style="anime"],
+#bg-picker[data-active-style="anime"] .vsc-bg-pick[data-bg-style="photo"] {
+  display: none;
+}
+
 .vsc-bg-pick {
   display: inline-flex;
   flex-direction: column;

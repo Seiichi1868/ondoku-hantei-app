@@ -26,12 +26,27 @@
     }
   }
 
+  const bgPicker = document.getElementById("bg-picker");
+
+  function setBgStyle(style) {
+    if (!bgPicker) return;
+    bgPicker.dataset.activeStyle = style || "photo";
+    document.querySelectorAll("#bg-style-tabs .vsc-bg-tab").forEach((tab) => {
+      tab.classList.toggle("is-active", tab.dataset.bgStyle === bgPicker.dataset.activeStyle);
+    });
+  }
+
+  document.querySelectorAll("#bg-style-tabs .vsc-bg-tab").forEach((tab) => {
+    tab.addEventListener("click", () => setBgStyle(tab.dataset.bgStyle));
+  });
+
   document.querySelectorAll(".vsc-bg-pick").forEach((button) => {
     button.addEventListener("click", () => {
       document.querySelectorAll(".vsc-bg-pick").forEach((el) => el.classList.remove("vsc-bg-pick-active"));
       button.classList.add("vsc-bg-pick-active");
       if (bgIdInput) bgIdInput.value = button.dataset.bgId || "";
       if (bgLabel) bgLabel.textContent = button.dataset.bgLabel || "";
+      setBgStyle(button.dataset.bgStyle);
       applyBackgroundPreview(button.dataset.bgImage, undefined);
     });
   });
