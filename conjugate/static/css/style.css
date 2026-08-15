@@ -926,7 +926,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  width: min(100%, 22rem);
+  width: min(100%, 42rem);
 }
 
 .vsc-splash-logo {
@@ -978,11 +978,12 @@
 .vsc-splash-title {
   font-family: var(--font-family);
   font-weight: var(--heading-weight);
-  font-size: clamp(1.4rem, 6.4vw, 2.5rem);
+  font-size: clamp(1.15rem, 5.2vw, 2.5rem);
   color: var(--text-primary);
   margin: 8px 0;
   line-height: 1.15;
   letter-spacing: -0.03em;
+  white-space: nowrap;
   animation: vscSplashTitle var(--splash-ms) ease both;
 }
 
