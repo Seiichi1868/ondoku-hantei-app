@@ -1,9 +1,13 @@
 (() => {
   const openingOverlay = document.getElementById("opening-overlay");
   if (openingOverlay) {
-    const openingMs = Math.max(400, Number(window.CONJUGATE_OPENING_MS || 2000));
-    openingOverlay.style.setProperty("--splash-ms", `${openingMs}ms`);
-    setTimeout(() => openingOverlay.remove(), openingMs + 40);
+    if (document.documentElement.classList.contains("vsc-skip-opening")) {
+      openingOverlay.remove();
+    } else {
+      const openingMs = Math.max(400, Number(window.CONJUGATE_OPENING_MS || 2000));
+      openingOverlay.style.setProperty("--splash-ms", `${openingMs}ms`);
+      setTimeout(() => openingOverlay.remove(), openingMs + 40);
+    }
   }
 
   const form = document.getElementById("start-form");

@@ -2,6 +2,19 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
+  <script>
+    (function () {
+      try {
+        var key = "vscAppSession";
+        var already = sessionStorage.getItem(key) === "1";
+        if (!already) sessionStorage.setItem(key, "1");
+        if (already) {
+          document.documentElement.classList.add("vsc-skip-opening");
+          document.write("<style>.vsc-splash{display:none!important}</style>");
+        }
+      } catch (_) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Vibe Speak Conjugate{% endblock %}</title>
   <link rel="manifest" href="{{ url_for('conjugate.web_app_manifest') }}">
@@ -17,7 +30,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260815j') }}">
+  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260816a') }}">
   {% block head %}{% endblock %}
 </head>
 <body class="relative min-h-screen antialiased vsc-body {% block body_class %}{% endblock %}">

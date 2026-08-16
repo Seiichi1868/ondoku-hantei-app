@@ -1052,6 +1052,10 @@
 
 /* ── オープニング ───────────────────────────── */
 
+html.vsc-skip-opening .vsc-splash {
+  display: none !important;
+}
+
 .vsc-splash {
   --splash-ms: 2000ms;
   position: fixed;
