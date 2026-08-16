@@ -58,3 +58,7 @@ data/level_check/sessions/*
 # Vibe Speak Conjugate: 一時音声・セッションデータ（data/conjugate/*.json は上の *.json ルールで除外済み）
 data/conjugate/audio_tmp/*
 data/conjugate/sessions/*
+
+# Vibe Speak Trigger: 録音データ・セッションデータ（data/trigger/*.json は上の *.json ルールで除外済み）
+data/trigger/audio/*
+data/trigger/sessions/*

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>{% block title %}Vibe Speak Trigger{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Vibe Speak News の配色・カード/枠線スタイルを踏襲した独自コピー
+       （テンプレート自体は import せず、値のみを本プロジェクトに組み込む） */
+    body { font-family: 'Outfit', system-ui, sans-serif; }
+    .page-bg {
+      background:
+        radial-gradient(circle at 12% 8%, rgba(125, 211, 252, 0.35), transparent 42%),
+        radial-gradient(circle at 88% 12%, rgba(110, 231, 183, 0.30), transparent 45%),
+        radial-gradient(circle at 50% 100%, rgba(94, 234, 212, 0.25), transparent 55%),
+        linear-gradient(160deg, #f0fdfa 0%, #ecfeff 45%, #f0fdf4 100%);
+    }
+    .glass {
+      background: rgba(255, 255, 255, 0.68);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(153, 246, 228, 0.65);
+      box-shadow: 0 8px 32px rgba(14, 116, 144, 0.08), 0 1px 0 rgba(255, 255, 255, 0.75) inset;
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(167, 243, 208, 0.55);
+      box-shadow: 0 10px 40px rgba(15, 118, 110, 0.09), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+    }
+    .glass-inset {
+      background: rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(153, 246, 228, 0.45);
+    }
+    .compact-input {
+      border-radius: 0.5rem;
+      border: 1px solid rgb(204 251 241);
+      background: rgba(255, 255, 255, 0.85);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.9rem;
+      color: rgb(30 41 59);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      width: 100%;
+    }
+    .compact-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgb(56 189 248);
+      border-color: rgb(125 211 252);
+    }
+    .compact-btn {
+      border-radius: 0.6rem;
+      padding: 0.55rem 1.1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: white;
+      background: linear-gradient(90deg, #0284c7, #0d9488, #059669);
+      box-shadow: 0 4px 14px rgba(13, 148, 136, 0.25);
+      transition: filter 0.15s, transform 0.1s;
+    }
+    .compact-btn:hover { filter: brightness(1.06); }
+    .compact-btn:active { transform: scale(0.98); }
+    .compact-btn:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+    .compact-btn-outline {
+      border-radius: 0.6rem;
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #0f766e;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(94, 234, 212, 0.7);
+    }
+    .brand-title {
+      background: linear-gradient(90deg, #0369a1, #0f766e, #047857);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .step-dot {
+      width: 0.55rem; height: 0.55rem; border-radius: 999px;
+      background: rgba(148, 163, 184, 0.4);
+    }
+    .step-dot.active { background: #0d9488; }
+    .step-dot.done { background: #34d399; }
+    .rec-dot {
+      width: 0.6rem; height: 0.6rem; border-radius: 999px; background: #ef4444;
+      animation: recPulse 1.1s ease-in-out infinite;
+    }
+    @keyframes recPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: rgba(20,184,166,0.35); border-radius: 999px; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="relative min-h-screen text-slate-800 antialiased">
+  <div class="page-bg fixed inset-0 -z-10"></div>
+  {% block body %}{% endblock %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>
