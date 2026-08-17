@@ -129,6 +129,7 @@
 .vsc-main {
   padding-top: 8px;
   padding-bottom: var(--nav-clearance);
+  animation: vscPageIn 0.26s ease both;
 }
 
 .vsc-admin-page .vsc-main {
@@ -202,10 +203,11 @@
   border: none;
   cursor: pointer;
   text-decoration: none;
-  transition: filter 0.12s ease, transform 0.12s ease;
+  transition: filter 0.12s ease, transform 0.1s ease;
   box-shadow: 0 6px 16px rgba(124, 179, 66, 0.28);
 }
-.vsc-btn-primary:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.vsc-btn-primary:hover { filter: brightness(1.05); }
+.vsc-btn-primary:active:not(:disabled) { transform: scale(0.96); }
 .vsc-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
 .vsc-btn-secondary {
@@ -221,7 +223,9 @@
   border: 1px solid #E4EAD8;
   cursor: pointer;
   text-decoration: none;
+  transition: transform 0.1s ease;
 }
+.vsc-btn-secondary:active { transform: scale(0.96); }
 
 .vsc-link-quiet {
   font-size: 0.75rem;
@@ -261,11 +265,13 @@
   width: 100%;
   color: inherit;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition: transform 0.1s ease, box-shadow 0.12s ease;
 }
 .vsc-stat-card:hover {
-  transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+.vsc-stat-card:active {
+  transform: scale(0.96);
 }
 
 .vsc-stat-icon {
@@ -331,7 +337,9 @@
   border-radius: var(--radius-pill);
   border: none;
   cursor: pointer;
+  transition: transform 0.1s ease;
 }
+.vsc-promo-btn:active { transform: scale(0.96); }
 
 .vsc-category-grid {
   display: grid;
@@ -350,7 +358,8 @@
   width: 100%;
   color: inherit;
 }
-.vsc-category-card:hover { transform: translateY(-1px); }
+.vsc-category-card:hover { filter: brightness(1.01); }
+.vsc-category-card:active { transform: scale(0.96); }
 .vsc-category-icon {
   width: 40px;
   height: 40px;
@@ -500,6 +509,7 @@
 }
 
 .vsc-btn-record {
+  position: relative;
   background: var(--accent-green);
   color: #fff;
   font-weight: 700;
@@ -509,9 +519,11 @@
   border: none;
   cursor: pointer;
   box-shadow: 0 8px 20px rgba(124, 179, 66, 0.3);
-  transition: transform 0.12s ease;
+  transition: transform 0.1s ease, background 0.25s ease, box-shadow 0.25s ease, color 0.25s ease;
+  overflow: hidden;
 }
-.vsc-btn-record:hover { transform: scale(1.03); }
+.vsc-btn-record:hover { filter: brightness(1.03); }
+.vsc-btn-record:active { transform: scale(0.96); }
 
 .vsc-recording-area {
   margin-top: 12px;
@@ -759,8 +771,10 @@
   cursor: pointer;
   text-align: left;
   color: inherit;
+  transition: transform 0.1s ease, background 0.12s ease;
 }
 .vsc-vocab-master:hover { background: var(--accent-green-light); }
+.vsc-vocab-master:active { transform: scale(0.96); }
 .vsc-vocab-master-label {
   font-size: 0.68rem;
   font-weight: 700;
@@ -796,8 +810,10 @@
   cursor: pointer;
   text-align: left;
   width: 100%;
+  transition: transform 0.1s ease, background 0.12s ease;
 }
 .vsc-vocab-btn:hover { background: var(--accent-green-light); }
+.vsc-vocab-btn:active { transform: scale(0.96); }
 .vsc-vocab-btn-label {
   font-weight: 700;
   font-size: 0.88rem;
@@ -825,10 +841,12 @@
   font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
+  transition: transform 0.1s ease, background 0.12s ease;
 }
 .vsc-choice-btn:hover:not(:disabled) {
   background: var(--accent-green-light);
 }
+.vsc-choice-btn:active:not(:disabled) { transform: scale(0.96); }
 .vsc-choice-btn.is-correct {
   background: var(--ok-soft);
   border-color: var(--accent-green);
@@ -1006,7 +1024,9 @@
   border-radius: var(--radius-pill);
   color: var(--text-secondary);
   text-decoration: none;
+  transition: transform 0.1s ease;
 }
+.vsc-nav-item:active { transform: scale(0.96); }
 .vsc-nav-item svg {
   width: 22px;
   height: 22px;
@@ -1139,7 +1159,9 @@
   gap: 12px;
   text-decoration: none;
   color: inherit;
+  transition: transform 0.1s ease;
 }
+.vsc-menu-item:active { transform: scale(0.96); }
 .vsc-menu-item-title {
   font-weight: 700;
   font-size: 0.92rem;
@@ -1168,7 +1190,9 @@
   box-shadow: var(--shadow-soft);
   cursor: pointer;
   white-space: nowrap;
+  transition: transform 0.1s ease;
 }
+.vsc-filter-chip:active { transform: scale(0.96); }
 .vsc-filter-chip.is-active {
   background: var(--nav-ink);
   color: #fff;
@@ -1699,4 +1723,168 @@ html.vsc-skip-opening .vsc-splash {
 .vsc-master-split .vsc-master-meaning,
 .vsc-master-split .vsc-master-count {
   font-size: 0.68rem;
+}
+
+/* ── マイクロインタラクション ─────────────────── */
+
+.vsc-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  overflow: hidden;
+}
+.vsc-confetti-piece {
+  position: absolute;
+  top: -14px;
+  border-radius: 1px;
+  pointer-events: none;
+  animation-name: vscConfettiFall;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+@keyframes vscConfettiFall {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.95; }
+  80% { opacity: 0.85; }
+  100% { transform: translate3d(var(--vsc-drift), 108vh, 0) rotate(var(--vsc-rot)); opacity: 0; }
+}
+
+.vsc-record-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.vsc-record-ripple {
+  position: absolute;
+  inset: -8px;
+  border-radius: 999px;
+  border: 2px solid rgba(201, 120, 88, 0.4);
+  pointer-events: none;
+  opacity: 0;
+}
+.vsc-record-control.is-recording .vsc-record-ripple {
+  animation: vscRecordRipple 1.6s ease-out infinite;
+}
+.vsc-record-control.is-recording .vsc-record-ripple--2 {
+  animation-delay: 0.55s;
+}
+@keyframes vscRecordRipple {
+  0% { transform: scale(0.94); opacity: 0.5; }
+  100% { transform: scale(1.38); opacity: 0; }
+}
+.vsc-record-control.is-recording .vsc-btn-record {
+  background: #C97858;
+  box-shadow: 0 0 0 0 rgba(201, 120, 88, 0.35);
+  animation: vscRecordPulse 1.4s ease-out infinite;
+}
+@keyframes vscRecordPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 120, 88, 0.35); }
+  50% { box-shadow: 0 0 0 10px rgba(201, 120, 88, 0); }
+}
+.vsc-record-label,
+.vsc-record-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.vsc-record-check {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  opacity: 0;
+  transform: scale(0.86);
+  pointer-events: none;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+.vsc-record-control.is-complete .vsc-record-label {
+  opacity: 0;
+}
+.vsc-record-control.is-complete .vsc-record-check {
+  opacity: 1;
+  transform: scale(1);
+  color: #fff;
+}
+.vsc-record-control.is-complete .vsc-btn-record {
+  background: var(--accent-green);
+  animation: none;
+}
+
+.vsc-stat-icon-ring {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  background: #F4F7EE;
+}
+.vsc-progress-ring {
+  position: absolute;
+  inset: 0;
+  width: 40px;
+  height: 40px;
+  transform: rotate(-90deg);
+}
+.vsc-stat-icon-ring .vsc-progress-ring {
+  width: 40px;
+  height: 40px;
+}
+.vsc-progress-ring-bg,
+.vsc-progress-ring-fg {
+  fill: none;
+  stroke-width: 2.6;
+}
+.vsc-progress-ring-bg { stroke: #E4EAD8; }
+.vsc-progress-ring-fg {
+  stroke: var(--accent-green);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.vsc-stat-icon-ring > svg:not(.vsc-progress-ring) {
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes vscPageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes vscPageOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-6px); }
+}
+body.vsc-page-leave .vsc-main {
+  animation: vscPageOut 0.2s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vsc-confetti,
+  .vsc-record-ripple,
+  .vsc-main,
+  body.vsc-page-leave .vsc-main {
+    animation: none !important;
+  }
+  .vsc-record-control.is-recording .vsc-btn-record,
+  .vsc-progress-ring-fg {
+    animation: none !important;
+    transition: none !important;
+  }
+  .vsc-btn-primary:active,
+  .vsc-btn-secondary:active,
+  .vsc-btn-record:active,
+  .vsc-promo-btn:active,
+  .vsc-category-card:active,
+  .vsc-stat-card:active,
+  .vsc-vocab-btn:active,
+  .vsc-vocab-master:active,
+  .vsc-choice-btn:active,
+  .vsc-nav-item:active,
+  .vsc-filter-chip:active,
+  .vsc-menu-item:active {
+    transform: none !important;
+  }
 }

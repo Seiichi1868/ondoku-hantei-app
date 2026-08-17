@@ -33,17 +33,23 @@
     <div class="vsc-stats-row">
       <button type="button" class="vsc-stat-card" data-open-stat="streak" aria-haspopup="dialog">
         <span class="vsc-stat-icon vsc-stat-icon-green">{{ svg_flame() }}</span>
-        <div class="vsc-stat-value">🔥 {{ progress.current_streak }} Days</div>
+        <div class="vsc-stat-value">🔥 <span data-count-up data-count-to="{{ progress.current_streak }}">0</span> Days</div>
         <div class="vsc-stat-label">ストリーク</div>
       </button>
       <button type="button" class="vsc-stat-card" data-open-stat="total" aria-haspopup="dialog">
         <span class="vsc-stat-icon vsc-stat-icon-lime">{{ svg_hash() }}</span>
-        <div class="vsc-stat-value" data-total-attempts>{{ progress.total_attempts }}</div>
+        <div class="vsc-stat-value" data-total-attempts><span data-count-up data-count-to="{{ progress.total_attempts }}">0</span></div>
         <div class="vsc-stat-label">累計問題数</div>
       </button>
       <button type="button" class="vsc-stat-card" data-open-stat="mastered" aria-haspopup="dialog">
-        <span class="vsc-stat-icon vsc-stat-icon-mint">{{ svg_check() }}</span>
-        <div class="vsc-stat-value">{{ progress.mastered_count }}/{{ progress.total_verbs }}</div>
+        <span class="vsc-stat-icon vsc-stat-icon-mint vsc-stat-icon-ring">
+          <svg class="vsc-progress-ring" viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="vsc-progress-ring-bg" cx="18" cy="18" r="15.915" pathLength="100" stroke-dasharray="100"></circle>
+            <circle class="vsc-progress-ring-fg" cx="18" cy="18" r="15.915" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" data-progress-ring="{{ progress.mastered_percent }}"></circle>
+          </svg>
+          {{ svg_check() }}
+        </span>
+        <div class="vsc-stat-value"><span data-count-up data-count-to="{{ progress.mastered_count }}">0</span>/{{ progress.total_verbs }}</div>
         <div class="vsc-stat-label">習得済み</div>
       </button>
     </div>
@@ -193,5 +199,5 @@
   window.CONJUGATE_OPENING_MS = {{ appearance.opening_ms | tojson }};
   window.CONJUGATE_PROGRESS = {{ progress | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260817c') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260817d') }}"></script>
 {% endblock %}

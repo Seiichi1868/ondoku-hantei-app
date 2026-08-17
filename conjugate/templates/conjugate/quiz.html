@@ -37,7 +37,14 @@
         <div id="volume-meter" class="vsc-volume-track hidden">
           <div id="volume-bar" class="vsc-volume-bar"></div>
         </div>
-        <button id="record-btn" type="button" class="vsc-btn-record">発話して録音</button>
+        <div id="record-control" class="vsc-record-control">
+          <span class="vsc-record-ripple" aria-hidden="true"></span>
+          <span class="vsc-record-ripple vsc-record-ripple--2" aria-hidden="true"></span>
+          <button id="record-btn" type="button" class="vsc-btn-record">
+            <span class="vsc-record-label">発話して録音</span>
+            <span class="vsc-record-check" aria-hidden="true">✓</span>
+          </button>
+        </div>
         <button id="stop-btn" type="button" class="vsc-btn-stop hidden">録音を終了</button>
         <p id="recording-status" class="vsc-recording-status"></p>
       </div>
@@ -68,5 +75,5 @@
   window.CONJUGATE_TENSE_LABELS = {{ tense_labels | tojson }};
   window.CONJUGATE_CATEGORY_LABELS = {{ category_labels | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/quiz.js', v='20260815g') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/quiz.js', v='20260817d') }}"></script>
 {% endblock %}

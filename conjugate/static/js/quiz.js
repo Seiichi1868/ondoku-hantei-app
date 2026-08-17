@@ -18,6 +18,8 @@
   const sentenceList = document.getElementById("sentence-list");
   const targetStepper = document.getElementById("target-stepper");
   const recordBtn = document.getElementById("record-btn");
+  const recordControl = document.getElementById("record-control");
+  const recordLabel = recordBtn ? recordBtn.querySelector(".vsc-record-label") : null;
   const stopBtn = document.getElementById("stop-btn");
   const recordingStatus = document.getElementById("recording-status");
   const feedbackBox = document.getElementById("feedback-box");
@@ -35,6 +37,32 @@
   let mediaRecorder = null;
   let mediaStream = null;
   let speechRecognizer = null;
+  let abandonRecording = false;
+
+  function go(url) {
+    if (window.vscNavigate) window.vscNavigate(url);
+    else window.location.href = url;
+  }
+
+  function setRecordState(state) {
+    if (!recordControl) return;
+    recordControl.classList.toggle("is-recording", state === "recording");
+    recordControl.classList.toggle("is-complete", state === "complete");
+    if (recordBtn) recordBtn.classList.toggle("is-recording", state === "recording");
+    if (recordLabel) {
+      recordLabel.textContent = state === "recording" ? "録音中 · タップで終了" : "発話して録音";
+    }
+  }
+
+  function wait(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  async function finishRecordingThenSubmit(payload) {
+    setRecordState("complete");
+    await wait(280);
+    await submitAnswer(payload);
+  }
 
   function useWebSpeech() {
     return ASR_ENGINE === "web_speech" && (window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -93,6 +121,7 @@
     nextBtn.classList.add("hidden");
     recordBtn.classList.remove("hidden");
     stopBtn.classList.add("hidden");
+    setRecordState("idle");
     recordingStatus.textContent = "";
     typeAnswerBlock.classList.remove("hidden");
     typeInput.value = "";
@@ -172,6 +201,7 @@
       <div class="text-xs mt-2" style="color: var(--text-secondary);">${result.transcript_source === "typed" ? "入力" : "認識結果"}: 「${result.transcript || "（空）"}」</div>
     `;
     feedbackBox.classList.remove("hidden");
+    if (window.vscCelebrateFromResult) window.vscCelebrateFromResult(result);
   }
 
   function lockAnswerControls() {
@@ -239,7 +269,7 @@
     } catch (_) {
       // ネットワーク不調でもサマリ画面側で再計算されるため続行する
     }
-    window.location.href = `/conjugate/session/${SESSION_ID}/summary`;
+    go(`/conjugate/session/${SESSION_ID}/summary`);
   }
 
   function setupVolumeMeter(stream) {
@@ -308,23 +338,33 @@
       stream.getTracks().forEach((t) => t.stop());
       if (volMeter) volMeter.stop();
       volumeMeter.classList.add("hidden");
+      if (abandonRecording) {
+        abandonRecording = false;
+        setRecordState("idle");
+        typeInput.disabled = false;
+        typeSubmitBtn.disabled = false;
+        recordingStatus.textContent = "";
+        return;
+      }
       const blob = new Blob(chunks, { type: mimeType || "audio/webm" });
       try {
-        await submitAnswer({ audioBlob: blob, mimeType: mimeType || "audio/webm" });
+        await finishRecordingThenSubmit({ audioBlob: blob, mimeType: mimeType || "audio/webm" });
       } catch (err) {
         recordingStatus.textContent = "";
         setMicError(err.message);
+        setRecordState("idle");
         recordBtn.classList.remove("hidden");
         typeInput.disabled = false;
         typeSubmitBtn.disabled = false;
       }
     });
 
-    recordBtn.classList.add("hidden");
-    stopBtn.classList.remove("hidden");
+    setRecordState("recording");
+    recordBtn.classList.remove("hidden");
+    stopBtn.classList.add("hidden");
     typeInput.disabled = true;
     typeSubmitBtn.disabled = true;
-    recordingStatus.textContent = "録音中... 発話が終わったら「録音を終了」を押してください。";
+    recordingStatus.textContent = "録音中... もう一度タップすると終了します。";
     mediaRecorder.start();
   }
 
@@ -343,8 +383,9 @@
     speechRecognizer.maxAlternatives = 1;
     speechRecognizer.continuous = false;
 
-    recordBtn.classList.add("hidden");
-    stopBtn.classList.remove("hidden");
+    setRecordState("recording");
+    recordBtn.classList.remove("hidden");
+    stopBtn.classList.add("hidden");
     typeInput.disabled = true;
     typeSubmitBtn.disabled = true;
     recordingStatus.textContent = "録音中（低遅延モード）... 発話が終わると自動で判定します。";
@@ -355,10 +396,11 @@
       const transcript = event.results[0][0].transcript;
       stopBtn.classList.add("hidden");
       try {
-        await submitAnswer({ transcript });
+        await finishRecordingThenSubmit({ transcript });
       } catch (err) {
         recordingStatus.textContent = "";
         setMicError(err.message);
+        setRecordState("idle");
         recordBtn.classList.remove("hidden");
         typeInput.disabled = false;
         typeSubmitBtn.disabled = false;
@@ -367,6 +409,7 @@
     speechRecognizer.addEventListener("error", () => {
       recordingStatus.textContent = "";
       stopBtn.classList.add("hidden");
+      setRecordState("idle");
       recordBtn.classList.remove("hidden");
       typeInput.disabled = false;
       typeSubmitBtn.disabled = false;
@@ -375,6 +418,7 @@
     speechRecognizer.addEventListener("end", () => {
       stopBtn.classList.add("hidden");
       if (!speechGotResult) {
+        setRecordState("idle");
         recordBtn.classList.remove("hidden");
         typeInput.disabled = false;
         typeSubmitBtn.disabled = false;
@@ -388,6 +432,7 @@
       speechRecognizer.start();
     } catch (_) {
       setMicError("音声認識を開始できませんでした。");
+      setRecordState("idle");
       recordBtn.classList.remove("hidden");
       stopBtn.classList.add("hidden");
       typeInput.disabled = false;
@@ -396,8 +441,14 @@
   }
 
   function handleRecordClick() {
+    if (recordControl && recordControl.classList.contains("is-recording")) {
+      handleStopClick();
+      return;
+    }
+    if (recordControl && recordControl.classList.contains("is-complete")) return;
     setMicError("");
     feedbackBox.classList.add("hidden");
+    abandonRecording = false;
     if (useWebSpeech()) {
       startRecordingWithWebSpeech();
     } else {
@@ -447,7 +498,7 @@
       await loadSession();
       if (!session.questions.length) throw new Error("出題できる問題がありません。");
       if (session.status === "done") {
-        window.location.href = `/conjugate/session/${SESSION_ID}/summary`;
+        go(`/conjugate/session/${SESSION_ID}/summary`);
         return;
       }
       renderQuestion();
@@ -462,4 +513,33 @@
       event.returnValue = "";
     }
   });
+
+  function abandonActiveRecording() {
+    if (!recordControl || !recordControl.classList.contains("is-recording")) {
+      setRecordState("idle");
+      return;
+    }
+    abandonRecording = true;
+    if (useWebSpeech() && speechRecognizer) {
+      try {
+        if (speechRecognizer.abort) speechRecognizer.abort();
+        else speechRecognizer.stop();
+      } catch (_) { /* ignore */ }
+      setRecordState("idle");
+      typeInput.disabled = false;
+      typeSubmitBtn.disabled = false;
+      recordingStatus.textContent = "";
+      return;
+    }
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      try { mediaRecorder.stop(); } catch (_) { /* ignore */ }
+      return;
+    }
+    setRecordState("idle");
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) abandonActiveRecording();
+  });
+  window.addEventListener("pagehide", abandonActiveRecording);
 })();

@@ -92,6 +92,7 @@
     feedbackBox.classList.remove("hidden");
     nextBtn.classList.remove("hidden");
     nextBtn.textContent = isLastQuestion() ? "結果を見る →" : "次の問題へ →";
+    if (window.vscCelebrateFromResult) window.vscCelebrateFromResult(result);
   }
 
   async function handleChoice(choiceId) {
@@ -128,7 +129,8 @@
     } catch (_) {
       // サマリ画面側で再計算される
     }
-    window.location.href = `/conjugate/vocab/${SESSION_ID}/summary`;
+    if (window.vscNavigate) window.vscNavigate(`/conjugate/vocab/${SESSION_ID}/summary`);
+    else window.location.href = `/conjugate/vocab/${SESSION_ID}/summary`;
   }
 
   nextBtn.addEventListener("click", handleNext);
@@ -138,7 +140,8 @@
       await loadSession();
       if (!session.questions.length) throw new Error("出題できる問題がありません。");
       if (session.status === "done") {
-        window.location.href = `/conjugate/vocab/${SESSION_ID}/summary`;
+        if (window.vscNavigate) window.vscNavigate(`/conjugate/vocab/${SESSION_ID}/summary`);
+    else window.location.href = `/conjugate/vocab/${SESSION_ID}/summary`;
         return;
       }
       const firstUnanswered = session.questions.findIndex((q) => !q.answer);

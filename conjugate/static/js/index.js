@@ -62,7 +62,8 @@
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "セッションの作成に失敗しました。");
-      window.location.href = `/conjugate/session/${data.session_id}`;
+      if (window.vscNavigate) window.vscNavigate(`/conjugate/session/${data.session_id}`);
+      else window.location.href = `/conjugate/session/${data.session_id}`;
     } catch (err) {
       showError(err.message);
       btn.disabled = false;
@@ -129,7 +130,8 @@
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "語彙クイズの開始に失敗しました。");
-      window.location.href = `/conjugate/vocab/${data.session_id}`;
+      if (window.vscNavigate) window.vscNavigate(`/conjugate/vocab/${data.session_id}`);
+      else window.location.href = `/conjugate/vocab/${data.session_id}`;
     } catch (err) {
       showError(err.message);
       button.disabled = false;
@@ -378,8 +380,9 @@
         if (!res.ok || !data.ok) throw new Error(data.error || "保存に失敗しました。");
         Object.assign(progressState, data.progress || {});
         progressState.daily_goal = goal;
-        const totalEl = document.querySelector("[data-total-attempts]");
-        if (totalEl) totalEl.textContent = String(progressState.total_attempts || 0);
+        const totalEl = document.querySelector("[data-total-attempts] [data-count-up]") || document.querySelector("[data-total-attempts]");
+        if (totalEl && window.vscCountUp) window.vscCountUp(totalEl, progressState.total_attempts || 0);
+        else if (totalEl) totalEl.textContent = String(progressState.total_attempts || 0);
         renderTotalBody();
       } catch (err) {
         if (msg) {
