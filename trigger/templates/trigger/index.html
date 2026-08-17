@@ -4,12 +4,12 @@
 {% block body %}
 <div class="relative mx-auto flex min-h-screen max-w-3xl flex-col px-3 py-4 sm:px-6 sm:py-6">
 
-  <header class="mb-4 flex items-center justify-between glass rounded-2xl px-4 py-3">
-    <div class="flex items-baseline gap-2">
+  <header class="mb-4 flex items-start justify-between gap-3 glass rounded-2xl px-4 py-3">
+    <div class="min-w-0">
       <h1 class="text-lg font-bold tracking-tight brand-title sm:text-xl">Vibe Speak Trigger</h1>
-      <span class="hidden text-xs text-slate-500 sm:inline">英語の瞬発力トレーニング</span>
+      <p class="mt-0.5 text-[11px] leading-snug text-slate-500 sm:text-xs">自分のスピーチから広がる表現力と瞬発力を身につけましょう。</p>
     </div>
-    <div id="step-dots" class="flex items-center gap-1.5">
+    <div id="step-dots" class="mt-1 flex shrink-0 items-center gap-1.5">
       <span class="step-dot" data-step="login"></span>
       <span class="step-dot" data-step="script"></span>
       <span class="step-dot" data-step="sample"></span>
@@ -24,19 +24,21 @@
 
     <!-- ステップ0: ログイン + テーマ選択 -->
     <section id="screen-login" class="screen glass-panel rounded-2xl p-5 sm:p-6">
-      <h2 class="mb-1 text-base font-bold text-teal-800">生徒情報の入力</h2>
-      <p class="mb-4 text-xs text-slate-500">クラス・出席番号・名前を入力してください。</p>
-      <div class="mb-4 grid grid-cols-3 gap-2">
-        <input id="input-class" type="text" placeholder="クラス" class="compact-input col-span-1" list="class-list" />
-        <datalist id="class-list"></datalist>
-        <input id="input-number" type="text" placeholder="番号" class="compact-input col-span-1" />
-        <input id="input-name" type="text" placeholder="名前" class="compact-input col-span-1" />
-      </div>
-      <div id="roster-select-wrap" class="mb-4 hidden">
-        <label class="mb-1 block text-xs font-semibold text-teal-700/80">名簿から選択（任意）</label>
-        <select id="roster-select" class="compact-input">
-          <option value="">-- 名簿から選ぶ --</option>
-        </select>
+      <div id="student-info-section">
+        <h2 class="mb-1 text-base font-bold text-teal-800">生徒情報の入力</h2>
+        <p class="mb-4 text-xs text-slate-500">クラス・出席番号・名前を入力してください。</p>
+        <div class="mb-4 grid grid-cols-3 gap-2">
+          <input id="input-class" type="text" placeholder="クラス" class="compact-input col-span-1" list="class-list" />
+          <datalist id="class-list"></datalist>
+          <input id="input-number" type="text" placeholder="番号" class="compact-input col-span-1" />
+          <input id="input-name" type="text" placeholder="名前" class="compact-input col-span-1" />
+        </div>
+        <div id="roster-select-wrap" class="mb-4 hidden">
+          <label class="mb-1 block text-xs font-semibold text-teal-700/80">名簿から選択（任意）</label>
+          <select id="roster-select" class="compact-input">
+            <option value="">-- 名簿から選ぶ --</option>
+          </select>
+        </div>
       </div>
 
       <h3 class="mb-2 text-sm font-bold text-teal-800">テーマを選ぶ</h3>

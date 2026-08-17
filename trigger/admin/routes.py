@@ -102,6 +102,8 @@ def save_settings_api():
         updates["speech_topic_count"] = payload.get("speech_topic_count")
     if "speech_topic_tts_enabled" in payload:
         updates["speech_topic_tts_enabled"] = payload.get("speech_topic_tts_enabled")
+    if "student_info_required" in payload:
+        updates["student_info_required"] = payload.get("student_info_required")
     if "versant_weights" in payload:
         updates["versant_weights"] = payload.get("versant_weights")
 

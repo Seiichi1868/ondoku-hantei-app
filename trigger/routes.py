@@ -124,6 +124,12 @@ def list_themes_api():
     return jsonify({"ok": True, "themes": active_themes()})
 
 
+@main_bp.route("/api/config", methods=["GET"])
+def public_config_api():
+    settings = load_settings()
+    return jsonify({"ok": True, "student_info_required": bool(settings.get("student_info_required", True))})
+
+
 @main_bp.route("/api/roster", methods=["GET"])
 def roster_api():
     students = load_students()
@@ -142,6 +148,13 @@ def create_session_api():
     theme = get_theme(theme_id)
     if not theme:
         return jsonify({"ok": False, "error": "テーマが見つかりません。"}), 400
+
+    settings = load_settings()
+    if settings.get("student_info_required", True):
+        name = str(student_info.get("name") or "").strip()
+        number = str(student_info.get("number") or "").strip()
+        if not (name or number):
+            return jsonify({"ok": False, "error": "生徒情報を入力してください。"}), 400
 
     session = new_session(student_info=student_info, theme_id=theme_id, theme_title=theme["title"])
     save_session(session)

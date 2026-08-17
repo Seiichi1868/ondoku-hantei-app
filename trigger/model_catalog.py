@@ -1,6 +1,8 @@
-"""trigger/model_pricing.py から選択肢を構築し、コスパ／性能バー（1-5）を付与する。
+"""trigger/model_pricing.py から選択肢を構築し、コスト／性能バー（各1-5）を付与する。
 
 flask_app/ai_models.py と同じ考え方の独自コピー（相互 import なし）。
+コストと性能は別々の指標として算出する（まとめた「コスパ」1本ではなく、
+コスト比較・性能比較をそれぞれ独立して行えるようにする）。
 """
 from __future__ import annotations
 
@@ -15,24 +17,20 @@ def _combined_price_per_1m(entry: dict) -> float:
     return (float(entry["input_price_per_1m"]) + float(entry["output_price_per_1m"])) / 2.0
 
 
-def _cost_ratio(entry: dict) -> float:
-    score = max(int(entry.get("performance_score", 1)), 1)
-    return _combined_price_per_1m(entry) / score
-
-
-def _normalize_cost_performance(ratio: float, min_ratio: float, max_ratio: float) -> int:
-    span = max_ratio - min_ratio
+def _normalize_cost_score(price: float, min_price: float, max_price: float) -> int:
+    """価格が安いほど高スコア（5）になるよう 1-5 に正規化する。"""
+    span = max_price - min_price
     if span <= 0:
         return 3
-    normalized = 1.0 - (ratio - min_ratio) / span
+    normalized = 1.0 - (price - min_price) / span
     return max(1, min(5, round(normalized * 4 + 1)))
 
 
 def get_ai_model_options() -> dict[str, dict]:
     raw = AI_MODEL_PRICING
-    ratios = {mode_id: _cost_ratio(entry) for mode_id, entry in raw.items()}
-    min_ratio = min(ratios.values())
-    max_ratio = max(ratios.values())
+    prices = {mode_id: _combined_price_per_1m(entry) for mode_id, entry in raw.items()}
+    min_price = min(prices.values())
+    max_price = max(prices.values())
 
     options: dict[str, dict] = {}
     for mode_id, entry in raw.items():
@@ -42,7 +40,7 @@ def get_ai_model_options() -> dict[str, dict]:
             "model": str(entry["model"]),
             "input_price_per_1m": float(entry["input_price_per_1m"]),
             "output_price_per_1m": float(entry["output_price_per_1m"]),
-            "cost_performance": _normalize_cost_performance(ratios[mode_id], min_ratio, max_ratio),
+            "cost_score": _normalize_cost_score(prices[mode_id], min_price, max_price),
             "performance": int(entry["performance_score"]),
         }
     return options

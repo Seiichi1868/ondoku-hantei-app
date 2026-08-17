@@ -45,6 +45,24 @@
 
   // ── 設定タブ ────────────────────────────────────────────
 
+  function barString(score) {
+    return "●".repeat(score) + "○".repeat(5 - score);
+  }
+
+  function modelById(modelId) {
+    return state.settings.ai_model_modes.find((m) => m.id === modelId);
+  }
+
+  function updateModelStatsRow(select) {
+    const statsRow = select.parentElement.querySelector(".model-stats-row");
+    const m = modelById(select.value);
+    if (!statsRow || !m) return;
+    statsRow.innerHTML = `
+      <span class="inline-flex items-center gap-1"><span class="text-slate-400">コスト</span> <span class="tracking-tight text-sky-600">${barString(m.cost_score)}</span></span>
+      <span class="inline-flex items-center gap-1"><span class="text-slate-400">性能</span> <span class="tracking-tight text-emerald-600">${barString(m.performance)}</span></span>
+    `;
+  }
+
   function renderModelSelectList() {
     const container = $("model-select-list");
     container.innerHTML = "";
@@ -60,15 +78,21 @@
       state.settings.ai_model_modes.forEach((m) => {
         const opt = document.createElement("option");
         opt.value = m.id;
-        const bar = "●".repeat(m.cost_performance) + "○".repeat(5 - m.cost_performance);
-        opt.textContent = `${m.label}（コスパ${bar}）`;
+        opt.textContent = `${m.label}　コスト${barString(m.cost_score)}　性能${barString(m.performance)}`;
         if (state.settings.task_model_modes[key] === m.id) opt.selected = true;
         select.appendChild(opt);
       });
-      select.addEventListener("change", refreshCostEstimatePreview);
+      const statsRow = document.createElement("div");
+      statsRow.className = "model-stats-row mt-1.5 flex gap-3 text-[11px]";
+      select.addEventListener("change", () => {
+        updateModelStatsRow(select);
+        refreshCostEstimatePreview();
+      });
       wrap.appendChild(label);
       wrap.appendChild(select);
+      wrap.appendChild(statsRow);
       container.appendChild(wrap);
+      updateModelStatsRow(select);
     });
   }
 
@@ -119,6 +143,7 @@
       qa_question_count: parseInt($("qa-count-input").value, 10) || 1,
       speech_topic_count: parseInt($("topic-count-input").value, 10) || 1,
       speech_topic_tts_enabled: $("speech-tts-checkbox").checked,
+      student_info_required: $("student-info-required-checkbox").checked,
     };
   }
 
@@ -134,9 +159,10 @@
     $("topic-count-input").max = data.speech_topic_count_range[1];
     $("topic-count-input").value = data.speech_topic_count;
     $("speech-tts-checkbox").checked = !!data.speech_topic_tts_enabled;
+    $("student-info-required-checkbox").checked = data.student_info_required !== false;
     renderCostEstimate(data.cost_estimate);
 
-    ["qa-count-input", "topic-count-input", "speech-tts-checkbox"].forEach((id) => {
+    ["qa-count-input", "topic-count-input", "speech-tts-checkbox", "student-info-required-checkbox"].forEach((id) => {
       $(id).addEventListener("change", refreshCostEstimatePreview);
     });
   }
@@ -173,15 +199,15 @@
     container.innerHTML = "";
     state.themes.forEach((theme) => {
       const row = document.createElement("div");
-      row.className = "glass-inset flex items-start justify-between gap-3 rounded-xl p-3";
+      row.className = "glass-inset flex items-center justify-between gap-2 rounded-lg px-2.5 py-1";
       row.innerHTML = `
-        <div class="min-w-0">
-          <p class="text-sm font-semibold text-teal-800">${escapeHtml(theme.title)} ${theme.is_active ? "" : '<span class="text-xs text-slate-400">(無効)</span>'}</p>
-          <p class="truncate text-xs text-slate-500">${escapeHtml(theme.description_hint || "")}</p>
+        <div class="min-w-0 flex items-baseline gap-2">
+          <p class="shrink-0 text-[13px] font-semibold text-teal-800">${escapeHtml(theme.title)} ${theme.is_active ? "" : '<span class="text-[11px] font-normal text-slate-400">(無効)</span>'}</p>
+          <p class="truncate text-[11px] text-slate-500">${escapeHtml(theme.description_hint || "")}</p>
         </div>
-        <div class="flex shrink-0 gap-2">
-          <button class="compact-btn-outline edit-theme-btn" data-id="${theme.id}">編集</button>
-          <button class="compact-btn-outline delete-theme-btn" data-id="${theme.id}">削除</button>
+        <div class="flex shrink-0 gap-1">
+          <button class="compact-btn-outline !px-2 !py-0.5 text-[11px] edit-theme-btn" data-id="${theme.id}">編集</button>
+          <button class="compact-btn-outline !px-2 !py-0.5 text-[11px] delete-theme-btn" data-id="${theme.id}">削除</button>
         </div>`;
       container.appendChild(row);
     });

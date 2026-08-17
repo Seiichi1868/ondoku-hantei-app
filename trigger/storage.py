@@ -19,6 +19,7 @@ from trigger.config import (
     DEFAULT_QA_QUESTION_COUNT,
     DEFAULT_SPEECH_TOPIC_COUNT,
     DEFAULT_SPEECH_TOPIC_TTS_ENABLED,
+    DEFAULT_STUDENT_INFO_REQUIRED,
     DEFAULT_TASK_MODEL_MODES,
     DEFAULT_VERSANT_WEIGHTS,
     QA_QUESTION_COUNT_RANGE,
@@ -71,6 +72,7 @@ DEFAULT_SETTINGS = {
     "qa_question_count": DEFAULT_QA_QUESTION_COUNT,
     "speech_topic_count": DEFAULT_SPEECH_TOPIC_COUNT,
     "speech_topic_tts_enabled": DEFAULT_SPEECH_TOPIC_TTS_ENABLED,
+    "student_info_required": DEFAULT_STUDENT_INFO_REQUIRED,
     "versant_weights": dict(DEFAULT_VERSANT_WEIGHTS),
 }
 
@@ -121,6 +123,7 @@ def _normalize_settings(raw: dict | None) -> dict:
     )
 
     data["speech_topic_tts_enabled"] = bool(raw.get("speech_topic_tts_enabled", DEFAULT_SPEECH_TOPIC_TTS_ENABLED))
+    data["student_info_required"] = bool(raw.get("student_info_required", DEFAULT_STUDENT_INFO_REQUIRED))
     data["versant_weights"] = _normalize_versant_weights(raw.get("versant_weights"))
     return data
 

@@ -8,6 +8,7 @@
     sessionId: null,
     session: null,
     themes: [],
+    studentInfoRequired: true,
     selectedThemeId: null,
     scriptMode: null,
     qaIndex: 0,
@@ -58,9 +59,18 @@
 
   async function loadThemesAndRoster() {
     try {
+      const configData = await fetchJson(`${API}/config`).catch(() => ({ student_info_required: true }));
+      state.studentInfoRequired = configData.student_info_required !== false;
+      if (!state.studentInfoRequired) {
+        $("student-info-section").classList.add("hidden");
+      }
+      validateLoginForm();
+
       const [themeData, rosterData] = await Promise.all([
         fetchJson(`${API}/themes`),
-        fetchJson(`${API}/roster`).catch(() => ({ students: [], classes: [] })),
+        state.studentInfoRequired
+          ? fetchJson(`${API}/roster`).catch(() => ({ students: [], classes: [] }))
+          : Promise.resolve({ students: [], classes: [] }),
       ]);
       state.themes = themeData.themes || [];
       renderThemeList();
@@ -127,6 +137,10 @@
   }
 
   function validateLoginForm() {
+    if (!state.studentInfoRequired) {
+      $("btn-start").disabled = !state.selectedThemeId;
+      return;
+    }
     const hasName = $("input-name").value.trim() || $("input-number").value.trim();
     $("btn-start").disabled = !(hasName && state.selectedThemeId);
   }

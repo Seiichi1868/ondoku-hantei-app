@@ -24,7 +24,7 @@
     <!-- 設定タブ -->
     <section id="tab-settings" class="tab-panel glass-panel rounded-2xl p-5">
       <h2 class="mb-3 text-sm font-bold text-teal-800">AIモデル選択（コスト管理）</h2>
-      <p class="mb-3 text-xs text-slate-500">処理単位ごとに使用するAIモデルを個別に選択できます。選択の保存には管理者パスワードが必要です。</p>
+      <p class="mb-3 text-xs text-slate-500">処理単位ごとに使用するAIモデルを個別に選択できます。各モデルは「コスト」（安いほど●が多い）と「性能」（高いほど●が多い）で比較できます。選択の保存には管理者パスワードが必要です。</p>
       <div id="model-select-list" class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2"></div>
 
       <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -45,9 +45,13 @@
           <input id="topic-count-input" type="number" class="compact-input" />
         </div>
       </div>
-      <label class="mb-4 flex items-center gap-2 text-xs text-slate-600">
+      <label class="mb-2 flex items-center gap-2 text-xs text-slate-600">
         <input id="speech-tts-checkbox" type="checkbox" />
         即興スピーチのトピックも音声で読み上げる（コストが増加します）
+      </label>
+      <label class="mb-4 flex items-center gap-2 text-xs text-slate-600">
+        <input id="student-info-required-checkbox" type="checkbox" />
+        生徒情報（クラス・番号・名前）の入力を必須にする（OFFにすると生徒画面で非表示になり、入力なしで練習を開始できます）
       </label>
 
       <div id="cost-estimate-box" class="glass-inset mb-4 rounded-xl p-3 text-xs text-slate-600"></div>
@@ -60,23 +64,21 @@
     </section>
 
     <!-- テーマ管理タブ -->
-    <section id="tab-themes" class="tab-panel hidden glass-panel rounded-2xl p-5">
-      <h2 class="mb-3 text-sm font-bold text-teal-800">テーマプール管理</h2>
-      <div class="mb-4 glass-inset rounded-xl p-3">
-        <div class="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <input id="theme-title-input" type="text" placeholder="テーマ名（例: 自己紹介）" class="compact-input" />
-          <label class="flex items-center gap-2 text-xs text-slate-600">
+    <section id="tab-themes" class="tab-panel hidden glass-panel rounded-2xl p-4">
+      <h2 class="mb-1.5 text-sm font-bold text-teal-800">テーマプール管理</h2>
+      <div class="mb-2 glass-inset rounded-lg p-2">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <input id="theme-title-input" type="text" placeholder="テーマ名（例: 自己紹介）" class="compact-input flex-1 min-w-[140px] !py-1.5" />
+          <input id="theme-hint-input" type="text" class="compact-input flex-[2] min-w-[200px] !py-1.5" placeholder="ヒント文（生徒が台本を書く際のガイド）" />
+          <label class="flex shrink-0 items-center gap-1 text-xs text-slate-600">
             <input id="theme-active-input" type="checkbox" checked /> 有効
           </label>
-        </div>
-        <textarea id="theme-hint-input" rows="2" class="compact-input mb-2" placeholder="ヒント文（生徒が台本を書く際のガイド）"></textarea>
-        <input type="hidden" id="theme-id-input" value="" />
-        <div class="flex gap-2">
-          <button id="btn-save-theme" class="compact-btn">保存</button>
-          <button id="btn-cancel-theme-edit" class="compact-btn-outline hidden">編集をキャンセル</button>
+          <input type="hidden" id="theme-id-input" value="" />
+          <button id="btn-save-theme" class="compact-btn !py-1.5 !px-3 shrink-0">保存</button>
+          <button id="btn-cancel-theme-edit" class="compact-btn-outline hidden !py-1.5 !px-3 shrink-0">キャンセル</button>
         </div>
       </div>
-      <div id="theme-list-admin" class="space-y-2"></div>
+      <div id="theme-list-admin" class="space-y-0.5"></div>
     </section>
 
     <!-- 生徒名簿タブ -->

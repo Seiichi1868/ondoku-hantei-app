@@ -70,6 +70,10 @@ SPEECH_TOPIC_COUNT_RANGE = (1, 3)
 
 DEFAULT_SPEECH_TOPIC_TTS_ENABLED = False
 
+# 生徒情報（クラス・番号・名前）の入力を必須にするか。
+# 練習用途（自分の実力確認など）では不要な場合が多いため、管理画面でOFFにできる。
+DEFAULT_STUDENT_INFO_REQUIRED = True
+
 SCRIPT_MODES = ("translate", "correct")
 
 # Versant 相当5カテゴリの加重（総合スコア算出用。管理画面で調整可能）
