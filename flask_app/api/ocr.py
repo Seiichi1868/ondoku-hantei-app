@@ -27,7 +27,7 @@ def ocr():
     if not image_bytes:
         return jsonify({"error": "image is empty"}), 400
     if len(image_bytes) > Config.OCR_MAX_BYTES:
-        return jsonify({"error": "image is too large (max 15MB)"}), 400
+        return jsonify({"error": "image is too large (max 25MB)"}), 400
 
     mime = resolve_image_mime(file)
     if mime not in Config.OCR_ALLOWED_MIME:
