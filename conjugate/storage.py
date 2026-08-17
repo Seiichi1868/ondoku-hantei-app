@@ -352,6 +352,7 @@ def record_progress(
     tense: str | None = None,
     is_correct: bool = False,
     kind: str = "conjugation",
+    direction: str | None = None,
 ) -> dict:
     """判定1回分を進捗に反映し、更新後のサマリを返す。"""
     settings = load_settings()
@@ -366,6 +367,7 @@ def record_progress(
             is_correct=is_correct,
             kind=kind,
             threshold=threshold,
+            direction=direction,
         )
         _write_json(PROGRESS_FILE, data)
         view = _progress_view_from(data, settings)

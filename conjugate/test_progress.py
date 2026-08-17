@@ -116,14 +116,23 @@ class MasteryTests(unittest.TestCase):
 
     def test_vocab_mastery_uses_threshold(self):
         progress = normalize_progress({})
-        for _ in range(9):
-            self.assertFalse(apply_vocab_mastery(progress, 1, True, threshold=10))
-        self.assertTrue(apply_vocab_mastery(progress, 1, True, threshold=10))
-        self.assertFalse(apply_vocab_mastery(progress, 1, False, threshold=10))
-        self.assertEqual(progress["vocab"]["1"]["correct_count"], 10)
-        rows = vocab_progress_list(progress, 10)
+        for _ in range(4):
+            self.assertFalse(apply_vocab_mastery(progress, 1, True, threshold=5, direction="ja_to_es"))
+        self.assertTrue(apply_vocab_mastery(progress, 1, True, threshold=5, direction="ja_to_es"))
+        self.assertFalse(apply_vocab_mastery(progress, 1, False, threshold=5, direction="ja_to_es"))
+        self.assertEqual(progress["vocab"]["1"]["ja_to_es"]["correct_count"], 5)
+        self.assertEqual(progress["vocab"]["1"]["es_to_ja"]["correct_count"], 0)
+        rows = vocab_progress_list(progress, 5)
         mastered = [row for row in rows if row["id"] == 1][0]
-        self.assertTrue(mastered["mastered"])
+        self.assertTrue(mastered["ja_to_es"]["mastered"])
+        self.assertFalse(mastered["es_to_ja"]["mastered"])
+
+    def test_vocab_directions_are_independent(self):
+        progress = normalize_progress({})
+        for _ in range(5):
+            apply_vocab_mastery(progress, 1, True, threshold=5, direction="es_to_ja")
+        self.assertTrue(progress["vocab"]["1"]["es_to_ja"]["mastered"])
+        self.assertFalse(progress["vocab"]["1"]["ja_to_es"]["mastered"])
 
     def test_progress_view_includes_calendar_fields(self):
         progress = normalize_progress({})
@@ -135,11 +144,11 @@ class MasteryTests(unittest.TestCase):
             today=date(2026, 8, 17),
             threshold=5,
         )
-        view = progress_view(progress, conjugation_threshold=5, vocab_threshold=10)
+        view = progress_view(progress, conjugation_threshold=5, vocab_threshold=5)
         self.assertEqual(view["practice_dates"], ["2026-08-17"])
         self.assertEqual(view["daily_attempts"]["2026-08-17"], 1)
         self.assertEqual(view["conjugation_threshold"], 5)
-        self.assertEqual(view["vocab_threshold"], 10)
+        self.assertEqual(view["vocab_threshold"], 5)
 
 
 if __name__ == "__main__":

@@ -52,11 +52,18 @@
       <p class="vsc-vocab-kicker">MEANING QUIZ</p>
       <h3 class="vsc-vocab-title">単語の意味を4択で練習</h3>
       <p class="vsc-vocab-body">登録した動詞の意味を、活用とは別に覚えましょう。日本語⇔スペイン語の両方向に対応しています。</p>
-      <button type="button" class="vsc-vocab-master" data-open-stat="vocab" aria-haspopup="dialog">
-        <span class="vsc-vocab-master-label">マスターした動詞</span>
-        <span class="vsc-vocab-master-value">{{ progress.vocab_mastered_count }}/{{ progress.total_vocab }}語</span>
-        <span class="vsc-vocab-master-hint">{{ progress.vocab_threshold }}回正解でマスター</span>
-      </button>
+      <div class="vsc-vocab-master-split">
+        <button type="button" class="vsc-vocab-master" data-open-stat="vocab" aria-haspopup="dialog">
+          <span class="vsc-vocab-master-label">日本語 → スペイン語</span>
+          <span class="vsc-vocab-master-value">{{ progress.vocab_mastered_ja_to_es }}/{{ progress.total_vocab }}語</span>
+          <span class="vsc-vocab-master-hint">{{ progress.vocab_threshold }}回でマスター</span>
+        </button>
+        <button type="button" class="vsc-vocab-master" data-open-stat="vocab" aria-haspopup="dialog">
+          <span class="vsc-vocab-master-label">スペイン語 → 日本語</span>
+          <span class="vsc-vocab-master-value">{{ progress.vocab_mastered_es_to_ja }}/{{ progress.total_vocab }}語</span>
+          <span class="vsc-vocab-master-hint">{{ progress.vocab_threshold }}回でマスター</span>
+        </button>
+      </div>
       <div class="vsc-vocab-actions">
         <button type="button" class="vsc-vocab-btn" data-vocab-direction="ja_to_es">
           <span class="vsc-vocab-btn-label">日本語 → スペイン語</span>
@@ -186,5 +193,5 @@
   window.CONJUGATE_OPENING_MS = {{ appearance.opening_ms | tojson }};
   window.CONJUGATE_PROGRESS = {{ progress | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260817b') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260817c') }}"></script>
 {% endblock %}

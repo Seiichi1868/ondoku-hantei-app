@@ -1,7 +1,7 @@
 """ストリーク・累計練習数・習得の純ロジック。
 
-活用はデフォルト5回正解で習得、単語はデフォルト10回正解でマスター。
-しきい値は管理画面から渡す。永続化は storage 側。
+活用はデフォルト5回正解で習得。単語4択は方向（日→西 / 西→日）ごとに
+デフォルト5回正解でマスター。しきい値は管理画面から渡す。
 """
 from datetime import date, datetime, timedelta, timezone
 
@@ -10,7 +10,8 @@ from conjugate.data.verbs import VERBS, drillable_verbs
 
 JST = timezone(timedelta(hours=9))
 DEFAULT_CONJUGATION_THRESHOLD = 5
-DEFAULT_VOCAB_THRESHOLD = 10
+DEFAULT_VOCAB_THRESHOLD = 5
+VOCAB_DIRECTIONS = ("ja_to_es", "es_to_ja")
 
 DEFAULT_PROGRESS = {
     "last_practice_date": None,
@@ -138,13 +139,35 @@ def normalize_progress(raw: dict | None) -> dict:
         for verb_id, entry in vocab.items():
             if not isinstance(entry, dict):
                 continue
-            count = _as_nonneg_int(entry.get("correct_count"))
-            cleaned_vocab[str(verb_id)] = {
-                "correct_count": count,
-                "mastered": bool(entry.get("mastered")) or count >= DEFAULT_VOCAB_THRESHOLD,
-            }
+            cleaned_vocab[str(verb_id)] = _normalize_vocab_entry(entry)
         data["vocab"] = cleaned_vocab
     return data
+
+
+def _vocab_side(raw_side, fallback: int = 0) -> dict:
+    count = 0
+    if isinstance(raw_side, dict):
+        count = _as_nonneg_int(raw_side.get("correct_count"))
+    if count <= 0:
+        count = fallback
+    return {
+        "correct_count": count,
+        "mastered": count >= DEFAULT_VOCAB_THRESHOLD,
+    }
+
+
+def _normalize_vocab_entry(entry: dict) -> dict:
+    legacy = _as_nonneg_int(entry.get("correct_count"))
+    has_sides = any(isinstance(entry.get(direction), dict) for direction in VOCAB_DIRECTIONS)
+    fallback = 0 if has_sides else legacy
+    sides = {direction: _vocab_side(entry.get(direction), fallback) for direction in VOCAB_DIRECTIONS}
+    total = sum(side["correct_count"] for side in sides.values())
+    row = {
+        "correct_count": total,
+        "mastered": any(side["mastered"] for side in sides.values()),
+    }
+    row.update(sides)
+    return row
 
 
 def apply_streak(progress: dict, today: date) -> bool:
@@ -225,8 +248,9 @@ def apply_vocab_mastery(
     verb_id,
     is_correct: bool,
     threshold: int = DEFAULT_VOCAB_THRESHOLD,
+    direction: str | None = "ja_to_es",
 ) -> bool:
-    """単語クイズの累計正解を更新。新たにマスターしたら True。"""
+    """単語クイズの方向別累計正解を更新。新たにマスターしたら True。"""
     if verb_id is None or not is_correct:
         return False
     try:
@@ -234,14 +258,25 @@ def apply_vocab_mastery(
     except (TypeError, ValueError):
         return False
 
+    side_key = direction if direction in VOCAB_DIRECTIONS else "ja_to_es"
     threshold = max(1, int(threshold or DEFAULT_VOCAB_THRESHOLD))
     vocab = progress.setdefault("vocab", {})
-    entry = vocab.setdefault(key, {"correct_count": 0, "mastered": False})
-    was_mastered = int(entry.get("correct_count") or 0) >= threshold
-    entry["correct_count"] = int(entry.get("correct_count") or 0) + 1
-    entry["mastered"] = entry["correct_count"] >= threshold
+    entry = vocab.setdefault(key, _normalize_vocab_entry({}))
+    for direction_id in VOCAB_DIRECTIONS:
+        entry.setdefault(direction_id, {"correct_count": 0, "mastered": False})
+    side = entry[side_key]
+    was_mastered = _as_nonneg_int(side.get("correct_count")) >= threshold
+    side["correct_count"] = _as_nonneg_int(side.get("correct_count")) + 1
+    side["mastered"] = side["correct_count"] >= threshold
+    entry[side_key] = side
+    entry["correct_count"] = sum(
+        _as_nonneg_int((entry.get(d) or {}).get("correct_count")) for d in VOCAB_DIRECTIONS
+    )
+    entry["mastered"] = any(
+        _as_nonneg_int((entry.get(d) or {}).get("correct_count")) >= threshold for d in VOCAB_DIRECTIONS
+    )
     vocab[key] = entry
-    return bool(entry["mastered"]) and not was_mastered
+    return bool(side["mastered"]) and not was_mastered
 
 
 def apply_attempt(
@@ -253,6 +288,7 @@ def apply_attempt(
     today: date | None = None,
     kind: str = "conjugation",
     threshold: int | None = None,
+    direction: str | None = None,
 ) -> dict:
     """1回の判定を進捗に反映する。"""
     today = today or today_jst()
@@ -264,7 +300,9 @@ def apply_attempt(
 
     if kind == "vocab":
         vocab_threshold = threshold if threshold is not None else DEFAULT_VOCAB_THRESHOLD
-        newly_mastered = apply_vocab_mastery(progress, verb_id, is_correct, vocab_threshold)
+        newly_mastered = apply_vocab_mastery(
+            progress, verb_id, is_correct, vocab_threshold, direction=direction
+        )
         conj_threshold = DEFAULT_CONJUGATION_THRESHOLD
     else:
         conj_threshold = threshold if threshold is not None else DEFAULT_CONJUGATION_THRESHOLD
@@ -295,13 +333,24 @@ def mastered_verb_count(progress: dict, threshold: int = DEFAULT_CONJUGATION_THR
     return count
 
 
-def mastered_vocab_count(progress: dict, threshold: int = DEFAULT_VOCAB_THRESHOLD) -> int:
+def mastered_vocab_count(
+    progress: dict,
+    threshold: int = DEFAULT_VOCAB_THRESHOLD,
+    direction: str | None = None,
+) -> int:
     vocab = progress.get("vocab") or {}
     limit = max(1, int(threshold or DEFAULT_VOCAB_THRESHOLD))
     count = 0
     for verb in VERBS:
         entry = vocab.get(str(verb["id"])) or {}
-        if _as_nonneg_int(entry.get("correct_count")) >= limit:
+        if direction in VOCAB_DIRECTIONS:
+            side = entry.get(direction) or {}
+            score = _as_nonneg_int(side.get("correct_count"))
+        else:
+            score = max(
+                _as_nonneg_int((entry.get(d) or {}).get("correct_count")) for d in VOCAB_DIRECTIONS
+            )
+        if score >= limit:
             count += 1
     return count
 
@@ -320,6 +369,8 @@ def progress_view(
     vocab_th = max(1, int(vocab_threshold or DEFAULT_VOCAB_THRESHOLD))
     mastered = mastered_verb_count(progress, conj_th)
     vocab_mastered = mastered_vocab_count(progress, vocab_th)
+    vocab_mastered_ja = mastered_vocab_count(progress, vocab_th, "ja_to_es")
+    vocab_mastered_es = mastered_vocab_count(progress, vocab_th, "es_to_ja")
     total_verbs = len(drillable_verbs())
     total_vocab = len(VERBS)
     last = progress.get("last_practice_date")
@@ -338,6 +389,8 @@ def progress_view(
         "total_verbs": total_verbs,
         "mastered_percent": percent,
         "vocab_mastered_count": vocab_mastered,
+        "vocab_mastered_ja_to_es": vocab_mastered_ja,
+        "vocab_mastered_es_to_ja": vocab_mastered_es,
         "total_vocab": total_vocab,
         "conjugation_threshold": conj_th,
         "vocab_threshold": vocab_th,
@@ -390,16 +443,24 @@ def vocab_progress_list(
     rows = []
     for verb in VERBS:
         entry = vocab_data.get(str(verb["id"])) or {}
-        correct_count = _as_nonneg_int(entry.get("correct_count"))
+        sides = {}
+        for direction in VOCAB_DIRECTIONS:
+            count = _as_nonneg_int((entry.get(direction) or {}).get("correct_count"))
+            sides[direction] = {
+                "correct_count": count,
+                "mastered": count >= limit,
+            }
         rows.append(
             {
                 "id": verb["id"],
                 "infinitive": verb["infinitive"],
                 "meaning_ja": verb["meaning_ja"],
                 "category": verb["category"],
-                "correct_count": correct_count,
+                "correct_count": sides["ja_to_es"]["correct_count"] + sides["es_to_ja"]["correct_count"],
                 "threshold": limit,
-                "mastered": correct_count >= limit,
+                "mastered": sides["ja_to_es"]["mastered"] or sides["es_to_ja"]["mastered"],
+                "ja_to_es": sides["ja_to_es"],
+                "es_to_ja": sides["es_to_ja"],
             }
         )
     return rows

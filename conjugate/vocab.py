@@ -136,6 +136,7 @@ def grade_vocab_choice(question: dict, choice_id: str) -> dict:
         tense=None,
         is_correct=is_correct,
         kind="vocab",
+        direction=question.get("direction"),
     )
     result = {
         "correct": is_correct,

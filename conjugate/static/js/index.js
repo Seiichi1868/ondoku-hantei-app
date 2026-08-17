@@ -151,7 +151,9 @@
       verbs: [],
       vocab_verbs: [],
       conjugation_threshold: 5,
-      vocab_threshold: 10,
+      vocab_threshold: 5,
+      vocab_mastered_ja_to_es: 0,
+      vocab_mastered_es_to_ja: 0,
     },
     window.CONJUGATE_PROGRESS || {}
   );
@@ -249,10 +251,16 @@
     `;
   }
 
-  function renderMasterList(rows, threshold, emptyText) {
+  function renderMasterList(rows, threshold, emptyText, direction) {
     const studied = (rows || [])
+      .map((row) => {
+        const side = direction ? row[direction] || {} : row;
+        const count = Number(side.correct_count || row.correct_count || 0);
+        const mastered = Boolean(side.mastered) || count >= threshold;
+        return { ...row, correct_count: count, mastered };
+      })
       .filter((row) => Number(row.correct_count || 0) > 0)
-      .sort((a, b) => Number(b.correct_count) - Number(a.correct_count) || String(a.infinitive).localeCompare(String(b.infinitive)));
+      .sort((a, b) => Number(b.mastered) - Number(a.mastered) || Number(b.correct_count) - Number(a.correct_count) || String(a.infinitive).localeCompare(String(b.infinitive)));
     if (!studied.length) {
       return `<p class="vsc-master-empty">${escapeHtml(emptyText)}</p>`;
     }
@@ -278,10 +286,24 @@
   }
 
   function renderVocabBody() {
-    const threshold = Number(progressState.vocab_threshold || 10);
+    const threshold = Number(progressState.vocab_threshold || 5);
+    const total = progressState.total_vocab || 0;
+    const jaCount = progressState.vocab_mastered_ja_to_es || 0;
+    const esCount = progressState.vocab_mastered_es_to_ja || 0;
     modalBody.innerHTML = `
-      <p class="vsc-modal-lead">単語クイズで正解した回数です。${threshold}回正解でマスターになります。いま ${progressState.vocab_mastered_count || 0}/${progressState.total_vocab || 0} 語。</p>
-      ${renderMasterList(progressState.vocab_verbs, threshold, "まだ単語クイズの記録がありません。")}
+      <p class="vsc-modal-lead">左右の出題方向ごとに${threshold}回正解するとマスターリストに入ります。</p>
+      <div class="vsc-master-split">
+        <section>
+          <h3 class="vsc-master-col-title">日本語 → スペイン語</h3>
+          <p class="vsc-master-col-meta">${jaCount}/${total}語マスター</p>
+          ${renderMasterList(progressState.vocab_verbs, threshold, "まだ記録がありません。", "ja_to_es")}
+        </section>
+        <section>
+          <h3 class="vsc-master-col-title">スペイン語 → 日本語</h3>
+          <p class="vsc-master-col-meta">${esCount}/${total}語マスター</p>
+          ${renderMasterList(progressState.vocab_verbs, threshold, "まだ記録がありません。", "es_to_ja")}
+        </section>
+      </div>
     `;
   }
 
