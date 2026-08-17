@@ -13,6 +13,7 @@
  10. POST /conjugate/api/vocab                            … 語彙4択セッション作成
  11. GET  /conjugate/vocab/<id>                           … 語彙4択画面
  12. POST /conjugate/api/vocab/<id>/questions/<qid>/answer … 語彙4択の解答
+ 13. POST /conjugate/api/progress/daily-goal              … 1日の累計目標を保存
 """
 import logging
 import mimetypes
@@ -40,8 +41,10 @@ from conjugate.storage import (
     load_session,
     load_settings,
     new_session_id,
+    progress_detail,
     progress_summary,
     progress_verbs,
+    save_daily_goal,
     save_session,
     save_submission,
     weak_verbs_report,
@@ -105,7 +108,7 @@ def web_app_manifest():
 @main_bp.route("/")
 def index():
     settings = load_settings()
-    progress = progress_summary()
+    progress = progress_detail()
     weak = weak_verbs_report(limit=3)
     verb_counts = {cat: 0 for cat in CATEGORY_ORDER}
     for verb in drillable_verbs():
@@ -417,6 +420,19 @@ def summary_screen(session_id):
 @main_bp.route("/api/weak-verbs")
 def weak_verbs_api():
     return jsonify({"ok": True, "weak_verbs": weak_verbs_report()})
+
+
+@main_bp.route("/api/progress/daily-goal", methods=["POST"])
+def set_daily_goal():
+    payload = request.get_json(silent=True) or {}
+    try:
+        goal = int(payload.get("daily_goal") or 0)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "1日の目標は数値で指定してください。"}), 400
+    if goal < 1 or goal > 100:
+        return jsonify({"ok": False, "error": "1日の目標は1〜100問で設定してください。"}), 400
+    view = save_daily_goal(goal)
+    return jsonify({"ok": True, "progress": view})
 
 
 def _prepare_vocab_session(raw_direction, raw_count) -> dict:

@@ -30,10 +30,11 @@
       {% if verb.mastered %}
       <span class="vsc-master-mark" title="習得済み">{{ svg_check() }}</span>
       {% else %}
-      <div class="vsc-dots" aria-label="連続正解 {{ verb.consecutive_correct }}/3">
-        {% for i in range(3) %}
-        <span class="vsc-dot{% if verb.consecutive_correct > i %} is-on{% endif %}"></span>
-        {% endfor %}
+      <div class="vsc-verb-progress" aria-label="正解 {{ verb.correct_count }}/{{ verb.threshold }}">
+        <div class="vsc-verb-progress-track">
+          <span class="vsc-verb-progress-fill" style="width: {{ ((verb.correct_count / verb.threshold) * 100) if verb.threshold else 0 }}%;"></span>
+        </div>
+        <span class="vsc-dots-count">{{ verb.correct_count }}/{{ verb.threshold }}</span>
       </div>
       {% endif %}
     </article>

@@ -9,7 +9,7 @@
   <p class="text-sm mt-1" style="color: var(--text-secondary);">{{ summary.correct }} / {{ summary.total }} 問 正解</p>
 
   {% if progress %}
-  <p class="mt-4 text-sm font-semibold">🔥 {{ progress.current_streak }} Days　・　習得 {{ progress.mastered_count }}/{{ progress.total_verbs }}語</p>
+  <p class="mt-4 text-sm font-semibold">🔥 {{ progress.current_streak }} Days　・　単語マスター {{ progress.vocab_mastered_count }}/{{ progress.total_vocab }}語</p>
   {% endif %}
 </section>
 

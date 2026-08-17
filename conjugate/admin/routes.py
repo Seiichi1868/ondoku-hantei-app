@@ -113,6 +113,8 @@ def save_settings_api():
         "background_opacity",
         "opening_enabled",
         "opening_ms",
+        "conjugation_mastery_threshold",
+        "vocab_mastery_threshold",
     ):
         if key in payload:
             updates[key] = payload[key]

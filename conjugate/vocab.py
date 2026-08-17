@@ -131,7 +131,12 @@ def grade_vocab_choice(question: dict, choice_id: str) -> dict:
     is_correct = choice_id == correct_id
     chosen = next((c for c in question["choices"] if c["id"] == choice_id), None)
     correct_choice = next((c for c in question["choices"] if c["id"] == correct_id), None)
-    progress = record_progress(verb_id=None, tense=None, is_correct=is_correct)
+    progress = record_progress(
+        verb_id=question.get("verb_id"),
+        tense=None,
+        is_correct=is_correct,
+        kind="vocab",
+    )
     result = {
         "correct": is_correct,
         "choice_id": choice_id,
@@ -141,6 +146,7 @@ def grade_vocab_choice(question: dict, choice_id: str) -> dict:
         "infinitive": question.get("infinitive", ""),
         "meaning_ja": question.get("meaning_ja", ""),
         "message": "正解！" if is_correct else f"不正解。正解は「{(correct_choice or {}).get('label', '')}」です。",
+        "newly_mastered": bool(progress.get("newly_mastered")),
         "progress": progress,
     }
     return result

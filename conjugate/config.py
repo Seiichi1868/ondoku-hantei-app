@@ -123,6 +123,8 @@ DEFAULT_BACKGROUND_ID = "meadow"
 DEFAULT_BACKGROUND_OPACITY = 0.18
 DEFAULT_OPENING_ENABLED = True
 DEFAULT_OPENING_MS = 2000
+DEFAULT_CONJUGATION_MASTERY_THRESHOLD = 5
+DEFAULT_VOCAB_MASTERY_THRESHOLD = 10
 
 
 def resolve_background(background_id: str | None = None) -> dict:
@@ -150,6 +152,22 @@ def clamp_opening_ms(value, default: int = DEFAULT_OPENING_MS) -> int:
     except (TypeError, ValueError):
         return default
     return max(400, min(8000, n))
+
+
+def clamp_mastery_threshold(value, default: int) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(1, min(50, n))
+
+
+def clamp_daily_goal(value, default: int = 0) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(0, min(100, n))
 
 
 def get_openai_api_key() -> str:

@@ -17,6 +17,7 @@ from conjugate.config import (
     DEFAULT_ASR_ENGINE,
     DEFAULT_BACKGROUND_ID,
     DEFAULT_BACKGROUND_OPACITY,
+    DEFAULT_CONJUGATION_MASTERY_THRESHOLD,
     DEFAULT_ENABLED_CATEGORIES,
     DEFAULT_ENABLED_TENSES,
     DEFAULT_GUSTAR_ENABLED,
@@ -27,19 +28,28 @@ from conjugate.config import (
     DEFAULT_QUESTIONS_PER_SESSION,
     DEFAULT_STRICTNESS,
     DEFAULT_TARGETS_PER_QUESTION,
+    DEFAULT_VOCAB_MASTERY_THRESHOLD,
     DEFAULT_WHISPER_MODEL,
     PROGRESS_FILE,
     SESSIONS_DIR,
     SETTINGS_FILE,
     SUBMISSIONS_FILE,
     WEAK_VERBS_FILE,
+    clamp_daily_goal,
+    clamp_mastery_threshold,
     clamp_opening_ms,
     clamp_opacity,
     ensure_dirs,
 )
 from conjugate.data.conjugations import TENSE_ORDER
 from conjugate.data.verbs import CATEGORY_ORDER
-from conjugate.progress import apply_attempt, normalize_progress, progress_view, verb_progress_list
+from conjugate.progress import (
+    apply_attempt,
+    normalize_progress,
+    progress_view,
+    verb_progress_list,
+    vocab_progress_list,
+)
 
 _lock = threading.Lock()
 _session_locks: dict[str, threading.Lock] = {}
@@ -87,6 +97,8 @@ DEFAULT_SETTINGS = {
     "background_opacity": DEFAULT_BACKGROUND_OPACITY,
     "opening_enabled": DEFAULT_OPENING_ENABLED,
     "opening_ms": DEFAULT_OPENING_MS,
+    "conjugation_mastery_threshold": DEFAULT_CONJUGATION_MASTERY_THRESHOLD,
+    "vocab_mastery_threshold": DEFAULT_VOCAB_MASTERY_THRESHOLD,
 }
 
 
@@ -145,6 +157,16 @@ def _normalize_settings(raw: dict | None) -> dict:
         data["opening_enabled"] = bool(raw.get("opening_enabled"))
     if "opening_ms" in raw:
         data["opening_ms"] = clamp_opening_ms(raw.get("opening_ms"))
+    if "conjugation_mastery_threshold" in raw:
+        data["conjugation_mastery_threshold"] = clamp_mastery_threshold(
+            raw.get("conjugation_mastery_threshold"),
+            DEFAULT_CONJUGATION_MASTERY_THRESHOLD,
+        )
+    if "vocab_mastery_threshold" in raw:
+        data["vocab_mastery_threshold"] = clamp_mastery_threshold(
+            raw.get("vocab_mastery_threshold"),
+            DEFAULT_VOCAB_MASTERY_THRESHOLD,
+        )
 
     return data
 
@@ -299,26 +321,85 @@ def weak_verbs_report(limit: int = 15) -> list[dict]:
 
 # ── 学習進捗（ストリーク・累計・習得） ─────────────────────
 
+def _mastery_thresholds(settings: dict | None = None) -> tuple[int, int]:
+    data = settings if isinstance(settings, dict) else load_settings()
+    return (
+        clamp_mastery_threshold(
+            data.get("conjugation_mastery_threshold"),
+            DEFAULT_CONJUGATION_MASTERY_THRESHOLD,
+        ),
+        clamp_mastery_threshold(
+            data.get("vocab_mastery_threshold"),
+            DEFAULT_VOCAB_MASTERY_THRESHOLD,
+        ),
+    )
+
+
+def _progress_view_from(data: dict, settings: dict | None = None) -> dict:
+    conj_th, vocab_th = _mastery_thresholds(settings)
+    return progress_view(data, conjugation_threshold=conj_th, vocab_threshold=vocab_th)
+
+
 def load_progress() -> dict:
     ensure_dirs()
     with _lock:
         return normalize_progress(_read_json(PROGRESS_FILE, {}))
 
 
-def record_progress(*, verb_id=None, tense: str | None = None, is_correct: bool = False) -> dict:
+def record_progress(
+    *,
+    verb_id=None,
+    tense: str | None = None,
+    is_correct: bool = False,
+    kind: str = "conjugation",
+) -> dict:
     """判定1回分を進捗に反映し、更新後のサマリを返す。"""
+    settings = load_settings()
+    conj_th, vocab_th = _mastery_thresholds(settings)
+    threshold = vocab_th if kind == "vocab" else conj_th
     with _lock:
         data = normalize_progress(_read_json(PROGRESS_FILE, {}))
-        delta = apply_attempt(data, verb_id=verb_id, tense=tense, is_correct=is_correct)
+        delta = apply_attempt(
+            data,
+            verb_id=verb_id,
+            tense=tense,
+            is_correct=is_correct,
+            kind=kind,
+            threshold=threshold,
+        )
         _write_json(PROGRESS_FILE, data)
-        view = progress_view(data)
+        view = _progress_view_from(data, settings)
         view.update(delta)
         return view
 
 
+def save_daily_goal(goal) -> dict:
+    settings = load_settings()
+    value = clamp_daily_goal(goal, default=0)
+    if value == 0:
+        value = 10
+    with _lock:
+        data = normalize_progress(_read_json(PROGRESS_FILE, {}))
+        data["daily_goal"] = value
+        _write_json(PROGRESS_FILE, data)
+        return _progress_view_from(data, settings)
+
+
 def progress_summary() -> dict:
-    return progress_view(load_progress())
+    settings = load_settings()
+    return _progress_view_from(load_progress(), settings)
+
+
+def progress_detail() -> dict:
+    settings = load_settings()
+    conj_th, vocab_th = _mastery_thresholds(settings)
+    data = load_progress()
+    view = _progress_view_from(data, settings)
+    view["verbs"] = verb_progress_list(data, conj_th)
+    view["vocab_verbs"] = vocab_progress_list(data, vocab_th)
+    return view
 
 
 def progress_verbs() -> list[dict]:
-    return verb_progress_list(load_progress())
+    conj_th, _ = _mastery_thresholds()
+    return verb_progress_list(load_progress(), conj_th)

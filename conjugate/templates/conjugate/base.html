@@ -5,10 +5,14 @@
   <script>
     (function () {
       try {
-        var key = "vscAppSession";
+        var key = "vscConjugateSession";
+        var fromConjugate = false;
+        try {
+          fromConjugate = new URL(document.referrer).pathname.indexOf("/conjugate") === 0;
+        } catch (_) {}
         var already = sessionStorage.getItem(key) === "1";
         if (!already) sessionStorage.setItem(key, "1");
-        if (already) {
+        if (already && fromConjugate) {
           document.documentElement.classList.add("vsc-skip-opening");
           document.write("<style>.vsc-splash{display:none!important}</style>");
         }
@@ -30,11 +34,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260817a') }}">
+  <link rel="stylesheet" href="{{ url_for('conjugate.static', filename='css/style.css', v='20260817b') }}">
   {% block head %}{% endblock %}
 </head>
 <body class="relative min-h-screen antialiased vsc-body {% block body_class %}{% endblock %}">
   {% from "conjugate/macros.html" import brand_logo, svg_home, svg_mic, svg_book, svg_user, svg_settings %}
+  {% block opening %}{% endblock %}
   <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
     <div id="page-bg-layer" class="vsc-bg-image absolute inset-0 scale-105"
       style="background-image: url('{{ appearance.background_image_url }}'); opacity: {{ appearance.background_opacity }};"></div>

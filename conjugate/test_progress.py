@@ -6,10 +6,13 @@ from conjugate.progress import (
     apply_attempt,
     apply_mastery,
     apply_streak,
+    apply_vocab_mastery,
     learner_level,
     mastered_verb_count,
     normalize_progress,
+    progress_view,
     verb_is_mastered,
+    vocab_progress_list,
 )
 
 
@@ -21,10 +24,12 @@ class StreakTests(unittest.TestCase):
         self.assertEqual(progress["current_streak"], 1)
         self.assertEqual(progress["longest_streak"], 1)
         self.assertEqual(progress["last_practice_date"], "2026-08-15")
+        self.assertEqual(progress["practice_dates"], ["2026-08-15"])
 
     def test_same_day_does_not_increment(self):
         progress = {
             "last_practice_date": "2026-08-15",
+            "practice_dates": ["2026-08-15"],
             "current_streak": 4,
             "longest_streak": 6,
         }
@@ -40,6 +45,7 @@ class StreakTests(unittest.TestCase):
         self.assertTrue(apply_streak(progress, date(2026, 8, 15)))
         self.assertEqual(progress["current_streak"], 5)
         self.assertEqual(progress["longest_streak"], 5)
+        self.assertIn("2026-08-15", progress["practice_dates"])
 
     def test_gap_resets_to_one(self):
         progress = {
@@ -53,47 +59,87 @@ class StreakTests(unittest.TestCase):
 
 
 class MasteryTests(unittest.TestCase):
-    def test_three_correct_marks_mastered(self):
+    def test_five_correct_marks_mastered(self):
         progress = normalize_progress({})
-        self.assertFalse(apply_mastery(progress, 1, "present", True))
-        self.assertFalse(apply_mastery(progress, 1, "present", True))
-        self.assertTrue(apply_mastery(progress, 1, "present", True))
-        entry = progress["verbs"]["1"]["present"]
+        for _ in range(4):
+            self.assertFalse(apply_mastery(progress, 1, "present", True, threshold=5))
+        self.assertTrue(apply_mastery(progress, 1, "present", True, threshold=5))
+        entry = progress["verbs"]["1"]
         self.assertTrue(entry["mastered"])
-        self.assertEqual(entry["consecutive_correct"], 3)
+        self.assertEqual(entry["correct_count"], 5)
 
-    def test_incorrect_resets_streak_keeps_mastered(self):
+    def test_incorrect_does_not_reduce_count(self):
         progress = normalize_progress({})
-        apply_mastery(progress, 1, "present", True)
-        apply_mastery(progress, 1, "present", True)
-        apply_mastery(progress, 1, "present", True)
-        self.assertFalse(apply_mastery(progress, 1, "present", False))
-        entry = progress["verbs"]["1"]["present"]
-        self.assertEqual(entry["consecutive_correct"], 0)
-        self.assertTrue(entry["mastered"])
+        apply_mastery(progress, 1, "present", True, threshold=5)
+        apply_mastery(progress, 1, "present", True, threshold=5)
+        apply_mastery(progress, 1, "present", False, threshold=5)
+        entry = progress["verbs"]["1"]
+        self.assertEqual(entry["correct_count"], 2)
+        self.assertEqual(entry["present"]["consecutive_correct"], 0)
+        self.assertFalse(entry["mastered"])
 
-    def test_gustar_and_unknown_tense_are_ignored(self):
+    def test_gustar_and_unknown_tense_are_ignored_for_id(self):
         progress = normalize_progress({})
         self.assertFalse(apply_mastery(progress, "gustar", "present", True))
-        self.assertFalse(apply_mastery(progress, 1, "gustar", True))
-        self.assertEqual(progress["verbs"], {})
+        self.assertFalse(apply_mastery(progress, 1, "gustar", True, threshold=5))
+        self.assertEqual(progress["verbs"]["1"]["correct_count"], 1)
 
-    def test_apply_attempt_increments_total_once_per_call(self):
+    def test_apply_attempt_increments_total_and_daily(self):
         progress = normalize_progress({})
         today = date(2026, 8, 15)
-        apply_attempt(progress, verb_id=1, tense="present", is_correct=True, today=today)
-        apply_attempt(progress, verb_id=1, tense="present", is_correct=True, today=today)
+        apply_attempt(progress, verb_id=1, tense="present", is_correct=True, today=today, threshold=5)
+        apply_attempt(progress, verb_id=1, tense="present", is_correct=True, today=today, threshold=5)
         self.assertEqual(progress["total_attempts"], 2)
         self.assertEqual(progress["current_streak"], 1)
+        self.assertEqual(progress["daily_attempts"]["2026-08-15"], 2)
+        self.assertEqual(progress["practice_dates"], ["2026-08-15"])
 
     def test_mastered_count_and_level(self):
         progress = normalize_progress({})
-        for _ in range(3):
-            apply_mastery(progress, 1, "present", True)
-        self.assertEqual(mastered_verb_count(progress), 1)
-        self.assertTrue(verb_is_mastered(progress["verbs"]["1"]))
+        for _ in range(5):
+            apply_mastery(progress, 1, "present", True, threshold=5)
+        self.assertEqual(mastered_verb_count(progress, 5), 1)
+        self.assertTrue(verb_is_mastered(progress["verbs"]["1"], 5))
         self.assertEqual(learner_level(0), 1)
         self.assertEqual(learner_level(23), 5)
+
+    def test_legacy_mastered_is_kept(self):
+        progress = normalize_progress(
+            {
+                "verbs": {
+                    "1": {"present": {"consecutive_correct": 3, "mastered": True}},
+                }
+            }
+        )
+        self.assertGreaterEqual(progress["verbs"]["1"]["correct_count"], 5)
+        self.assertTrue(verb_is_mastered(progress["verbs"]["1"], 5))
+
+    def test_vocab_mastery_uses_threshold(self):
+        progress = normalize_progress({})
+        for _ in range(9):
+            self.assertFalse(apply_vocab_mastery(progress, 1, True, threshold=10))
+        self.assertTrue(apply_vocab_mastery(progress, 1, True, threshold=10))
+        self.assertFalse(apply_vocab_mastery(progress, 1, False, threshold=10))
+        self.assertEqual(progress["vocab"]["1"]["correct_count"], 10)
+        rows = vocab_progress_list(progress, 10)
+        mastered = [row for row in rows if row["id"] == 1][0]
+        self.assertTrue(mastered["mastered"])
+
+    def test_progress_view_includes_calendar_fields(self):
+        progress = normalize_progress({})
+        apply_attempt(
+            progress,
+            verb_id=1,
+            tense="present",
+            is_correct=True,
+            today=date(2026, 8, 17),
+            threshold=5,
+        )
+        view = progress_view(progress, conjugation_threshold=5, vocab_threshold=10)
+        self.assertEqual(view["practice_dates"], ["2026-08-17"])
+        self.assertEqual(view["daily_attempts"]["2026-08-17"], 1)
+        self.assertEqual(view["conjugation_threshold"], 5)
+        self.assertEqual(view["vocab_threshold"], 10)
 
 
 if __name__ == "__main__":

@@ -86,7 +86,9 @@
       }
     });
     feedbackBox.className = `mt-4 vsc-feedback ${result.correct ? "vsc-feedback-correct" : "vsc-feedback-bad"}`;
-    feedbackBox.innerHTML = `<div class="font-bold">${result.message}</div>`;
+    feedbackBox.innerHTML = `<div class="font-bold">${result.message}</div>${
+      result.newly_mastered ? '<div class="vsc-mastered-toast">マスターしました！</div>' : ""
+    }`;
     feedbackBox.classList.remove("hidden");
     nextBtn.classList.remove("hidden");
     nextBtn.textContent = isLastQuestion() ? "結果を見る →" : "次の問題へ →";
