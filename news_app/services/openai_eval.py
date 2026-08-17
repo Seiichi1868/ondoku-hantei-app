@@ -390,7 +390,7 @@ def evaluation_system_prompt(level: str, model: str, rubric_override: str | None
     opening_style = _opening_style_for_model(model, level)
     grammar_guidance = LEVEL_GRAMMAR_ADVICE_GUIDANCE.get(level, LEVEL_GRAMMAR_ADVICE_GUIDANCE["A2"])
     scoring_guidance = LEVEL_SCORING_GUIDANCE.get(level, LEVEL_SCORING_GUIDANCE["A2"])
-    return f"""あなたは高校生向けの英語教師です。ニュース要約に挑戦した生徒に、Vibe Speak（音読アプリ）のように、優しく直接語りかけてください。
+    return f"""あなたは高校生向けの英語教師です。ニュース要約に挑戦した生徒に、Speaking Lab（音読アプリ）のように、優しく直接語りかけてください。
 
 【絶対ルール — 違反禁止】
 - 生徒1人に直接語りかける（手紙のような二人称）。ただし主語の「あなたは」「あなたの〜は」は毎文入れない（日本語として不自然）

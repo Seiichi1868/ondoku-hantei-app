@@ -8,8 +8,8 @@
 
 | アプリ | パッケージ | URL | 説明 | マニュアル |
 |--------|-----------|-----|------|------------|
-| VibeSpeak（音読判定） | `flask_app/` | `/` | 多言語音読・添削・OCR・TTS | [学校・授業用](./音読判定マニュアル.md) / [Instagram等・公開用](./音読判定マニュアル_公開用.md) |
-| Vibe Speak News | `news_app/` | `/news/` | 動画要約・スピーチ評価 | [newsマニュアル.md](./newsマニュアル.md) |
+| Speaking Lab（音読判定） | `flask_app/` | `/` | 多言語音読・添削・OCR・TTS | [学校・授業用](./音読判定マニュアル.md) / [Instagram等・公開用](./音読判定マニュアル_公開用.md) |
+| Speaking Lab News | `news_app/` | `/news/` | 動画要約・スピーチ評価 | [newsマニュアル.md](./newsマニュアル.md) |
 
 各アプリは **完全独立**（`*_app/` 同士の import 禁止）。共通 `shared/` フォルダは使いません。
 
@@ -18,7 +18,7 @@
 ```
 vibes-apps/
 ├── flask_app/           # 音読判定（/）
-├── news_app/            # Vibe Speak News（/news/）
+├── news_app/            # Speaking Lab News（/news/）
 ├── templates/           # 音読・News テンプレート（news/ サブディレクトリ）
 ├── static/              # 音読静的ファイル（news/ サブディレクトリ）
 ├── data/                # 永続データ（Render ディスク、本番のみ）

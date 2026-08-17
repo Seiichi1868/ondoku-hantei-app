@@ -15,7 +15,7 @@ class Config:
     UPLOAD_FOLDER = str(BASE_DIR / "uploads")
     AUDIO_CACHE_DIR = BASE_DIR / "static" / "audio"
     ALLOWED_EXTENSIONS = {"webm", "wav", "mp3", "ogg", "m4a"}
-    MAX_CONTENT_LENGTH = 10 * 1024 * 1024
+    MAX_CONTENT_LENGTH = 15 * 1024 * 1024
 
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
@@ -47,7 +47,7 @@ class Config:
         ".webp": "image/webp",
         ".gif": "image/gif",
     }
-    OCR_MAX_BYTES = 10 * 1024 * 1024
+    OCR_MAX_BYTES = 15 * 1024 * 1024
     GRAMMAR_TIPS_MAX = 8
 
     @staticmethod

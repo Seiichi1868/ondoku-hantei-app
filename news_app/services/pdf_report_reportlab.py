@@ -78,7 +78,7 @@ def _draw_rounded_rect(c: canvas.Canvas, x, y, w, h, radius=4, fill=None, stroke
 def _draw_header(c: canvas.Canvas, report: dict, x, top, width):
     c.setFont(FONT_BOLD, 16)
     c.setFillColor(TEAL)
-    c.drawString(x, top - 18, "Vibe Speak News 評価レポート")
+    c.drawString(x, top - 18, "Speaking Lab News 評価レポート")
     c.setFont(FONT_REG, 9.5)
     c.setFillColor(TEAL_DARK)
     c.drawString(x, top - 34, "Speaking Evaluation Report")
@@ -254,7 +254,7 @@ def _draw_footer(c: canvas.Canvas, report: dict, x, width):
     c.setFont(FONT_REG, 8)
     c.setFillColor(SLATE_MUTED)
     c.drawString(x, 10 * mm, f"提出ID: {report.get('id') or '—'}")
-    brand = "Vibe Speak News"
+    brand = "Speaking Lab News"
     c.drawString(x + width - pdfmetrics.stringWidth(brand, FONT_REG, 8), 10 * mm, brand)
 
 

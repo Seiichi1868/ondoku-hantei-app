@@ -247,7 +247,7 @@ body {
   height: 0.25rem;
 }
 
-/* ── 管理画面：ジャッジモデル選択（VibeSpeak管理画面と同レイアウト） ── */
+/* ── 管理画面：ジャッジモデル選択（Speaking Lab管理画面と同レイアウト） ── */
 .debate-mode-options {
   display: grid;
   gap: 4px;

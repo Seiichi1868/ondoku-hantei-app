@@ -2321,7 +2321,7 @@ body.gate-locked {
   flex-shrink: 0;
 }
 
-/* Splash screen (startup motion — matches Vibe Speak News intro) */
+/* Splash screen (startup motion — matches Speaking Lab News intro) */
 @keyframes splashIntroFade {
   0% {
     opacity: 0;
