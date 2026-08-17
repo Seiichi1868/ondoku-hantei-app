@@ -1,7 +1,77 @@
 {% extends "trigger/base.html" %}
 {% block title %}Speaking Lab Trigger{% endblock %}
 
+{% block head %}
+<style>
+  @keyframes trigIntroFade {
+    0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+    28% { opacity: 1; transform: translateY(0) scale(1); }
+    78% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-8px) scale(1.02); }
+  }
+  @keyframes trigOrbFloat {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, -12px, 0); }
+  }
+  .trig-intro-card {
+    overflow: visible;
+    animation: trigIntroFade 2.1s ease both;
+  }
+  .trig-orb {
+    animation: trigOrbFloat 2.8s ease-in-out infinite;
+  }
+  .trig-intro-glass-label {
+    color: rgba(13, 148, 136, 0.88);
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.55),
+      0 0 8px rgba(255, 255, 255, 0.25);
+  }
+  .trig-intro-glass-logo {
+    display: inline-block;
+    line-height: 1.35 !important;
+    padding: 0.1em 0.18em 0.34em;
+    overflow: visible;
+    background: linear-gradient(
+      168deg,
+      rgba(56, 189, 248, 0.82) 0%,
+      rgba(3, 105, 161, 0.96) 30%,
+      rgba(15, 118, 110, 0.98) 62%,
+      rgba(4, 120, 87, 1) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    -webkit-text-stroke: 0.3px rgba(255, 255, 255, 0.22);
+    paint-order: stroke fill;
+    filter:
+      drop-shadow(0 1px 0 rgba(255, 255, 255, 0.45))
+      drop-shadow(0 4px 14px rgba(14, 116, 144, 0.2))
+      drop-shadow(0 1px 3px rgba(3, 105, 161, 0.15));
+  }
+  .trig-intro-glass-sub {
+    color: rgba(100, 116, 139, 0.92);
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.5),
+      0 0 6px rgba(255, 255, 255, 0.2);
+  }
+</style>
+{% endblock %}
+
 {% block body %}
+<div id="opening-overlay"
+  class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-6">
+  <div class="page-bg absolute inset-0 scale-110 opacity-[0.85]"></div>
+  <div class="absolute inset-0 bg-gradient-to-br from-white/70 via-sky-50/55 to-emerald-50/65"></div>
+  <div class="absolute inset-0 bg-white/20"></div>
+  <div class="trig-orb absolute -left-16 top-14 h-48 w-48 rounded-full bg-sky-200/45 blur-3xl"></div>
+  <div class="trig-orb absolute -right-12 bottom-16 h-56 w-56 rounded-full bg-emerald-200/45 blur-3xl" style="animation-delay: .35s"></div>
+  <div class="trig-intro-card relative text-center">
+    <p class="trig-intro-glass-label mb-2 text-[11px] font-semibold uppercase tracking-[0.35em]">Welcome to</p>
+    <h1 class="trig-intro-glass-logo text-4xl font-bold tracking-tight sm:text-5xl">Speaking Lab Trigger</h1>
+    <p class="trig-intro-glass-sub mt-3 text-sm font-medium">Speak. Expand. Respond.</p>
+  </div>
+</div>
+
 <div class="relative mx-auto flex min-h-screen max-w-3xl flex-col px-3 py-4 sm:px-6 sm:py-6">
 
   <header class="mb-4 flex items-start justify-between gap-3 glass rounded-2xl px-4 py-3">
@@ -205,5 +275,5 @@
 <script>
   window.TRIGGER_INITIAL_SESSION_ID = {{ initial_session_id | tojson if initial_session_id else 'null' }};
 </script>
-<script src="{{ url_for('trigger.static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('trigger.static', filename='js/app.js', v='20260817a') }}"></script>
 {% endblock %}

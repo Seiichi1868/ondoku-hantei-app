@@ -1,6 +1,16 @@
 (() => {
   "use strict";
 
+  const openingOverlay = document.getElementById("opening-overlay");
+  if (openingOverlay) {
+    window.setTimeout(() => {
+      openingOverlay.style.transition = "opacity 300ms ease";
+      openingOverlay.style.opacity = "0";
+      openingOverlay.style.pointerEvents = "none";
+      window.setTimeout(() => openingOverlay.remove(), 320);
+    }, 1950);
+  }
+
   const API = "/trigger/api";
   const STEP_ORDER = ["login", "script", "sample", "readaloud", "qa", "speech", "report"];
 

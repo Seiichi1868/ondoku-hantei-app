@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GTEC Speaking 対策アプリ</title>
+  <title>GTEC Speaking アプリ</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='gtec/css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='gtec/css/style.css', v='20260817a') }}">
   <style>
     .gtec-page-bg {
       background-image: url("{{ url_for('static', filename=background.background_image) }}");
@@ -57,7 +57,7 @@
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow">G</div>
         <div>
-          <h1 class="text-lg font-bold text-indigo-700 leading-tight">GTEC Speaking 対策</h1>
+          <h1 class="text-lg font-bold text-indigo-700 leading-tight">GTEC Speaking</h1>
           <p class="text-xs text-slate-500">公式評価基準準拠 · 自動採点</p>
         </div>
       </div>

@@ -2,7 +2,77 @@
 
 {% block title %}Speaking Level Check Test{% endblock %}
 
+{% block head %}
+<style>
+  @keyframes lcIntroFade {
+    0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+    28% { opacity: 1; transform: translateY(0) scale(1); }
+    78% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-8px) scale(1.02); }
+  }
+  @keyframes lcOrbFloat {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, -12px, 0); }
+  }
+  .lc-intro-card {
+    overflow: visible;
+    animation: lcIntroFade 2.1s ease both;
+  }
+  .lc-orb {
+    animation: lcOrbFloat 2.8s ease-in-out infinite;
+  }
+  .lc-intro-glass-label {
+    color: rgba(13, 148, 136, 0.88);
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.55),
+      0 0 8px rgba(255, 255, 255, 0.25);
+  }
+  .lc-intro-glass-logo {
+    display: inline-block;
+    line-height: 1.35 !important;
+    padding: 0.1em 0.18em 0.34em;
+    overflow: visible;
+    background: linear-gradient(
+      168deg,
+      rgba(56, 189, 248, 0.82) 0%,
+      rgba(3, 105, 161, 0.96) 30%,
+      rgba(15, 118, 110, 0.98) 62%,
+      rgba(4, 120, 87, 1) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    -webkit-text-stroke: 0.3px rgba(255, 255, 255, 0.22);
+    paint-order: stroke fill;
+    filter:
+      drop-shadow(0 1px 0 rgba(255, 255, 255, 0.45))
+      drop-shadow(0 4px 14px rgba(14, 116, 144, 0.2))
+      drop-shadow(0 1px 3px rgba(3, 105, 161, 0.15));
+  }
+  .lc-intro-glass-sub {
+    color: rgba(100, 116, 139, 0.92);
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.5),
+      0 0 6px rgba(255, 255, 255, 0.2);
+  }
+</style>
+{% endblock %}
+
 {% block body %}
+<div id="opening-overlay"
+  class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-6">
+  <div class="lc-bg-image absolute inset-0 scale-110 opacity-[0.45]"></div>
+  <div class="absolute inset-0 bg-gradient-to-br from-white/70 via-sky-50/55 to-emerald-50/65"></div>
+  <div class="absolute inset-0 bg-white/20"></div>
+  <div class="lc-orb absolute -left-16 top-14 h-48 w-48 rounded-full bg-sky-200/45 blur-3xl"></div>
+  <div class="lc-orb absolute -right-12 bottom-16 h-56 w-56 rounded-full bg-emerald-200/45 blur-3xl" style="animation-delay: .35s"></div>
+  <div class="lc-intro-card relative text-center">
+    <p class="lc-intro-glass-label mb-2 text-[11px] font-semibold uppercase tracking-[0.35em]">Welcome to</p>
+    <h1 class="lc-intro-glass-logo text-4xl font-bold tracking-tight sm:text-5xl">Speaking Level Check Test</h1>
+    <p class="lc-intro-glass-sub mt-3 text-sm font-medium">Listen. Speak. Find your level.</p>
+  </div>
+</div>
+
 <div class="lc-card rounded-2xl p-6 md:p-8 mb-5">
   <h2 class="text-xl font-bold text-slate-800 mb-2">スピーキング瞬発力・運用力レベルチェック</h2>
   <p class="text-sm text-slate-500 leading-relaxed">
@@ -66,5 +136,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('level_check.static', filename='js/index.js', v='20260802d') }}"></script>
+<script src="{{ url_for('level_check.static', filename='js/index.js', v='20260817a') }}"></script>
 {% endblock %}

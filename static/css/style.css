@@ -2425,6 +2425,7 @@ body.gate-locked {
   position: relative;
   z-index: 1;
   text-align: center;
+  overflow: visible;
   animation: splashIntroFade 2.1s ease both;
 }
 
@@ -2443,11 +2444,14 @@ body.gate-locked {
 
 .splash-intro-glass-logo {
   margin: 0;
+  display: inline-block;
   font-family: "Outfit", system-ui, sans-serif;
   font-size: clamp(2.25rem, 8vw, 3rem);
   font-weight: 700;
   letter-spacing: -0.025em;
-  line-height: 1.1;
+  line-height: 1.35;
+  padding: 0.1em 0.18em 0.34em;
+  overflow: visible;
   background: linear-gradient(
     168deg,
     rgba(56, 189, 248, 0.82) 0%,

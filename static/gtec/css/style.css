@@ -14,6 +14,7 @@
 }
 
 .gtec-intro-card {
+  overflow: visible;
   animation: gtecIntroFade 2.1s ease both;
 }
 
@@ -29,6 +30,10 @@
 }
 
 .gtec-intro-glass-logo {
+  display: inline-block;
+  line-height: 1.35 !important;
+  padding: 0.1em 0.18em 0.34em;
+  overflow: visible;
   background: linear-gradient(
     168deg,
     rgba(129, 140, 248, 0.82) 0%,

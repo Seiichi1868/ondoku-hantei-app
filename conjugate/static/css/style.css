@@ -1270,7 +1270,10 @@ html.vsc-skip-opening .vsc-splash {
   font-size: clamp(1.15rem, 5.2vw, 2.5rem);
   color: var(--text-primary);
   margin: 8px 0;
-  line-height: 1.15;
+  display: inline-block;
+  line-height: 1.35;
+  padding: 0.08em 0.12em 0.28em;
+  overflow: visible;
   letter-spacing: -0.03em;
   white-space: nowrap;
   animation: vscSplashTitle var(--splash-ms) ease both;
