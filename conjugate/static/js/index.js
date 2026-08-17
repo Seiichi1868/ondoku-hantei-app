@@ -163,9 +163,15 @@
   const modal = document.getElementById("stat-modal");
   const modalTitle = document.getElementById("stat-modal-title");
   const modalBody = document.getElementById("stat-modal-body");
+  const modalSheet = modal ? modal.querySelector(".vsc-modal-sheet") : null;
   const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
   let calendarCursor = new Date();
   calendarCursor.setDate(1);
+  let modalAnchor = null;
+
+  if (modal && modal.parentElement !== document.body) {
+    document.body.appendChild(modal);
+  }
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -325,21 +331,79 @@
     spec.render();
   }
 
-  function openStat(name) {
+  function viewportSize() {
+    const vp = window.visualViewport;
+    return {
+      width: vp ? vp.width : window.innerWidth,
+      height: vp ? vp.height : window.innerHeight,
+      offsetLeft: vp ? vp.offsetLeft : 0,
+      offsetTop: vp ? vp.offsetTop : 0,
+    };
+  }
+
+  function positionSheet(anchor) {
+    if (!modalSheet) return;
+    const margin = 12;
+    const navSpace = 96;
+    const vp = viewportSize();
+    const maxWidth = Math.min(560, vp.width - margin * 2);
+    const maxHeight = Math.max(180, vp.height - navSpace - margin * 2);
+    modalSheet.style.width = `${maxWidth}px`;
+    modalSheet.style.maxHeight = `${maxHeight}px`;
+    modalSheet.style.left = `${vp.offsetLeft + margin}px`;
+    modalSheet.style.top = `${vp.offsetTop + margin}px`;
+
+    const sheetW = modalSheet.offsetWidth;
+    const sheetH = modalSheet.offsetHeight;
+    const rect = anchor && anchor.getBoundingClientRect
+      ? anchor.getBoundingClientRect()
+      : { left: vp.width / 2, width: 0, top: 80, bottom: 80 };
+
+    let top = rect.bottom + 8;
+    const fitsBelow = top + sheetH <= vp.height - navSpace - margin;
+    const fitsAbove = rect.top - 8 - sheetH >= margin;
+    if (!fitsBelow && fitsAbove) {
+      top = rect.top - 8 - sheetH;
+    } else if (!fitsBelow) {
+      top = Math.max(margin, vp.height - navSpace - margin - sheetH);
+    }
+    top = Math.min(Math.max(margin, top), Math.max(margin, vp.height - navSpace - margin - sheetH));
+
+    let left = rect.left + rect.width / 2 - sheetW / 2;
+    left = Math.min(Math.max(margin, left), Math.max(margin, vp.width - sheetW - margin));
+
+    modalSheet.style.left = `${Math.round(vp.offsetLeft + left)}px`;
+    modalSheet.style.top = `${Math.round(vp.offsetTop + top)}px`;
+  }
+
+  function schedulePosition() {
+    requestAnimationFrame(() => {
+      positionSheet(modalAnchor);
+      requestAnimationFrame(() => positionSheet(modalAnchor));
+    });
+  }
+
+  function openStat(name, anchor) {
     if (!renderers[name] || !modal) return;
     activeStat = name;
+    modalAnchor = anchor || null;
     calendarCursor = new Date();
     calendarCursor.setDate(1);
     renderActive();
     modal.classList.remove("hidden");
+    document.body.classList.add("vsc-modal-open");
+    schedulePosition();
   }
 
   function closeStat() {
-    if (modal) modal.classList.add("hidden");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    document.body.classList.remove("vsc-modal-open");
+    modalAnchor = null;
   }
 
   document.querySelectorAll("[data-open-stat]").forEach((el) => {
-    el.addEventListener("click", () => openStat(el.dataset.openStat));
+    el.addEventListener("click", () => openStat(el.dataset.openStat, el));
   });
   document.querySelectorAll("[data-close-stat]").forEach((el) => {
     el.addEventListener("click", closeStat);
@@ -355,6 +419,7 @@
       const shift = Number(shiftBtn.dataset.calShift || 0);
       calendarCursor.setMonth(calendarCursor.getMonth() + shift);
       renderActive();
+      schedulePosition();
     });
     modalBody.addEventListener("submit", async (e) => {
       const formEl = e.target.closest("#daily-goal-form");
@@ -384,12 +449,22 @@
         if (totalEl && window.vscCountUp) window.vscCountUp(totalEl, progressState.total_attempts || 0);
         else if (totalEl) totalEl.textContent = String(progressState.total_attempts || 0);
         renderTotalBody();
+        schedulePosition();
       } catch (err) {
         if (msg) {
           msg.textContent = err.message;
           msg.style.color = "var(--danger-text)";
         }
       }
+    });
+  }
+
+  window.addEventListener("resize", () => {
+    if (modal && !modal.classList.contains("hidden")) schedulePosition();
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", () => {
+      if (modal && !modal.classList.contains("hidden")) schedulePosition();
     });
   }
 })();

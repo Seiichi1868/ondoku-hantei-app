@@ -181,7 +181,9 @@
     <p id="start-error" class="text-sm mt-3 {% if not start_error %}hidden{% endif %}" style="color: var(--danger-text);">{{ start_error or "" }}</p>
   </form>
 </section>
+{% endblock %}
 
+{% block overlays %}
 <div id="stat-modal" class="vsc-modal hidden" role="dialog" aria-modal="true" aria-labelledby="stat-modal-title">
   <button type="button" class="vsc-modal-backdrop" data-close-stat aria-label="閉じる"></button>
   <div class="vsc-modal-sheet">
@@ -199,5 +201,5 @@
   window.CONJUGATE_OPENING_MS = {{ appearance.opening_ms | tojson }};
   window.CONJUGATE_PROGRESS = {{ progress | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260817d') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260817e') }}"></script>
 {% endblock %}

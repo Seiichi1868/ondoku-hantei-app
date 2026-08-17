@@ -129,7 +129,7 @@
 .vsc-main {
   padding-top: 8px;
   padding-bottom: var(--nav-clearance);
-  animation: vscPageIn 0.26s ease both;
+  animation: vscPageIn 0.26s ease;
 }
 
 .vsc-admin-page .vsc-main {
@@ -1514,10 +1514,8 @@ html.vsc-skip-opening .vsc-splash {
 .vsc-modal {
   position: fixed;
   inset: 0;
-  z-index: 60;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  z-index: 70;
+  display: block;
 }
 .vsc-modal.hidden { display: none; }
 .vsc-modal-backdrop {
@@ -1528,21 +1526,22 @@ html.vsc-skip-opening .vsc-splash {
   cursor: pointer;
 }
 .vsc-modal-sheet {
-  position: relative;
-  width: min(100%, 560px);
-  max-height: min(88vh, 720px);
+  position: absolute;
+  z-index: 1;
+  left: 12px;
+  top: 12px;
+  width: min(calc(100vw - 24px), 560px);
+  max-height: min(70dvh, calc(100dvh - 120px));
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: #fff;
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.12);
-  padding: 16px 16px 28px;
+  border-radius: 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  padding: 16px 16px 20px;
 }
-@media (min-width: 601px) {
-  .vsc-modal { align-items: center; }
-  .vsc-modal-sheet {
-    border-radius: 24px;
-    max-height: min(82vh, 680px);
-  }
+body.vsc-modal-open {
+  overflow: hidden;
 }
 .vsc-modal-head {
   display: flex;
@@ -1851,7 +1850,7 @@ html.vsc-skip-opening .vsc-splash {
 
 @keyframes vscPageIn {
   from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: none; }
 }
 @keyframes vscPageOut {
   from { opacity: 1; transform: translateY(0); }
