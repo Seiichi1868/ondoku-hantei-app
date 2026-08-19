@@ -120,18 +120,41 @@ class MasteryTests(unittest.TestCase):
             self.assertFalse(apply_vocab_mastery(progress, 1, True, threshold=5, direction="ja_to_es"))
         self.assertTrue(apply_vocab_mastery(progress, 1, True, threshold=5, direction="ja_to_es"))
         self.assertFalse(apply_vocab_mastery(progress, 1, False, threshold=5, direction="ja_to_es"))
-        self.assertEqual(progress["vocab"]["1"]["ja_to_es"]["correct_count"], 5)
+        self.assertEqual(progress["vocab"]["1"]["ja_to_es"]["consecutive_correct"], 0)
+        self.assertTrue(progress["vocab"]["1"]["ja_to_es"]["mastered"])
         self.assertEqual(progress["vocab"]["1"]["es_to_ja"]["correct_count"], 0)
         rows = vocab_progress_list(progress, 5)
         mastered = [row for row in rows if row["id"] == 1][0]
         self.assertTrue(mastered["ja_to_es"]["mastered"])
         self.assertFalse(mastered["es_to_ja"]["mastered"])
 
+    def test_vocab_wrong_answer_resets_streak(self):
+        progress = normalize_progress({})
+        for _ in range(4):
+            apply_vocab_mastery(progress, 1, True, threshold=5, direction="ja_to_es")
+        apply_vocab_mastery(progress, 1, False, threshold=5, direction="ja_to_es")
+        self.assertEqual(progress["vocab"]["1"]["ja_to_es"]["consecutive_correct"], 0)
+        self.assertFalse(progress["vocab"]["1"]["ja_to_es"]["mastered"])
+        for _ in range(4):
+            self.assertFalse(apply_vocab_mastery(progress, 1, True, threshold=5, direction="ja_to_es"))
+        self.assertTrue(apply_vocab_mastery(progress, 1, True, threshold=5, direction="ja_to_es"))
+
     def test_vocab_directions_are_independent(self):
         progress = normalize_progress({})
         for _ in range(5):
             apply_vocab_mastery(progress, 1, True, threshold=5, direction="es_to_ja")
         self.assertTrue(progress["vocab"]["1"]["es_to_ja"]["mastered"])
+        self.assertFalse(progress["vocab"]["1"]["ja_to_es"]["mastered"])
+
+    def test_vocab_legacy_counts_become_streaks(self):
+        progress = normalize_progress(
+            {
+                "vocab": {
+                    "1": {"ja_to_es": {"correct_count": 3, "mastered": False}},
+                }
+            }
+        )
+        self.assertEqual(progress["vocab"]["1"]["ja_to_es"]["consecutive_correct"], 3)
         self.assertFalse(progress["vocab"]["1"]["ja_to_es"]["mastered"])
 
     def test_progress_view_includes_calendar_fields(self):

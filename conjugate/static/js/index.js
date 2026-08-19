@@ -267,7 +267,7 @@
         const mastered = Boolean(side.mastered) || count >= threshold;
         return { ...row, correct_count: count, mastered };
       })
-      .filter((row) => Number(row.correct_count || 0) > 0)
+      .filter((row) => Boolean(row.mastered) || Number(row.correct_count || 0) > 0)
       .sort((a, b) => Number(b.mastered) - Number(a.mastered) || Number(b.correct_count) - Number(a.correct_count) || String(a.infinitive).localeCompare(String(b.infinitive)));
     if (!studied.length) {
       return `<p class="vsc-master-empty">${escapeHtml(emptyText)}</p>`;
@@ -299,7 +299,7 @@
     const jaCount = progressState.vocab_mastered_ja_to_es || 0;
     const esCount = progressState.vocab_mastered_es_to_ja || 0;
     modalBody.innerHTML = `
-      <p class="vsc-modal-lead">左右の出題方向ごとに${threshold}回正解するとマスターリストに入ります。</p>
+      <p class="vsc-modal-lead">左右の出題方向ごとに${threshold}回連続正解するとマスターリストに入ります。間違えるとカウントはゼロに戻ります。</p>
       <div class="vsc-master-split">
         <section>
           <h3 class="vsc-master-col-title">日本語 → スペイン語</h3>

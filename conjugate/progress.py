@@ -1,7 +1,8 @@
 """ストリーク・累計練習数・習得の純ロジック。
 
-活用はデフォルト5回正解で習得。単語4択は方向（日→西 / 西→日）ごとに
-デフォルト5回正解でマスター。しきい値は管理画面から渡す。
+活用はデフォルト5回正解で習得（累計。不正解でも回数は減らない）。
+単語4択は方向（日→西 / 西→日）ごとにデフォルト5回連続正解でマスター。
+間違えると連続カウントはゼロに戻る。しきい値は管理画面から渡す。
 """
 from datetime import date, datetime, timedelta, timezone
 
@@ -145,14 +146,20 @@ def normalize_progress(raw: dict | None) -> dict:
 
 
 def _vocab_side(raw_side, fallback: int = 0) -> dict:
-    count = 0
+    consecutive = 0
+    mastered = False
     if isinstance(raw_side, dict):
-        count = _as_nonneg_int(raw_side.get("correct_count"))
-    if count <= 0:
-        count = fallback
+        consecutive = _as_nonneg_int(raw_side.get("consecutive_correct"))
+        if consecutive <= 0 and "consecutive_correct" not in raw_side:
+            consecutive = _as_nonneg_int(raw_side.get("correct_count"))
+        mastered = bool(raw_side.get("mastered"))
+    if consecutive <= 0:
+        consecutive = fallback
+    mastered = mastered or consecutive >= DEFAULT_VOCAB_THRESHOLD
     return {
-        "correct_count": count,
-        "mastered": count >= DEFAULT_VOCAB_THRESHOLD,
+        "consecutive_correct": consecutive,
+        "correct_count": consecutive,
+        "mastered": mastered,
     }
 
 
@@ -243,6 +250,20 @@ def apply_mastery(
     return bool(entry["mastered"]) and not was_mastered
 
 
+def _vocab_streak(side) -> int:
+    if not isinstance(side, dict):
+        return 0
+    if "consecutive_correct" in side:
+        return _as_nonneg_int(side.get("consecutive_correct"))
+    return _as_nonneg_int(side.get("correct_count"))
+
+
+def _vocab_side_mastered(side, threshold: int) -> bool:
+    if not isinstance(side, dict):
+        return False
+    return bool(side.get("mastered")) or _vocab_streak(side) >= threshold
+
+
 def apply_vocab_mastery(
     progress: dict,
     verb_id,
@@ -250,8 +271,8 @@ def apply_vocab_mastery(
     threshold: int = DEFAULT_VOCAB_THRESHOLD,
     direction: str | None = "ja_to_es",
 ) -> bool:
-    """単語クイズの方向別累計正解を更新。新たにマスターしたら True。"""
-    if verb_id is None or not is_correct:
+    """単語クイズの方向別連続正解を更新。新たにマスターしたら True。"""
+    if verb_id is None:
         return False
     try:
         key = str(int(verb_id))
@@ -262,19 +283,22 @@ def apply_vocab_mastery(
     threshold = max(1, int(threshold or DEFAULT_VOCAB_THRESHOLD))
     vocab = progress.setdefault("vocab", {})
     entry = vocab.setdefault(key, _normalize_vocab_entry({}))
+    blank_side = {"consecutive_correct": 0, "correct_count": 0, "mastered": False}
     for direction_id in VOCAB_DIRECTIONS:
-        entry.setdefault(direction_id, {"correct_count": 0, "mastered": False})
+        entry.setdefault(direction_id, dict(blank_side))
     side = entry[side_key]
-    was_mastered = _as_nonneg_int(side.get("correct_count")) >= threshold
-    side["correct_count"] = _as_nonneg_int(side.get("correct_count")) + 1
-    side["mastered"] = side["correct_count"] >= threshold
+    was_mastered = _vocab_side_mastered(side, threshold)
+    streak = _vocab_streak(side)
+    if is_correct:
+        streak += 1
+    else:
+        streak = 0
+    side["consecutive_correct"] = streak
+    side["correct_count"] = streak
+    side["mastered"] = was_mastered or streak >= threshold
     entry[side_key] = side
-    entry["correct_count"] = sum(
-        _as_nonneg_int((entry.get(d) or {}).get("correct_count")) for d in VOCAB_DIRECTIONS
-    )
-    entry["mastered"] = any(
-        _as_nonneg_int((entry.get(d) or {}).get("correct_count")) >= threshold for d in VOCAB_DIRECTIONS
-    )
+    entry["correct_count"] = sum(_vocab_streak(entry.get(d)) for d in VOCAB_DIRECTIONS)
+    entry["mastered"] = any(_vocab_side_mastered(entry.get(d), threshold) for d in VOCAB_DIRECTIONS)
     vocab[key] = entry
     return bool(side["mastered"]) and not was_mastered
 
@@ -344,13 +368,9 @@ def mastered_vocab_count(
     for verb in VERBS:
         entry = vocab.get(str(verb["id"])) or {}
         if direction in VOCAB_DIRECTIONS:
-            side = entry.get(direction) or {}
-            score = _as_nonneg_int(side.get("correct_count"))
-        else:
-            score = max(
-                _as_nonneg_int((entry.get(d) or {}).get("correct_count")) for d in VOCAB_DIRECTIONS
-            )
-        if score >= limit:
+            if _vocab_side_mastered(entry.get(direction), limit):
+                count += 1
+        elif any(_vocab_side_mastered(entry.get(d), limit) for d in VOCAB_DIRECTIONS):
             count += 1
     return count
 
@@ -445,10 +465,13 @@ def vocab_progress_list(
         entry = vocab_data.get(str(verb["id"])) or {}
         sides = {}
         for direction in VOCAB_DIRECTIONS:
-            count = _as_nonneg_int((entry.get(direction) or {}).get("correct_count"))
+            side = entry.get(direction) or {}
+            streak = _vocab_streak(side)
+            mastered = _vocab_side_mastered(side, limit)
             sides[direction] = {
-                "correct_count": count,
-                "mastered": count >= limit,
+                "consecutive_correct": streak,
+                "correct_count": max(streak, limit) if mastered else streak,
+                "mastered": mastered,
             }
         rows.append(
             {
