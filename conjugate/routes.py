@@ -35,6 +35,14 @@ from conjugate.config import (
     whisper_cost_usd,
 )
 from conjugate.data.conjugations import TENSE_LABELS, TENSE_ORDER
+from conjugate.data.persons import (
+    DEFAULT_PERSON_FILTER,
+    EL_ELLA_USTED_HINT,
+    PERSON_BADGE_LABELS,
+    PERSON_FILTER_LABELS,
+    PERSON_IDS,
+    PERSON_MODE_LABELS,
+)
 from conjugate.data.verbs import CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_SHORT, drillable_verbs
 from conjugate.session_logic import build_session_questions, build_summary, grade_target, public_question
 from conjugate.storage import (
@@ -114,8 +122,20 @@ def index():
     progress = progress_detail()
     weak = weak_verbs_report(limit=3)
     verb_counts = {cat: 0 for cat in CATEGORY_ORDER}
+    category_person = {cat: {"tu": 0, "el": 0, "both": 0} for cat in CATEGORY_ORDER}
     for verb in drillable_verbs():
         verb_counts[verb["category"]] = verb_counts.get(verb["category"], 0) + 1
+    for row in progress.get("verbs") or []:
+        cat = row.get("category")
+        if cat not in category_person:
+            continue
+        persons = row.get("persons") or {}
+        if (persons.get("tu") or {}).get("mastered"):
+            category_person[cat]["tu"] += 1
+        if (persons.get("el_ella_usted") or {}).get("mastered"):
+            category_person[cat]["el"] += 1
+        if row.get("mastered"):
+            category_person[cat]["both"] += 1
     return render_template(
         "conjugate/index.html",
         settings=settings,
@@ -124,8 +144,13 @@ def index():
         category_short=CATEGORY_SHORT,
         category_order=CATEGORY_ORDER,
         category_counts=verb_counts,
+        category_person=category_person,
         tense_labels=TENSE_LABELS,
         tense_order=TENSE_ORDER,
+        person_mode=settings.get("person_mode", "tu"),
+        person_mode_labels=PERSON_MODE_LABELS,
+        person_filter_labels=PERSON_FILTER_LABELS,
+        person_badge_labels=PERSON_BADGE_LABELS,
         progress=progress,
         weak_verbs=weak,
     )
@@ -168,7 +193,7 @@ def shop_page():
     )
 
 
-def _prepare_session(raw_categories, raw_tenses, raw_count, raw_prioritize_weak) -> dict:
+def _prepare_session(raw_categories, raw_tenses, raw_count, raw_prioritize_weak, raw_person_filter=None) -> dict:
     """選択内容を検証・正規化して、未保存のセッションを組み立てる。"""
     ensure_dirs()
     settings = load_settings()
@@ -188,6 +213,12 @@ def _prepare_session(raw_categories, raw_tenses, raw_count, raw_prioritize_weak)
     prioritize_weak = bool(settings["prioritize_weak_verbs"] if raw_prioritize_weak is None else raw_prioritize_weak)
     gustar_enabled = bool(settings["gustar_enabled"])
     gustar_count = settings["gustar_per_session"] if gustar_enabled else 0
+    person_mode = settings.get("person_mode") or "tu"
+    person_filter = str(raw_person_filter or DEFAULT_PERSON_FILTER)
+    if person_filter not in ("all",) + PERSON_IDS:
+        person_filter = DEFAULT_PERSON_FILTER
+    if person_mode != "mix":
+        person_filter = "all"
 
     questions = build_session_questions(
         categories=categories,
@@ -197,12 +228,16 @@ def _prepare_session(raw_categories, raw_tenses, raw_count, raw_prioritize_weak)
         gustar_enabled=gustar_enabled,
         gustar_count=gustar_count,
         prioritize_weak=prioritize_weak,
+        person_mode=person_mode,
+        person_filter=person_filter,
     )
 
     return {
         "session_id": new_session_id(),
         "categories": categories,
         "tenses": tenses,
+        "person_mode": person_mode,
+        "person_filter": person_filter,
         "strictness": settings["strictness"],
         "asr_engine": settings["asr_engine"],
         "whisper_model": settings["whisper_model"],
@@ -221,6 +256,7 @@ def create_session():
         payload.get("tenses"),
         payload.get("count"),
         payload.get("prioritize_weak_verbs"),
+        payload.get("person_filter"),
     )
     if not session["questions"]:
         return jsonify({"ok": False, "error": START_ERROR_MESSAGES["no_questions"]}), 400
@@ -237,6 +273,7 @@ def start_session():
         request.form.getlist("tense"),
         request.form.get("count"),
         "prioritize_weak_verbs" in request.form,
+        request.form.get("person_filter"),
     )
     if not session["questions"]:
         return redirect(url_for("conjugate.index", error="no_questions"), code=303)
@@ -259,6 +296,8 @@ def quiz_screen(session_id):
         asr_engine=session.get("asr_engine", "whisper"),
         tense_labels=TENSE_LABELS,
         category_labels=CATEGORY_LABELS,
+        person_badge_labels=PERSON_BADGE_LABELS,
+        el_ella_usted_hint=EL_ELLA_USTED_HINT,
     )
 
 

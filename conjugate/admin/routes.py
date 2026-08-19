@@ -14,8 +14,9 @@ from conjugate.config import (
     WHISPER_MODELS,
     get_openai_api_key,
 )
-from conjugate.data.conjugations import TENSE_LABELS, TENSE_ORDER
+from conjugate.data.conjugations import TENSE_LABELS, TENSE_ORDER, derived_person_rows, gustar_derived_rows
 from conjugate.data.gustar import GUSTAR_EXAMPLES
+from conjugate.data.persons import PERSON_MODE_LABELS, PERSON_MODES
 from conjugate.data.verbs import CATEGORY_LABELS, CATEGORY_ORDER, drillable_verbs
 from conjugate.storage import get_submissions, load_settings, save_settings, weak_verbs_report
 
@@ -49,6 +50,7 @@ def _settings_payload() -> dict:
         **settings,
         "categories": [{"id": c, "label": CATEGORY_LABELS[c], "verb_count": verb_counts.get(c, 0)} for c in CATEGORY_ORDER],
         "tenses": [{"id": t, "label": TENSE_LABELS[t]} for t in TENSE_ORDER],
+        "person_modes": [{"id": p, "label": PERSON_MODE_LABELS[p]} for p in PERSON_MODES],
         "asr_engines": [
             {"id": "whisper", "label": "Whisper API（既定・Chrome/Safari両対応）"},
             {"id": "web_speech", "label": "Web Speech API（Chrome限定・低遅延モード）"},
@@ -74,6 +76,8 @@ def admin_page():
         category_order=CATEGORY_ORDER,
         tense_labels=TENSE_LABELS,
         tense_order=TENSE_ORDER,
+        person_modes=PERSON_MODES,
+        person_mode_labels=PERSON_MODE_LABELS,
         asr_engines=ASR_ENGINES,
         strictness_modes=STRICTNESS_MODES,
         whisper_models=WHISPER_MODELS,
@@ -109,6 +113,7 @@ def save_settings_api():
         "gustar_enabled",
         "gustar_per_session",
         "prioritize_weak_verbs",
+        "person_mode",
         "background_id",
         "background_opacity",
         "opening_enabled",
@@ -132,3 +137,15 @@ def submissions_api():
 @admin_bp.route("/api/weak-verbs", methods=["GET"])
 def weak_verbs_api():
     return jsonify({"ok": True, "weak_verbs": weak_verbs_report(limit=30)})
+
+
+@admin_bp.route("/persons")
+def persons_debug_page():
+    """tú形から自動導出した él/ella/usted形の全件一覧（目視確認用）。"""
+    return render_template(
+        "conjugate/admin/persons.html",
+        rows=derived_person_rows(),
+        gustar_rows=gustar_derived_rows(),
+        tense_labels=TENSE_LABELS,
+        tense_order=TENSE_ORDER,
+    )

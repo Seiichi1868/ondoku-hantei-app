@@ -77,6 +77,7 @@
       prioritize_weak_verbs: form.querySelector('input[name="prioritize_weak_verbs"]').checked,
       gustar_enabled: form.querySelector('input[name="gustar_enabled"]').checked,
       gustar_per_session: parseInt(form.querySelector('input[name="gustar_per_session"]').value, 10),
+      person_mode: (form.querySelector('input[name="person_mode"]:checked') || {}).value || "tu",
       conjugation_mastery_threshold: parseInt(form.querySelector('input[name="conjugation_mastery_threshold"]').value, 10),
       vocab_mastery_threshold: parseInt(form.querySelector('input[name="vocab_mastery_threshold"]').value, 10),
       guardian_price_coins: parseInt(form.querySelector('input[name="guardian_price_coins"]').value, 10),

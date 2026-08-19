@@ -5,6 +5,7 @@ import uuid
 from conjugate.config import USD_JPY, format_jpy_amount
 from conjugate.data.conjugations import TENSE_ORDER, build_forms
 from conjugate.data.gustar import GUSTAR_EXAMPLES
+from conjugate.data.persons import PERSON_IDS, resolve_person
 from conjugate.data.verbs import VERBS_BY_ID, verbs_by_category
 from conjugate.judge import grade_gustar, grade_regular
 from conjugate.storage import record_answer_result, record_progress, top_weak_verb_ids
@@ -12,7 +13,14 @@ from conjugate.storage import record_answer_result, record_progress, top_weak_ve
 GUSTAR_BY_ID = {item["id"]: item for item in GUSTAR_EXAMPLES}
 
 
-def _build_verb_question(verb: dict, enabled_tenses: list[str], targets_per_question: int) -> dict:
+def _pick_person(person_mode: str | None, person_filter: str | None) -> str:
+    resolved = resolve_person(person_mode, person_filter)
+    if resolved == "mix":
+        return random.choice(PERSON_IDS)
+    return resolved
+
+
+def _build_verb_question(verb: dict, enabled_tenses: list[str], targets_per_question: int, person: str) -> dict:
     all_forms = build_forms(verb)
     display_tenses = [t for t in TENSE_ORDER if t in enabled_tenses]
     if not display_tenses:
@@ -32,23 +40,26 @@ def _build_verb_question(verb: dict, enabled_tenses: list[str], targets_per_ques
         "category": verb["category"],
         "reflexive": bool(verb.get("reflexive")),
         "note": verb.get("note", ""),
+        "person": person,
         "display_tenses": display_tenses,
         "targets": targets,
-        "forms": all_forms,  # サーバー側保持。tú形はpublic変換時に除去する。
+        "forms": all_forms,  # サーバー側保持。答えはpublic変換時に除去する。
         "answers": {},
     }
 
 
-def _build_gustar_question(item: dict) -> dict:
+def _build_gustar_question(item: dict, person: str) -> dict:
     return {
         "question_id": uuid.uuid4().hex[:10],
         "kind": "gustar",
         "gustar_id": item["id"],
         "topic_ja": item["topic_ja"],
         "subject_type": item["subject_type"],
+        "person": person,
         "targets": ["gustar"],
         "yo_sentence": item["yo_sentence"],
         "tu_sentence": item["tu_sentence"],
+        "el_ella_usted_sentence": item["el_ella_usted_sentence"],
         "answers": {},
     }
 
@@ -62,6 +73,8 @@ def build_session_questions(
     gustar_enabled: bool,
     gustar_count: int,
     prioritize_weak: bool,
+    person_mode: str = "tu",
+    person_filter: str = "all",
 ) -> list[dict]:
     pool = verbs_by_category(categories)
     if not pool:
@@ -88,12 +101,17 @@ def build_session_questions(
 
     random.shuffle(chosen)
 
-    questions = [_build_verb_question(v, tenses, targets_per_question) for v in chosen]
+    questions = [
+        _build_verb_question(v, tenses, targets_per_question, _pick_person(person_mode, person_filter))
+        for v in chosen
+    ]
 
     if gustar_enabled and gustar_count > 0:
         sample_size = min(gustar_count, len(GUSTAR_EXAMPLES))
         gustar_items = random.sample(GUSTAR_EXAMPLES, k=sample_size)
-        gustar_questions = [_build_gustar_question(item) for item in gustar_items]
+        gustar_questions = [
+            _build_gustar_question(item, _pick_person(person_mode, person_filter)) for item in gustar_items
+        ]
         insert_positions = sorted(random.sample(range(len(questions) + 1), k=len(gustar_questions))) if questions else [0] * len(gustar_questions)
         for offset, (pos, gq) in enumerate(zip(insert_positions, gustar_questions)):
             questions.insert(pos + offset, gq)
@@ -102,8 +120,12 @@ def build_session_questions(
 
 
 def public_question(question: dict) -> dict:
-    """クライアントへ送るtú形（答え）を除いたバージョン。"""
-    q = {k: v for k, v in question.items() if k not in ("forms", "tu_sentence", "answers")}
+    """クライアントへ送る答え（tú / él形）を除いたバージョン。"""
+    q = {
+        k: v
+        for k, v in question.items()
+        if k not in ("forms", "tu_sentence", "el_ella_usted_sentence", "answers")
+    }
     if question["kind"] == "verb":
         forms = question["forms"]
         q["forms"] = {
@@ -111,6 +133,7 @@ def public_question(question: dict) -> dict:
         }
     else:
         q["yo_sentence"] = question["yo_sentence"]
+    q["person"] = question.get("person") or "tu"
     q["answers"] = {
         target: {"level": ans["level"]} for target, ans in question.get("answers", {}).items()
     }
@@ -118,9 +141,10 @@ def public_question(question: dict) -> dict:
 
 
 def grade_target(question: dict, target: str, transcript: str, strict: bool, source: str = "speech") -> dict:
+    person = question.get("person") if question.get("person") in PERSON_IDS else "tu"
     if question["kind"] == "gustar":
         item = GUSTAR_BY_ID[question["gustar_id"]]
-        result = grade_gustar(item, transcript, strict=strict, source=source)
+        result = grade_gustar(item, transcript, strict=strict, source=source, person=person)
         record_answer_result(verb_id="gustar", infinitive="gustar", level=result["level"])
         progress = record_progress(verb_id=None, tense=None, is_correct=result["level"] == "correct")
         result["newly_mastered"] = False
@@ -128,12 +152,13 @@ def grade_target(question: dict, target: str, transcript: str, strict: bool, sou
         return result
 
     verb = VERBS_BY_ID[question["verb_id"]]
-    result = grade_regular(verb, target, transcript, strict=strict, source=source)
+    result = grade_regular(verb, target, transcript, strict=strict, source=source, person=person)
     record_answer_result(verb_id=verb["id"], infinitive=verb["infinitive"], level=result["level"])
     progress = record_progress(
         verb_id=verb["id"],
         tense=target,
         is_correct=result["level"] == "correct",
+        person=person,
     )
     result["newly_mastered"] = bool(progress.get("newly_mastered"))
     result["progress"] = progress

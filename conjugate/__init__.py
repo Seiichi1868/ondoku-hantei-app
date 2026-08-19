@@ -1,4 +1,4 @@
-"""Vibe Speak Conjugate: tú(二人称単数)活用の瞬発力トレーナー。
+"""Vibe Speak Conjugate: tú / él・ella・usted 活用の瞬発力トレーナー。
 
 news_app / level_check / debate とは完全に独立したBlueprintパッケージ。
 他アプリのモジュールをimportしない（platformルール準拠）。

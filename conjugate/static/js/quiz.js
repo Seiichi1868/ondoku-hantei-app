@@ -3,18 +3,24 @@
   const ASR_ENGINE = window.CONJUGATE_ASR_ENGINE || "whisper";
   const TENSE_LABELS = window.CONJUGATE_TENSE_LABELS || {};
   const CATEGORY_LABELS = window.CONJUGATE_CATEGORY_LABELS || {};
+  const PERSON_LABELS = window.CONJUGATE_PERSON_LABELS || { tu: "tú", el_ella_usted: "él/ella/usted" };
+  const EL_HINT = window.CONJUGATE_EL_HINT || "";
   const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
 
   const progressLabel = document.getElementById("progress-label");
   const micErrorBanner = document.getElementById("mic-error-banner");
   const categoryPill = document.getElementById("category-pill");
+  const personPill = document.getElementById("person-pill");
   const tenseTargetPill = document.getElementById("tense-target-pill");
   const verbHeaderBlock = document.getElementById("verb-header-block");
   const gustarHeaderBlock = document.getElementById("gustar-header-block");
   const infinitiveTitle = document.getElementById("infinitive-title");
   const meaningJa = document.getElementById("meaning-ja");
   const verbNote = document.getElementById("verb-note");
+  const personHint = document.getElementById("person-hint");
   const gustarTopic = document.getElementById("gustar-topic");
+  const gustarHint = document.getElementById("gustar-hint");
+  const personHintGustar = document.getElementById("person-hint-gustar");
   const sentenceList = document.getElementById("sentence-list");
   const targetStepper = document.getElementById("target-stepper");
   const recordBtn = document.getElementById("record-btn");
@@ -34,6 +40,7 @@
   let session = null;
   let questionIndex = 0;
   let targetIndex = 0;
+  let elHintShown = false;
   let mediaRecorder = null;
   let mediaStream = null;
   let speechRecognizer = null;
@@ -114,6 +121,27 @@
     });
   }
 
+  function currentPerson() {
+    const q = currentQuestion();
+    return q.person === "el_ella_usted" ? "el_ella_usted" : "tu";
+  }
+
+  function showElHintIfNeeded(targetEl) {
+    if (!targetEl || !EL_HINT) return;
+    if (currentPerson() !== "el_ella_usted") {
+      targetEl.classList.add("hidden");
+      targetEl.textContent = "";
+      return;
+    }
+    if (elHintShown) {
+      targetEl.classList.add("hidden");
+      return;
+    }
+    targetEl.textContent = EL_HINT;
+    targetEl.classList.remove("hidden");
+    elHintShown = true;
+  }
+
   function renderQuestion() {
     const q = currentQuestion();
     feedbackBox.classList.add("hidden");
@@ -135,7 +163,18 @@
       gustarHeaderBlock.classList.remove("hidden");
       gustarTopic.textContent = q.topic_ja;
       categoryPill.textContent = "特殊構文編";
+      if (personPill) {
+        personPill.textContent = PERSON_LABELS[currentPerson()] || currentPerson();
+        personPill.classList.toggle("is-el", currentPerson() === "el_ella_usted");
+      }
       tenseTargetPill.textContent = "gustar";
+      if (gustarHint) {
+        gustarHint.textContent = currentPerson() === "el_ella_usted"
+          ? "gustarは活用しません。変わるのは me→le だけです。"
+          : "gustarは活用しません。変わるのは me→te だけです。";
+      }
+      showElHintIfNeeded(personHintGustar);
+      if (personHint) personHint.classList.add("hidden");
 
       sentenceList.innerHTML = "";
       const li = document.createElement("li");
@@ -153,7 +192,13 @@
       } else {
         verbNote.classList.add("hidden");
       }
+      showElHintIfNeeded(personHint);
+      if (personHintGustar) personHintGustar.classList.add("hidden");
       categoryPill.textContent = CATEGORY_LABELS[q.category] || q.category;
+      if (personPill) {
+        personPill.textContent = PERSON_LABELS[currentPerson()] || currentPerson();
+        personPill.classList.toggle("is-el", currentPerson() === "el_ella_usted");
+      }
 
       const target = currentTarget();
       tenseTargetPill.textContent = `→ ${TENSE_LABELS[target] || target} に変換`;

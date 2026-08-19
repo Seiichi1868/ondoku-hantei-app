@@ -1,4 +1,4 @@
-"""4文型（現在形／進行形／近接未来／点過去）の yo形・tú形 文生成。
+"""4文型（現在形／進行形／近接未来／点過去）の yo形・tú形・él/ella/usted形 文生成。
 
 `tu_present` は verbs.py に既に格納されているため、残りの3文型に必要な
 「現在分詞（gerundio）」「点過去（yo/tú）」の語幹を動詞ごとに手動で保持する。
@@ -11,7 +11,8 @@
 各エントリの値は「素の活用形」（代名詞・大文字化・句点なし）。
 再帰動詞の me/te は build_forms() が一括で付与する。
 """
-from conjugate.data.verbs import VERBS_BY_ID
+from conjugate.data.persons import pret_tu_to_el, tu_form_to_el
+from conjugate.data.verbs import drillable_verbs
 
 TENSE_LABELS = {
     "present": "現在形",
@@ -145,9 +146,10 @@ def _gerundio_with_clitic_accent(gerundio: str) -> str:
 
 
 def build_forms(verb: dict) -> dict:
-    """指定した動詞について、4文型それぞれの yo形/tú形 完全文を返す。
+    """指定した動詞について、4文型それぞれの yo形/tú形/él/ella/usted形 完全文を返す。
 
-    戻り値: {tense: {"yo": "Yo desayuno.", "tu": "Desayunas."}}
+    戻り値: {tense: {"yo": "Yo hablo.", "tu": "Hablas.", "el_ella_usted": "Habla."}}
+    él/ella/usted形は JSON に手入力せず、tú形（点過去は yo/tú）から自動導出する。
     """
     vid = verb["id"]
     if vid not in CONJ_EXTRA:
@@ -157,6 +159,8 @@ def build_forms(verb: dict) -> dict:
     infinitive = verb["infinitive"]
     reflexive = bool(verb.get("reflexive"))
     tu_present = verb["tu_present"]
+    el_present = tu_form_to_el(tu_present)
+    pret_el = pret_tu_to_el(pret_tu, pret_yo, verb.get("stem_change"), infinitive)
 
     # verbs.py の再帰動詞は原形に "-se" を含む（sentirse, quedarse等）ため、
     # 代名詞を付け直す前提の「素の原形」を別途用意する。
@@ -167,22 +171,62 @@ def build_forms(verb: dict) -> dict:
     # 現在形
     yo_sentence = f"Yo {'me ' if reflexive else ''}{yo_present}."
     tu_sentence = _cap(f"{tu_present}.")
-    forms["present"] = {"yo": yo_sentence, "tu": tu_sentence}
+    el_sentence = _cap(f"{el_present}.")
+    forms["present"] = {"yo": yo_sentence, "tu": tu_sentence, "el_ella_usted": el_sentence}
 
-    # 進行形（estoy/estás + 現在分詞。再帰代名詞は分詞末尾に付く＝アクセント付与が必要）
+    # 進行形（estoy/estás/está + 現在分詞。再帰代名詞は分詞末尾に付く＝アクセント付与が必要）
     gerundio_with_clitic = _gerundio_with_clitic_accent(gerundio) if reflexive else gerundio
     yo_sentence = f"Estoy {gerundio_with_clitic}{'me' if reflexive else ''}."
     tu_sentence = f"Estás {gerundio_with_clitic}{'te' if reflexive else ''}."
-    forms["progressive"] = {"yo": yo_sentence, "tu": tu_sentence}
+    el_sentence = f"Está {gerundio_with_clitic}{'se' if reflexive else ''}."
+    forms["progressive"] = {"yo": yo_sentence, "tu": tu_sentence, "el_ella_usted": el_sentence}
 
-    # 近接未来（voy a/vas a + 原形。再帰代名詞は原形末尾に付く）
+    # 近接未来（voy a/vas a/va a + 原形。再帰代名詞は原形末尾に付く）
     yo_sentence = f"Voy a {bare_infinitive}{'me' if reflexive else ''}."
     tu_sentence = f"Vas a {bare_infinitive}{'te' if reflexive else ''}."
-    forms["near_future"] = {"yo": yo_sentence, "tu": tu_sentence}
+    el_sentence = f"Va a {bare_infinitive}{'se' if reflexive else ''}."
+    forms["near_future"] = {"yo": yo_sentence, "tu": tu_sentence, "el_ella_usted": el_sentence}
 
     # 点過去（活用した動詞の前に代名詞）
     yo_sentence = _cap(f"{'me ' if reflexive else ''}{pret_yo}.")
     tu_sentence = _cap(f"{'te ' if reflexive else ''}{pret_tu}.")
-    forms["preterite"] = {"yo": yo_sentence, "tu": tu_sentence}
+    el_sentence = _cap(f"{'se ' if reflexive else ''}{pret_el}.")
+    forms["preterite"] = {"yo": yo_sentence, "tu": tu_sentence, "el_ella_usted": el_sentence}
 
     return forms
+
+
+def derived_person_rows() -> list[dict]:
+    """管理画面の目視確認用。ドリル対象動詞の tú / él・ella・usted を全時制で返す。"""
+    rows = []
+    for verb in drillable_verbs():
+        forms = build_forms(verb)
+        row = {
+            "id": verb["id"],
+            "infinitive": verb["infinitive"],
+            "meaning_ja": verb["meaning_ja"],
+            "category": verb["category"],
+            "reflexive": bool(verb.get("reflexive")),
+            "tu_present": verb["tu_present"],
+            "el_present": tu_form_to_el(verb["tu_present"]),
+            "tenses": forms,
+        }
+        rows.append(row)
+    return rows
+
+
+def gustar_derived_rows() -> list[dict]:
+    from conjugate.data.gustar import GUSTAR_EXAMPLES
+
+    rows = []
+    for item in GUSTAR_EXAMPLES:
+        rows.append(
+            {
+                "id": item["id"],
+                "topic_ja": item["topic_ja"],
+                "yo_sentence": item["yo_sentence"],
+                "tu_sentence": item["tu_sentence"],
+                "el_ella_usted_sentence": item["el_ella_usted_sentence"],
+            }
+        )
+    return rows

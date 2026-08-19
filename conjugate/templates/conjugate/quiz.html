@@ -12,6 +12,7 @@
 <section id="question-card" class="vsc-slide-card">
   <div class="vsc-slide-topbar">
     <span id="category-pill" class="vsc-pill"></span>
+    <span id="person-pill" class="vsc-pill vsc-pill-person"></span>
     <span id="tense-target-pill" class="vsc-pill vsc-pill-accent"></span>
   </div>
 
@@ -19,12 +20,14 @@
     <h2 id="infinitive-title" class="vsc-slide-title"></h2>
     <p id="meaning-ja" class="vsc-slide-subtitle"></p>
     <p id="verb-note" class="vsc-note hidden"></p>
+    <p id="person-hint" class="vsc-note vsc-person-hint hidden"></p>
   </div>
 
   <div id="gustar-header-block" class="hidden">
     <h2 class="vsc-slide-title">gustar特殊構文編</h2>
     <p id="gustar-topic" class="vsc-slide-subtitle"></p>
-    <p class="vsc-note">gustarは活用しません。変わるのは me→te だけです。</p>
+    <p id="gustar-hint" class="vsc-note">gustarは活用しません。変わるのは代名詞（me→te / me→le）だけです。</p>
+    <p id="person-hint-gustar" class="vsc-note vsc-person-hint hidden"></p>
   </div>
 
   <ul id="sentence-list" class="vsc-form-list"></ul>
@@ -52,8 +55,8 @@
       <div id="type-answer-block" class="vsc-type-block">
         <p class="vsc-or-divider">またはタイプ</p>
         <form id="type-form" class="vsc-type-form" autocomplete="off">
-          <label class="sr-only" for="type-input">tú形のスペル</label>
-          <input id="type-input" class="vsc-type-input" type="text" lang="es" inputmode="text" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="tú形をタイプ（例: hablas）">
+          <label class="sr-only" for="type-input">活用形のスペル</label>
+          <input id="type-input" class="vsc-type-input" type="text" lang="es" inputmode="text" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="活用形をタイプ（例: hablas / habla）">
           <button id="type-submit-btn" type="submit" class="vsc-btn-secondary vsc-type-submit">解答する</button>
         </form>
       </div>
@@ -74,6 +77,8 @@
   window.CONJUGATE_ASR_ENGINE = {{ asr_engine | tojson }};
   window.CONJUGATE_TENSE_LABELS = {{ tense_labels | tojson }};
   window.CONJUGATE_CATEGORY_LABELS = {{ category_labels | tojson }};
+  window.CONJUGATE_PERSON_LABELS = {{ person_badge_labels | tojson }};
+  window.CONJUGATE_EL_HINT = {{ el_ella_usted_hint | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/quiz.js', v='20260817e') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/quiz.js', v='20260820a') }}"></script>
 {% endblock %}

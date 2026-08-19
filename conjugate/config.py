@@ -76,6 +76,8 @@ DEFAULT_GUSTAR_ENABLED = True
 DEFAULT_GUSTAR_PER_SESSION = 1
 DEFAULT_PRIORITIZE_WEAK_VERBS = True
 
+from conjugate.data.persons import DEFAULT_PERSON_MODE  # noqa: E402
+
 # ── 背景・オープニング（conjugate独自。他アプリの画像・設定は使わない） ─
 BACKGROUND_PRESETS = {
     "meadow": {"label": "草原", "image": "images/bg/meadow.jpg", "style": "photo"},

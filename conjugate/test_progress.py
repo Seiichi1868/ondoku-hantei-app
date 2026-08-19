@@ -173,22 +173,37 @@ class GuardianStreakTests(unittest.TestCase):
 
 
 class MasteryTests(unittest.TestCase):
-    def test_five_correct_marks_mastered(self):
+    def test_five_correct_on_one_person_does_not_master(self):
         progress = normalize_progress({})
-        for _ in range(4):
-            self.assertFalse(apply_mastery(progress, 1, "present", True, threshold=5))
-        self.assertTrue(apply_mastery(progress, 1, "present", True, threshold=5))
+        for _ in range(5):
+            self.assertFalse(apply_mastery(progress, 1, "present", True, threshold=5, person="tu"))
         entry = progress["verbs"]["1"]
-        self.assertTrue(entry["mastered"])
+        self.assertTrue(entry["persons"]["tu"]["mastered"])
+        self.assertFalse(entry["persons"]["el_ella_usted"]["mastered"])
+        self.assertFalse(entry["mastered"])
         self.assertEqual(entry["correct_count"], 5)
 
-    def test_incorrect_does_not_reduce_count(self):
+    def test_both_persons_at_threshold_marks_mastered(self):
         progress = normalize_progress({})
-        apply_mastery(progress, 1, "present", True, threshold=5)
-        apply_mastery(progress, 1, "present", True, threshold=5)
-        apply_mastery(progress, 1, "present", False, threshold=5)
+        for _ in range(5):
+            apply_mastery(progress, 1, "present", True, threshold=5, person="tu")
+        self.assertFalse(verb_is_mastered(progress["verbs"]["1"], 5))
+        for _ in range(4):
+            self.assertFalse(apply_mastery(progress, 1, "present", True, threshold=5, person="el_ella_usted"))
+        self.assertTrue(apply_mastery(progress, 1, "present", True, threshold=5, person="el_ella_usted"))
+        self.assertTrue(verb_is_mastered(progress["verbs"]["1"], 5))
+        self.assertEqual(mastered_verb_count(progress, 5), 1)
+
+    def test_incorrect_resets_person_streak_but_not_other_person(self):
+        progress = normalize_progress({})
+        apply_mastery(progress, 1, "present", True, threshold=5, person="tu")
+        apply_mastery(progress, 1, "present", True, threshold=5, person="tu")
+        apply_mastery(progress, 1, "present", True, threshold=5, person="el_ella_usted")
+        apply_mastery(progress, 1, "present", False, threshold=5, person="tu")
         entry = progress["verbs"]["1"]
-        self.assertEqual(entry["correct_count"], 2)
+        self.assertEqual(entry["correct_count"], 3)
+        self.assertEqual(entry["persons"]["tu"]["consecutive_correct"], 0)
+        self.assertEqual(entry["persons"]["el_ella_usted"]["consecutive_correct"], 1)
         self.assertEqual(entry["present"]["consecutive_correct"], 0)
         self.assertFalse(entry["mastered"])
 
@@ -211,13 +226,14 @@ class MasteryTests(unittest.TestCase):
     def test_mastered_count_and_level(self):
         progress = normalize_progress({})
         for _ in range(5):
-            apply_mastery(progress, 1, "present", True, threshold=5)
+            apply_mastery(progress, 1, "present", True, threshold=5, person="tu")
+            apply_mastery(progress, 1, "present", True, threshold=5, person="el_ella_usted")
         self.assertEqual(mastered_verb_count(progress, 5), 1)
         self.assertTrue(verb_is_mastered(progress["verbs"]["1"], 5))
         self.assertEqual(learner_level(0), 1)
         self.assertEqual(learner_level(23), 5)
 
-    def test_legacy_mastered_is_kept(self):
+    def test_legacy_tu_progress_is_kept_but_not_fully_mastered(self):
         progress = normalize_progress(
             {
                 "verbs": {
@@ -226,7 +242,9 @@ class MasteryTests(unittest.TestCase):
             }
         )
         self.assertGreaterEqual(progress["verbs"]["1"]["correct_count"], 5)
-        self.assertTrue(verb_is_mastered(progress["verbs"]["1"], 5))
+        self.assertTrue(progress["verbs"]["1"]["persons"]["tu"]["mastered"])
+        self.assertFalse(progress["verbs"]["1"]["persons"]["el_ella_usted"]["mastered"])
+        self.assertFalse(verb_is_mastered(progress["verbs"]["1"], 5))
 
     def test_vocab_mastery_uses_threshold(self):
         progress = normalize_progress({})

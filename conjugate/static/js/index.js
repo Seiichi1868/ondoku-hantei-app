@@ -25,6 +25,11 @@
     return Array.from(form.querySelectorAll('input[name="tense"]:checked')).map((el) => el.value);
   }
 
+  function selectedPersonFilter() {
+    const checked = form.querySelector('input[name="person_filter"]:checked');
+    return checked ? checked.value : "all";
+  }
+
   function selectedCount() {
     const select = form.querySelector('select[name="count"]');
     return parseInt(select.value, 10);
@@ -58,6 +63,7 @@
           tenses,
           count,
           prioritize_weak_verbs: prioritizeWeak,
+          person_filter: selectedPersonFilter(),
         }),
       });
       const data = await res.json();
@@ -278,10 +284,18 @@
         const rawCount = direction ? side.correct_count : row.correct_count;
         const count = Number(rawCount);
         const resolvedCount = Number.isFinite(count) ? count : 0;
-        const mastered = Boolean(side.mastered) || resolvedCount >= threshold;
+        const mastered = direction
+          ? Boolean(side.mastered) || resolvedCount >= threshold
+          : Boolean(row.mastered);
         return { ...row, correct_count: resolvedCount, mastered };
       })
-      .filter((row) => Boolean(row.mastered) || Number(row.correct_count || 0) > 0)
+      .filter((row) => {
+        if (direction) return Boolean(row.mastered) || Number(row.correct_count || 0) > 0;
+        const persons = row.persons || {};
+        const tuCount = Number((persons.tu || {}).consecutive_correct || 0);
+        const elCount = Number((persons.el_ella_usted || {}).consecutive_correct || 0);
+        return Boolean(row.mastered) || tuCount > 0 || elCount > 0 || Number(row.correct_count || 0) > 0;
+      })
       .sort((a, b) => Number(b.mastered) - Number(a.mastered) || Number(b.correct_count) - Number(a.correct_count) || String(a.infinitive).localeCompare(String(b.infinitive)));
     if (!studied.length) {
       return `<p class="vsc-master-empty">${escapeHtml(emptyText)}</p>`;
@@ -289,10 +303,13 @@
     return `<div class="vsc-master-list">${studied
       .map((row) => {
         const count = Number(row.correct_count || 0);
-        const mastered = Boolean(row.mastered) || count >= threshold;
+        const mastered = Boolean(row.mastered);
+        const countLabel = direction
+          ? `${count}/${threshold}${mastered ? " ✓" : ""}`
+          : (row.person_badge || `${count}/${threshold}`);
         return `<article class="vsc-master-item${mastered ? " is-mastered" : ""}">
           <div class="vsc-master-name">${escapeHtml(row.infinitive)}</div>
-          <div class="vsc-master-count">${count}/${threshold}${mastered ? " ✓" : ""}</div>
+          <div class="vsc-master-count">${escapeHtml(countLabel)}</div>
           <div class="vsc-master-meaning">${escapeHtml(row.meaning_ja)}</div>
         </article>`;
       })
@@ -302,7 +319,7 @@
   function renderMasteredBody() {
     const threshold = Number(progressState.conjugation_threshold || 5);
     modalBody.innerHTML = `
-      <p class="vsc-modal-lead">活用ドリルで正解した回数です。${threshold}回正解で習得になります。</p>
+      <p class="vsc-modal-lead">tú形とél/ella/usted形のそれぞれで${threshold}回連続正解すると習得です。片方だけでは習得済みになりません。</p>
       ${renderMasterList(progressState.verbs, threshold, "まだ習得中の動詞がありません。練習を始めるとここに表示されます。")}
     `;
   }

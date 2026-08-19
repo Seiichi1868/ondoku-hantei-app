@@ -1,0 +1,78 @@
+{% extends "conjugate/base.html" %}
+{% block title %}人称導出の確認 - Speaking Lab Conjugate{% endblock %}
+{% block body_class %}vsc-admin-page{% endblock %}
+{% block greeting %}人称導出の確認{% endblock %}
+{% block header_actions %}
+<a href="{{ url_for('conjugate_admin.admin_page') }}" class="vsc-link-quiet">管理画面へ</a>
+{% endblock %}
+
+{% block body %}
+<section class="vsc-card">
+  <h2 class="text-lg font-extrabold mb-1">él/ella/usted形の自動導出一覧</h2>
+  <p class="text-xs mb-3" style="color: var(--text-secondary);">
+    既存のtú形から関数で生成しています（{{ rows|length }}語）。不自然な形があれば報告してください。新規データ入力は不要です。
+  </p>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm vsc-debug-table">
+      <thead style="color: var(--text-secondary); font-size: 12px;">
+        <tr>
+          <th class="text-left py-1">ID</th>
+          <th class="text-left">原形</th>
+          <th class="text-left">tú 現在</th>
+          <th class="text-left">él 現在</th>
+          <th class="text-left">tú 進行</th>
+          <th class="text-left">él 進行</th>
+          <th class="text-left">tú 近接未来</th>
+          <th class="text-left">él 近接未来</th>
+          <th class="text-left">tú 点過去</th>
+          <th class="text-left">él 点過去</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr style="border-top: 1px solid #EEF2E6;">
+          <td class="py-1">{{ r.id }}</td>
+          <td>{{ r.infinitive }}{% if r.reflexive %} <span class="vsc-mini-badge">再帰</span>{% endif %}</td>
+          <td>{{ r.tenses.present.tu }}</td>
+          <td>{{ r.tenses.present.el_ella_usted }}</td>
+          <td>{{ r.tenses.progressive.tu }}</td>
+          <td>{{ r.tenses.progressive.el_ella_usted }}</td>
+          <td>{{ r.tenses.near_future.tu }}</td>
+          <td>{{ r.tenses.near_future.el_ella_usted }}</td>
+          <td>{{ r.tenses.preterite.tu }}</td>
+          <td>{{ r.tenses.preterite.el_ella_usted }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="vsc-card">
+  <h3 class="text-sm font-bold mb-2">gustar特殊構文（me→te / me→le）</h3>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead style="color: var(--text-secondary); font-size: 12px;">
+        <tr>
+          <th class="text-left py-1">ID</th>
+          <th class="text-left">テーマ</th>
+          <th class="text-left">yo</th>
+          <th class="text-left">tú</th>
+          <th class="text-left">él/ella/usted</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in gustar_rows %}
+        <tr style="border-top: 1px solid #EEF2E6;">
+          <td class="py-1">{{ g.id }}</td>
+          <td>{{ g.topic_ja }}</td>
+          <td>{{ g.yo_sentence }}</td>
+          <td>{{ g.tu_sentence }}</td>
+          <td>{{ g.el_ella_usted_sentence }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

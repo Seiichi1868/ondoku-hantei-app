@@ -1,12 +1,14 @@
 """ストリーク・累計練習数・習得の純ロジック。
 
-活用はデフォルト5回正解で習得（累計。不正解でも回数は減らない）。
+活用は人称（tú / él・ella・usted）ごとに連続正解し、両方のカウントが
+しきい値に達して初めて習得。片方だけでは習得済みにならない。
 単語4択は方向（日→西 / 西→日）ごとにデフォルト5回連続正解でマスター。
 間違えると連続カウントはゼロに戻る。しきい値は管理画面から渡す。
 """
 from datetime import date, datetime, timedelta, timezone
 
 from conjugate.data.conjugations import TENSE_ORDER
+from conjugate.data.persons import PERSON_IDS, person_badge_text
 from conjugate.data.verbs import VERBS, drillable_verbs
 
 JST = timezone(timedelta(hours=9))
@@ -83,6 +85,55 @@ def today_jst(now: datetime | None = None) -> date:
     if current.tzinfo is None:
         current = current.replace(tzinfo=JST)
     return current.astimezone(JST).date()
+
+
+def _blank_person_side() -> dict:
+    return {"consecutive_correct": 0, "mastered": False}
+
+
+def _person_streak(side) -> int:
+    if not isinstance(side, dict):
+        return 0
+    return _as_nonneg_int(side.get("consecutive_correct"))
+
+
+def _person_side_mastered(side, threshold: int) -> bool:
+    if not isinstance(side, dict):
+        return False
+    limit = max(1, int(threshold or DEFAULT_CONJUGATION_THRESHOLD))
+    return bool(side.get("mastered")) or _person_streak(side) >= limit
+
+
+def _normalize_persons(entry: dict, tense_map: dict, legacy_mastered: bool) -> dict:
+    """人称別連続カウント。旧データ（túのみ）は tú 側へ引き継ぐ。"""
+    raw = entry.get("persons") if isinstance(entry.get("persons"), dict) else {}
+    max_tense = 0
+    for tense_entry in tense_map.values():
+        max_tense = max(max_tense, _as_nonneg_int(tense_entry.get("consecutive_correct")))
+
+    tu_raw = raw.get("tu") if isinstance(raw.get("tu"), dict) else {}
+    el_raw = raw.get("el_ella_usted") if isinstance(raw.get("el_ella_usted"), dict) else {}
+
+    tu_consec = _as_nonneg_int(tu_raw.get("consecutive_correct"))
+    if tu_consec <= 0:
+        tu_consec = max_tense
+    tu_mastered = bool(tu_raw.get("mastered")) or legacy_mastered
+    if tu_mastered:
+        tu_consec = max(tu_consec, DEFAULT_CONJUGATION_THRESHOLD)
+
+    el_consec = _as_nonneg_int(el_raw.get("consecutive_correct"))
+    el_mastered = bool(el_raw.get("mastered"))
+
+    return {
+        "tu": {
+            "consecutive_correct": tu_consec,
+            "mastered": tu_mastered or tu_consec >= DEFAULT_CONJUGATION_THRESHOLD,
+        },
+        "el_ella_usted": {
+            "consecutive_correct": el_consec,
+            "mastered": el_mastered or el_consec >= DEFAULT_CONJUGATION_THRESHOLD,
+        },
+    }
 
 
 def _as_nonneg_int(value, default: int = 0) -> int:
@@ -198,12 +249,18 @@ def normalize_progress(raw: dict | None) -> dict:
                     "mastered": mastered,
                 }
             verb_correct = max(_as_nonneg_int(entry.get("correct_count")), max_correct)
-            # 旧仕様（3回連続で習得）のマスター済み語を、新しきい値でも落とさない
-            if any_mastered or bool(entry.get("mastered")):
+            # 旧仕様でマスター済みだった語は、tú側の進捗として保持する（él側は未着手のまま）
+            legacy_mastered = any_mastered or bool(entry.get("mastered"))
+            if legacy_mastered:
                 verb_correct = max(verb_correct, DEFAULT_CONJUGATION_THRESHOLD)
+            persons = _normalize_persons(entry, tense_map, legacy_mastered)
+            both_mastered = _person_side_mastered(persons["tu"], DEFAULT_CONJUGATION_THRESHOLD) and _person_side_mastered(
+                persons["el_ella_usted"], DEFAULT_CONJUGATION_THRESHOLD
+            )
             row = {
                 "correct_count": verb_correct,
-                "mastered": verb_correct >= DEFAULT_CONJUGATION_THRESHOLD,
+                "mastered": both_mastered,
+                "persons": persons,
             }
             row.update(tense_map)
             cleaned[str(verb_id)] = row
@@ -344,8 +401,9 @@ def apply_mastery(
     tense: str | None,
     is_correct: bool,
     threshold: int = DEFAULT_CONJUGATION_THRESHOLD,
+    person: str | None = "tu",
 ) -> bool:
-    """動詞の累計正解を更新。新たにマスターしたら True。"""
+    """人称別の連続正解を更新。tú と él/ella/usted の両方がしきい値に達したら True。"""
     if verb_id is None:
         return False
     try:
@@ -354,9 +412,20 @@ def apply_mastery(
         return False
 
     threshold = max(1, int(threshold or DEFAULT_CONJUGATION_THRESHOLD))
+    person_key = person if person in PERSON_IDS else "tu"
     verbs = progress.setdefault("verbs", {})
-    entry = verbs.setdefault(key, {"correct_count": 0, "mastered": False})
-    was_mastered = int(entry.get("correct_count") or 0) >= threshold
+    entry = verbs.setdefault(
+        key,
+        {
+            "correct_count": 0,
+            "mastered": False,
+            "persons": {"tu": _blank_person_side(), "el_ella_usted": _blank_person_side()},
+        },
+    )
+    entry.setdefault("persons", {"tu": _blank_person_side(), "el_ella_usted": _blank_person_side()})
+    for pid in PERSON_IDS:
+        entry["persons"].setdefault(pid, _blank_person_side())
+    was_mastered = verb_is_mastered(entry, threshold)
 
     if tense in TENSE_ORDER:
         tense_entry = entry.setdefault(
@@ -369,10 +438,17 @@ def apply_mastery(
             tense_entry["consecutive_correct"] = 0
         entry[tense] = tense_entry
 
+    side = entry["persons"][person_key]
     if is_correct:
+        side["consecutive_correct"] = int(side.get("consecutive_correct") or 0) + 1
         entry["correct_count"] = int(entry.get("correct_count") or 0) + 1
+    else:
+        side["consecutive_correct"] = 0
+    if side["consecutive_correct"] >= threshold:
+        side["mastered"] = True
+    entry["persons"][person_key] = side
 
-    entry["mastered"] = int(entry.get("correct_count") or 0) >= threshold
+    entry["mastered"] = verb_is_mastered(entry, threshold)
     if tense in TENSE_ORDER:
         entry[tense]["mastered"] = entry["mastered"]
     verbs[key] = entry
@@ -467,6 +543,7 @@ def apply_attempt(
     kind: str = "conjugation",
     threshold: int | None = None,
     direction: str | None = None,
+    person: str | None = None,
 ) -> dict:
     """1回の判定を進捗に反映する。"""
     today = today or today_jst()
@@ -494,7 +571,9 @@ def apply_attempt(
         conj_threshold = DEFAULT_CONJUGATION_THRESHOLD
     else:
         conj_threshold = threshold if threshold is not None else DEFAULT_CONJUGATION_THRESHOLD
-        newly_mastered = apply_mastery(progress, verb_id, tense, is_correct, conj_threshold)
+        newly_mastered = apply_mastery(
+            progress, verb_id, tense, is_correct, conj_threshold, person=person
+        )
 
     return {
         "streak_incremented": streak_result["streak_incremented"],
@@ -516,7 +595,12 @@ def apply_attempt(
 def verb_is_mastered(entry: dict | None, threshold: int = DEFAULT_CONJUGATION_THRESHOLD) -> bool:
     if not isinstance(entry, dict):
         return False
-    return _as_nonneg_int(entry.get("correct_count")) >= max(1, int(threshold or DEFAULT_CONJUGATION_THRESHOLD))
+    persons = entry.get("persons") if isinstance(entry.get("persons"), dict) else {}
+    if persons:
+        return _person_side_mastered(persons.get("tu"), threshold) and _person_side_mastered(
+            persons.get("el_ella_usted"), threshold
+        )
+    return False
 
 
 def mastered_verb_count(progress: dict, threshold: int = DEFAULT_CONJUGATION_THRESHOLD) -> int:
@@ -655,18 +739,37 @@ def verb_progress_list(
                 "correct_count": int(tense_entry.get("correct_count") or 0),
                 "mastered": bool(tense_entry.get("mastered")),
             }
-        correct_count = _as_nonneg_int(entry.get("correct_count"))
+        persons_raw = entry.get("persons") if isinstance(entry.get("persons"), dict) else {}
+        persons = {}
+        for pid in PERSON_IDS:
+            side = persons_raw.get(pid) or {}
+            streak = _person_streak(side)
+            side_mastered = _person_side_mastered(side, limit)
+            persons[pid] = {
+                "consecutive_correct": streak,
+                "correct_count": streak,
+                "mastered": side_mastered,
+            }
+        mastered = persons["tu"]["mastered"] and persons["el_ella_usted"]["mastered"]
         rows.append(
             {
                 "id": verb["id"],
                 "infinitive": verb["infinitive"],
                 "meaning_ja": verb["meaning_ja"],
                 "category": verb["category"],
-                "correct_count": correct_count,
+                "correct_count": _as_nonneg_int(entry.get("correct_count")),
                 "threshold": limit,
-                "mastered": correct_count >= limit,
+                "mastered": mastered,
                 "consecutive_correct": tenses["present"]["consecutive_correct"],
                 "tenses": tenses,
+                "persons": persons,
+                "person_badge": person_badge_text(
+                    tu_mastered=persons["tu"]["mastered"],
+                    el_mastered=persons["el_ella_usted"]["mastered"],
+                    threshold=limit,
+                    tu_count=persons["tu"]["consecutive_correct"],
+                    el_count=persons["el_ella_usted"]["consecutive_correct"],
+                ),
             }
         )
     return rows

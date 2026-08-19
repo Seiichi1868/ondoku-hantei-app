@@ -103,6 +103,16 @@
     </div>
 
     <h3 class="vsc-section-label mb-2">カテゴリから選ぶ</h3>
+    {% if settings.person_mode == 'mix' %}
+    <div class="vsc-person-filter" role="radiogroup" aria-label="復習する人称">
+      {% for filt, label in person_filter_labels.items() %}
+      <label class="vsc-person-filter-chip">
+        <input type="radio" name="person_filter" value="{{ filt }}" {% if filt == 'all' %}checked{% endif %}>
+        <span>{{ label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    {% endif %}
     <div class="vsc-category-grid">
       {% for cat in category_order %}
         {% if cat in settings.enabled_categories %}
@@ -116,6 +126,7 @@
           </span>
           <span class="vsc-category-title">{{ category_short[cat] }}</span>
           <span class="vsc-category-meta">{{ category_counts[cat] }}語</span>
+          <span class="vsc-person-mini">tú {{ category_person[cat].tu }}/{{ category_counts[cat] }} · él {{ category_person[cat].el }}/{{ category_counts[cat] }}</span>
         </button>
         {% endif %}
       {% endfor %}
@@ -158,6 +169,10 @@
           {% endif %}
         </div>
 
+        {% if settings.person_mode == 'mix' %}
+        <p class="text-xs" style="color: var(--text-secondary);">人称の絞り込みは上の「復習する人称」で選べます。</p>
+        {% endif %}
+
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <h3 class="vsc-section-label">出題数</h3>
@@ -178,7 +193,7 @@
 
         {% if settings.gustar_enabled %}
         <div class="vsc-note">
-          このセッションには「gustar特殊構文編」が {{ settings.gustar_per_session }} 問混ざります（動詞は活用せず、me→teの変化だけを練習）。
+          このセッションには「gustar特殊構文編」が {{ settings.gustar_per_session }} 問混ざります（動詞は活用せず、me→te / me→le の変化だけを練習）。
         </div>
         {% endif %}
       </div>
@@ -207,5 +222,5 @@
   window.CONJUGATE_OPENING_MS = {{ appearance.opening_ms | tojson }};
   window.CONJUGATE_PROGRESS = {{ progress | tojson }};
 </script>
-<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260819c') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/index.js', v='20260820a') }}"></script>
 {% endblock %}

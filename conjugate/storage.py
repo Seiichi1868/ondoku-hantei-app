@@ -25,6 +25,7 @@ from conjugate.config import (
     DEFAULT_GUSTAR_PER_SESSION,
     DEFAULT_OPENING_ENABLED,
     DEFAULT_OPENING_MS,
+    DEFAULT_PERSON_MODE,
     DEFAULT_PRIORITIZE_WEAK_VERBS,
     DEFAULT_QUESTIONS_PER_SESSION,
     DEFAULT_STRICTNESS,
@@ -44,6 +45,7 @@ from conjugate.config import (
     ensure_dirs,
 )
 from conjugate.data.conjugations import TENSE_ORDER
+from conjugate.data.persons import PERSON_MODES
 from conjugate.data.verbs import CATEGORY_ORDER
 from conjugate.progress import (
     apply_attempt,
@@ -96,6 +98,7 @@ DEFAULT_SETTINGS = {
     "gustar_enabled": DEFAULT_GUSTAR_ENABLED,
     "gustar_per_session": DEFAULT_GUSTAR_PER_SESSION,
     "prioritize_weak_verbs": DEFAULT_PRIORITIZE_WEAK_VERBS,
+    "person_mode": DEFAULT_PERSON_MODE,
     "background_id": DEFAULT_BACKGROUND_ID,
     "background_opacity": DEFAULT_BACKGROUND_OPACITY,
     "opening_enabled": DEFAULT_OPENING_ENABLED,
@@ -151,6 +154,9 @@ def _normalize_settings(raw: dict | None) -> dict:
 
     if "prioritize_weak_verbs" in raw:
         data["prioritize_weak_verbs"] = bool(raw.get("prioritize_weak_verbs"))
+
+    if raw.get("person_mode") in PERSON_MODES:
+        data["person_mode"] = raw["person_mode"]
 
     bg_id = raw.get("background_id")
     if bg_id in BACKGROUND_PRESETS:
@@ -373,6 +379,7 @@ def record_progress(
     is_correct: bool = False,
     kind: str = "conjugation",
     direction: str | None = None,
+    person: str | None = None,
 ) -> dict:
     """判定1回分を進捗に反映し、更新後のサマリを返す。"""
     settings = load_settings()
@@ -388,6 +395,7 @@ def record_progress(
             kind=kind,
             threshold=threshold,
             direction=direction,
+            person=person,
         )
         _write_json(PROGRESS_FILE, data)
         view = _progress_view_from(data, settings)
