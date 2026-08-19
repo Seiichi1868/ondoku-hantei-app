@@ -275,9 +275,11 @@
     const studied = (rows || [])
       .map((row) => {
         const side = direction ? row[direction] || {} : row;
-        const count = Number(side.correct_count || row.correct_count || 0);
-        const mastered = Boolean(side.mastered) || count >= threshold;
-        return { ...row, correct_count: count, mastered };
+        const rawCount = direction ? side.correct_count : row.correct_count;
+        const count = Number(rawCount);
+        const resolvedCount = Number.isFinite(count) ? count : 0;
+        const mastered = Boolean(side.mastered) || resolvedCount >= threshold;
+        return { ...row, correct_count: resolvedCount, mastered };
       })
       .filter((row) => Boolean(row.mastered) || Number(row.correct_count || 0) > 0)
       .sort((a, b) => Number(b.mastered) - Number(a.mastered) || Number(b.correct_count) - Number(a.correct_count) || String(a.infinitive).localeCompare(String(b.infinitive)));

@@ -255,10 +255,29 @@ class MasteryTests(unittest.TestCase):
 
     def test_vocab_directions_are_independent(self):
         progress = normalize_progress({})
-        for _ in range(5):
+        for _ in range(3):
+            apply_vocab_mastery(progress, 1, True, threshold=5, direction="es_to_ja")
+        self.assertEqual(progress["vocab"]["1"]["es_to_ja"]["correct_count"], 3)
+        self.assertEqual(progress["vocab"]["1"]["ja_to_es"]["correct_count"], 0)
+        for _ in range(2):
             apply_vocab_mastery(progress, 1, True, threshold=5, direction="es_to_ja")
         self.assertTrue(progress["vocab"]["1"]["es_to_ja"]["mastered"])
         self.assertFalse(progress["vocab"]["1"]["ja_to_es"]["mastered"])
+        rows = vocab_progress_list(progress, 5)
+        row = [item for item in rows if item["id"] == 1][0]
+        self.assertEqual(row["es_to_ja"]["correct_count"], 5)
+        self.assertEqual(row["ja_to_es"]["correct_count"], 0)
+        self.assertTrue(row["es_to_ja"]["mastered"])
+        self.assertFalse(row["ja_to_es"]["mastered"])
+        view = progress_view(progress)
+        self.assertEqual(view["vocab_mastered_es_to_ja"], 1)
+        self.assertEqual(view["vocab_mastered_ja_to_es"], 0)
+
+    def test_vocab_missing_direction_does_not_update_either_side(self):
+        progress = normalize_progress({})
+        self.assertFalse(apply_vocab_mastery(progress, 1, True, threshold=5, direction=None))
+        self.assertFalse(apply_vocab_mastery(progress, 1, True, threshold=5, direction="both"))
+        self.assertNotIn("1", progress.get("vocab") or {})
 
     def test_vocab_legacy_counts_become_streaks(self):
         progress = normalize_progress(

@@ -1581,9 +1581,22 @@ html.vsc-skip-opening .vsc-splash {
   flex-shrink: 0;
 }
 .vsc-shop-item-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   font-weight: 700;
   font-size: 1.05rem;
   margin-bottom: 4px;
+}
+.vsc-shop-item-name {
+  display: block;
+}
+.vsc-shop-stage-pill {
+  white-space: nowrap;
+  font-size: 0.65rem;
+  padding: 3px 8px;
+  margin-left: 0;
 }
 .vsc-shop-item-body {
   font-size: 0.82rem;

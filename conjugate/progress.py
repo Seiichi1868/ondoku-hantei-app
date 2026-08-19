@@ -398,9 +398,12 @@ def apply_vocab_mastery(
     verb_id,
     is_correct: bool,
     threshold: int = DEFAULT_VOCAB_THRESHOLD,
-    direction: str | None = "ja_to_es",
+    direction: str | None = None,
 ) -> bool:
-    """単語クイズの方向別連続正解を更新。新たにマスターしたら True。"""
+    """単語クイズの方向別連続正解を更新。新たにマスターしたら True。
+
+    方向が不明なときは、反対側のカウントを誤って増やさないよう何もしない。
+    """
     if verb_id is None:
         return False
     try:
@@ -408,7 +411,9 @@ def apply_vocab_mastery(
     except (TypeError, ValueError):
         return False
 
-    side_key = direction if direction in VOCAB_DIRECTIONS else "ja_to_es"
+    if direction not in VOCAB_DIRECTIONS:
+        return False
+    side_key = direction
     threshold = max(1, int(threshold or DEFAULT_VOCAB_THRESHOLD))
     vocab = progress.setdefault("vocab", {})
     entry = vocab.setdefault(key, _normalize_vocab_entry({}))
