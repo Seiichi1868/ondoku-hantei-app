@@ -86,9 +86,10 @@
       }
     });
     feedbackBox.className = `mt-4 vsc-feedback ${result.correct ? "vsc-feedback-correct" : "vsc-feedback-bad"}`;
+    const guardianBonus = Number((result.progress || {}).guardian_bonus_awarded || 0) > 0;
     feedbackBox.innerHTML = `<div class="font-bold">${result.message}</div>${
-      result.newly_mastered ? '<div class="vsc-mastered-toast">マスターしました！</div>' : ""
-    }`;
+      result.newly_mastered ? '<div class="vsc-mastered-toast">暗記マスターしました！</div>' : ""
+    }${guardianBonus ? '<div class="vsc-mastered-toast vsc-guardian-bonus-toast">🛡️ 暗記マスター5個達成でGuardiánを1体獲得！</div>' : ""}`;
     feedbackBox.classList.remove("hidden");
     nextBtn.classList.remove("hidden");
     nextBtn.textContent = isLastQuestion() ? "結果を見る →" : "次の問題へ →";

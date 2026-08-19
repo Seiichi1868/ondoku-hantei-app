@@ -9,10 +9,12 @@ from conjugate.progress import (
     apply_streak,
     apply_vocab_mastery,
     can_afford_guardian,
+    guardian_stage_info,
     learner_level,
     mastered_verb_count,
     normalize_progress,
     progress_view,
+    total_vocab_master_count,
     verb_is_mastered,
     vocab_progress_list,
 )
@@ -22,7 +24,10 @@ class StreakTests(unittest.TestCase):
     def test_first_practice_starts_at_one(self):
         progress = normalize_progress({})
         today = date(2026, 8, 15)
-        self.assertTrue(apply_streak(progress, today))
+        result = apply_streak(progress, today)
+        self.assertTrue(result["streak_incremented"])
+        self.assertEqual(result["guardian_used"], 0)
+        self.assertFalse(result["streak_broken"])
         self.assertEqual(progress["current_streak"], 1)
         self.assertEqual(progress["longest_streak"], 1)
         self.assertEqual(progress["last_practice_date"], "2026-08-15")
@@ -35,7 +40,8 @@ class StreakTests(unittest.TestCase):
             "current_streak": 4,
             "longest_streak": 6,
         }
-        self.assertFalse(apply_streak(progress, date(2026, 8, 15)))
+        result = apply_streak(progress, date(2026, 8, 15))
+        self.assertFalse(result["streak_incremented"])
         self.assertEqual(progress["current_streak"], 4)
 
     def test_yesterday_increments(self):
@@ -44,20 +50,126 @@ class StreakTests(unittest.TestCase):
             "current_streak": 4,
             "longest_streak": 4,
         }
-        self.assertTrue(apply_streak(progress, date(2026, 8, 15)))
+        result = apply_streak(progress, date(2026, 8, 15))
+        self.assertTrue(result["streak_incremented"])
         self.assertEqual(progress["current_streak"], 5)
         self.assertEqual(progress["longest_streak"], 5)
         self.assertIn("2026-08-15", progress["practice_dates"])
 
-    def test_gap_resets_to_one(self):
+    def test_gap_resets_to_one_without_guardian(self):
         progress = {
             "last_practice_date": "2026-08-10",
             "current_streak": 9,
             "longest_streak": 9,
+            "guardian_count": 0,
         }
-        apply_streak(progress, date(2026, 8, 15))
+        result = apply_streak(progress, date(2026, 8, 15))
+        self.assertTrue(result["streak_broken"])
+        self.assertEqual(result["guardian_used"], 0)
         self.assertEqual(progress["current_streak"], 1)
         self.assertEqual(progress["longest_streak"], 9)
+
+
+class GuardianStreakTests(unittest.TestCase):
+    def test_single_day_gap_consumes_one_guardian_and_keeps_streak(self):
+        progress = {
+            "last_practice_date": "2026-08-14",
+            "current_streak": 4,
+            "longest_streak": 4,
+            "guardian_count": 2,
+        }
+        result = apply_streak(progress, date(2026, 8, 16))
+        self.assertTrue(result["streak_incremented"])
+        self.assertFalse(result["streak_broken"])
+        self.assertEqual(result["guardian_used"], 1)
+        self.assertEqual(result["guardian_dates_used"], ["2026-08-15"])
+        self.assertEqual(progress["current_streak"], 5)
+        self.assertEqual(progress["guardian_count"], 1)
+        self.assertEqual(progress["guardian_dates"], ["2026-08-15"])
+
+    def test_two_day_gap_consumes_two_guardians(self):
+        progress = {
+            "last_practice_date": "2026-08-10",
+            "current_streak": 3,
+            "longest_streak": 3,
+            "guardian_count": 2,
+        }
+        result = apply_streak(progress, date(2026, 8, 13))
+        self.assertTrue(result["streak_incremented"])
+        self.assertFalse(result["streak_broken"])
+        self.assertEqual(result["guardian_used"], 2)
+        self.assertEqual(result["guardian_dates_used"], ["2026-08-11", "2026-08-12"])
+        self.assertEqual(progress["current_streak"], 4)
+        self.assertEqual(progress["guardian_count"], 0)
+
+    def test_insufficient_guardians_break_streak_but_spend_available(self):
+        progress = {
+            "last_practice_date": "2026-08-10",
+            "current_streak": 3,
+            "longest_streak": 3,
+            "guardian_count": 1,
+        }
+        result = apply_streak(progress, date(2026, 8, 13))
+        self.assertTrue(result["streak_broken"])
+        self.assertEqual(result["guardian_used"], 1)
+        self.assertEqual(result["guardian_dates_used"], ["2026-08-11"])
+        self.assertEqual(progress["current_streak"], 1)
+        self.assertEqual(progress["guardian_count"], 0)
+        self.assertEqual(progress["guardian_dates"], ["2026-08-11"])
+
+    def test_vocab_mastery_bonus_every_five_grants_guardian(self):
+        progress = normalize_progress({})
+        today = date(2026, 8, 19)
+        verb_ids = [1, 2, 3, 4, 5]
+        for verb_id in verb_ids:
+            for _ in range(4):
+                apply_attempt(
+                    progress,
+                    verb_id=verb_id,
+                    is_correct=True,
+                    today=today,
+                    kind="vocab",
+                    direction="ja_to_es",
+                    threshold=5,
+                )
+            self.assertEqual(progress["guardian_count"], 0)
+            delta = apply_attempt(
+                progress,
+                verb_id=verb_id,
+                is_correct=True,
+                today=today,
+                kind="vocab",
+                direction="ja_to_es",
+                threshold=5,
+            )
+        self.assertEqual(progress["vocab_master_total"], 5)
+        self.assertEqual(progress["guardian_count"], 1)
+        self.assertEqual(delta["guardian_bonus_awarded"], 1)
+
+    def test_vocab_mastery_bonus_counts_both_directions(self):
+        progress = normalize_progress({})
+        today = date(2026, 8, 19)
+        for direction in ("ja_to_es", "es_to_ja"):
+            for _ in range(5):
+                apply_attempt(
+                    progress,
+                    verb_id=1,
+                    is_correct=True,
+                    today=today,
+                    kind="vocab",
+                    direction=direction,
+                    threshold=5,
+                )
+        self.assertEqual(progress["vocab_master_total"], 2)
+        self.assertEqual(total_vocab_master_count(progress, 5), 2)
+        self.assertEqual(progress["guardian_count"], 0)
+
+    def test_guardian_stage_info_thresholds(self):
+        self.assertEqual(guardian_stage_info(0)["stage"], 1)
+        self.assertEqual(guardian_stage_info(149)["stage"], 1)
+        self.assertEqual(guardian_stage_info(150)["stage"], 2)
+        self.assertEqual(guardian_stage_info(399)["stage"], 2)
+        self.assertEqual(guardian_stage_info(400)["stage"], 3)
 
 
 class MasteryTests(unittest.TestCase):

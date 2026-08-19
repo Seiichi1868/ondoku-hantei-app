@@ -12,12 +12,12 @@
   <p class="text-xs mt-1" style="color: var(--text-secondary);">活用練習・意味クイズで正解すると1問につき1コイン貯まります。</p>
 </section>
 
-<section class="vsc-card">
+<section class="vsc-card mb-4">
   <div class="vsc-shop-item-head">
-    <span class="vsc-shop-item-icon">🛡️</span>
+    <span class="vsc-shop-item-icon" style="color: {{ progress.guardian_color }};">🛡️</span>
     <div>
-      <h3 class="vsc-shop-item-title">Guardián（守護者）</h3>
-      <p class="vsc-shop-item-body">ストリークが途切れそうな日にあなたを守ってくれる存在です。今は保有数が増えるだけで、発動ロジックは今後追加予定です。</p>
+      <h3 class="vsc-shop-item-title">Guardián（守護者） <span class="vsc-pill vsc-pill-accent" style="margin-left:4px;">{{ progress.guardian_title }}（{{ progress.guardian_title_ja }}）</span></h3>
+      <p class="vsc-shop-item-body">ストリークが途切れる日、保有していれば自動的に1体消費して発動し、ストリークを守ってくれます（1日1体まで消費。2日連続サボると2体消費、足りない場合はそこでストリークがリセットされます）。</p>
     </div>
   </div>
   <div class="vsc-shop-item-foot">
@@ -32,7 +32,25 @@
   <p id="guardian-hint" class="vsc-shop-item-hint {% if progress.can_afford_guardian %}hidden{% endif %}">
     あと🪙{{ progress.guardian_coins_needed }}枚必要です。
   </p>
+  <p class="vsc-shop-item-hint">意味クイズの暗記マスターが{{ progress.vocab_master_bonus_every }}個貯まるごとに、コインを使わずGuardiánを1体獲得できます（{{ progress.vocab_master_total }}/{{ progress.vocab_master_bonus_every }}）。</p>
   <p id="guardian-message" class="vsc-shop-item-message hidden"></p>
+</section>
+
+<section class="vsc-card">
+  <h3 class="text-sm font-bold mb-1">Guardiánの成長</h3>
+  <p class="text-xs mb-3" style="color: var(--text-secondary);">累計獲得コイン数（＝累計正解数）に応じて、同じGuardiánの見た目とセリフが3段階で変化します。</p>
+  <div class="vsc-guardian-stage-list">
+    {% for stage in progress.guardian_stages %}
+    <div class="vsc-guardian-stage-item {% if stage.stage == progress.guardian_stage %}is-active{% endif %}">
+      <span class="vsc-guardian-stage-icon" style="color: {{ stage.color }};">🛡️</span>
+      <div class="vsc-guardian-stage-copy">
+        <div class="vsc-guardian-stage-title">{{ stage.title }}（{{ stage.title_ja }}）</div>
+        <div class="vsc-guardian-stage-meta">累計 {{ stage.min_coins_earned }}コイン〜</div>
+      </div>
+      {% if stage.stage == progress.guardian_stage %}<span class="vsc-guardian-stage-badge">今の姿</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
 </section>
 {% endblock %}
 

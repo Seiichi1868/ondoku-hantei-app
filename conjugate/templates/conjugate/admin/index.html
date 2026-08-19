@@ -108,8 +108,8 @@
     </div>
 
     <div>
-      <h3 class="vsc-section-label">習得・マスターの基準</h3>
-      <p class="text-xs mt-1 mb-1.5" style="color: var(--text-secondary);">正解回数に達した動詞を習得／マスターとみなします。単語4択は「日本語→スペイン語」と「スペイン語→日本語」を別々に数えます。活用は累計正解（不正解でも減らない）、単語は連続正解（間違えるとゼロに戻る）です。</p>
+      <h3 class="vsc-section-label">習得・暗記マスターの基準</h3>
+      <p class="text-xs mt-1 mb-1.5" style="color: var(--text-secondary);">正解回数に達した動詞を活用ドリルは「習得」、意味クイズ（MEANING QUIZ）は「暗記マスター」とみなします。単語4択は「日本語→スペイン語」と「スペイン語→日本語」を別々に数えます。活用は累計正解（不正解でも減らない）、単語は連続正解（間違えるとゼロに戻る）です。</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div>
           <label class="block text-xs font-medium mb-1">活用ドリル（デフォルト5回）</label>
@@ -122,7 +122,7 @@
           <label class="block text-xs font-medium mb-1">単語学習（方向ごとにデフォルト5回）</label>
           <div class="flex items-center gap-2">
             <input type="number" name="vocab_mastery_threshold" min="1" max="50" value="{{ settings.vocab_mastery_threshold | default(5) }}" class="vsc-select">
-            <span class="text-sm whitespace-nowrap" style="color: var(--text-secondary);">回連続正解でマスター</span>
+            <span class="text-sm whitespace-nowrap" style="color: var(--text-secondary);">回連続正解で暗記マスター</span>
           </div>
         </div>
       </div>

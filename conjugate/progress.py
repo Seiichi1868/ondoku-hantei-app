@@ -15,6 +15,51 @@ DEFAULT_VOCAB_THRESHOLD = 5
 DEFAULT_GUARDIAN_PRICE_COINS = 50
 VOCAB_DIRECTIONS = ("ja_to_es", "es_to_ja")
 
+# 暗記マスター（意味クイズ5回連続正解）がこの個数貯まるごとに、コイン消費なしでGuardiánを1体付与する。
+DEFAULT_VOCAB_MASTER_BONUS_EVERY = 5
+
+# Guardián進化（軽量RPG要素）。累計獲得コイン数（＝累計正解数）で見た目とセリフのみが変化する。
+GUARDIAN_STAGES = (
+    {
+        "stage": 1,
+        "min_coins_earned": 0,
+        "title": "Aprendiz",
+        "title_ja": "見習い",
+        "quote_es": "¡No te rindas!",
+        "quote_ja": "諦めないで！",
+        "color": "#8BC34A",
+    },
+    {
+        "stage": 2,
+        "min_coins_earned": 150,
+        "title": "Guerrero",
+        "title_ja": "戦士",
+        "quote_es": "¡Sigue adelante!",
+        "quote_ja": "前進あるのみ！",
+        "color": "#4A90D9",
+    },
+    {
+        "stage": 3,
+        "min_coins_earned": 400,
+        "title": "Sabio",
+        "title_ja": "賢者",
+        "quote_es": "Tu esfuerzo no es en vano.",
+        "quote_ja": "君の努力は無駄じゃない",
+        "color": "#9B59B6",
+    },
+)
+
+
+def guardian_stage_info(coins_earned_total: int) -> dict:
+    """累計獲得コイン数から現在のGuardián進化段階（見た目・セリフ）を返す。"""
+    total = max(0, int(coins_earned_total or 0))
+    current = GUARDIAN_STAGES[0]
+    for stage in GUARDIAN_STAGES:
+        if total >= stage["min_coins_earned"]:
+            current = stage
+    return current
+
+
 DEFAULT_PROGRESS = {
     "last_practice_date": None,
     "practice_dates": [],
@@ -24,7 +69,10 @@ DEFAULT_PROGRESS = {
     "longest_streak": 0,
     "total_attempts": 0,
     "coins": 0,
+    "coins_earned_total": 0,
     "guardian_count": 0,
+    "guardian_dates": [],
+    "vocab_master_total": 0,
     "verbs": {},
     "vocab": {},
 }
@@ -65,7 +113,10 @@ def normalize_progress(raw: dict | None) -> dict:
         "longest_streak": 0,
         "total_attempts": 0,
         "coins": 0,
+        "coins_earned_total": 0,
         "guardian_count": 0,
+        "guardian_dates": [],
+        "vocab_master_total": 0,
         "verbs": {},
         "vocab": {},
     }
@@ -103,6 +154,25 @@ def normalize_progress(raw: dict | None) -> dict:
 
     for key in ("current_streak", "longest_streak", "total_attempts", "coins", "guardian_count"):
         data[key] = _as_nonneg_int(raw.get(key))
+
+    # 累計獲得コイン数（Guardián進化に使用）。旧データに無ければ現在の残高を初期値にする。
+    data["coins_earned_total"] = _as_nonneg_int(
+        raw.get("coins_earned_total"), default=data["coins"]
+    )
+    if data["coins_earned_total"] < data["coins"]:
+        data["coins_earned_total"] = data["coins"]
+
+    guardian_dates = []
+    seen_guardian = set()
+    raw_guardian_dates = raw.get("guardian_dates")
+    if isinstance(raw_guardian_dates, list):
+        for item in raw_guardian_dates:
+            iso = _iso_date(item)
+            if iso and iso not in seen_guardian:
+                seen_guardian.add(iso)
+                guardian_dates.append(iso)
+    guardian_dates.sort()
+    data["guardian_dates"] = guardian_dates
 
     verbs = raw.get("verbs")
     if isinstance(verbs, dict):
@@ -147,6 +217,13 @@ def normalize_progress(raw: dict | None) -> dict:
                 continue
             cleaned_vocab[str(verb_id)] = _normalize_vocab_entry(entry)
         data["vocab"] = cleaned_vocab
+
+    # 暗記マスター累計数。旧データに無ければ既存のマスター済み数から算出し、
+    # 移行時にまとめてGuardiánボーナスが発生しないようにする。
+    if "vocab_master_total" in raw:
+        data["vocab_master_total"] = _as_nonneg_int(raw.get("vocab_master_total"))
+    else:
+        data["vocab_master_total"] = total_vocab_master_count(data, DEFAULT_VOCAB_THRESHOLD)
     return data
 
 
@@ -182,8 +259,19 @@ def _normalize_vocab_entry(entry: dict) -> dict:
     return row
 
 
-def apply_streak(progress: dict, today: date) -> bool:
-    """練習日を反映する。同日なら False（加算なし）、新しい日なら True。"""
+def apply_streak(progress: dict, today: date) -> dict:
+    """練習日を反映する。
+
+    ストリークが途切れる日（前日は練習済みだが間に未練習日がある）には、
+    Guardián保有数を1日1体まで消費して自動的にストリークを守る。
+    ギャップの日数分の保有数が無ければ、その時点でストリークはリセットされる。
+
+    戻り値:
+      streak_incremented: 同日2回目以降の呼び出しならFalse、新しい日ならTrue
+      guardian_used: 今回の呼び出しで消費したGuardián数
+      guardian_dates_used: 今回新たにGuardiánで守られた日付（ISO文字列）のリスト
+      streak_broken: ギャップをカバーしきれずストリークがリセットされたか
+    """
     last_raw = progress.get("last_practice_date")
     last_date = None
     if last_raw:
@@ -199,9 +287,40 @@ def apply_streak(progress: dict, today: date) -> bool:
         dates.sort()
 
     if last_date == today:
-        return False
+        return {
+            "streak_incremented": False,
+            "guardian_used": 0,
+            "guardian_dates_used": [],
+            "streak_broken": False,
+        }
 
-    if last_date == today - timedelta(days=1):
+    guardian_used = 0
+    guardian_dates_used: list[str] = []
+    streak_continues = last_date is None or last_date == today - timedelta(days=1)
+
+    if last_date is not None and not streak_continues:
+        gap_days = (today - last_date).days - 1
+        guardian_count = int(progress.get("guardian_count") or 0)
+        covered_all = True
+        for i in range(gap_days):
+            if guardian_count <= 0:
+                covered_all = False
+                break
+            guardian_count -= 1
+            guardian_used += 1
+            guardian_dates_used.append((last_date + timedelta(days=1 + i)).isoformat())
+        progress["guardian_count"] = guardian_count
+        if guardian_dates_used:
+            guardian_dates = progress.setdefault("guardian_dates", [])
+            for d in guardian_dates_used:
+                if d not in guardian_dates:
+                    guardian_dates.append(d)
+            guardian_dates.sort()
+        streak_continues = covered_all
+
+    if last_date is None:
+        progress["current_streak"] = 1
+    elif streak_continues:
         progress["current_streak"] = int(progress.get("current_streak") or 0) + 1
     else:
         progress["current_streak"] = 1
@@ -211,7 +330,12 @@ def apply_streak(progress: dict, today: date) -> bool:
         int(progress["current_streak"]),
     )
     progress["last_practice_date"] = iso
-    return True
+    return {
+        "streak_incremented": True,
+        "guardian_used": guardian_used,
+        "guardian_dates_used": guardian_dates_used,
+        "streak_broken": last_date is not None and not streak_continues,
+    }
 
 
 def apply_mastery(
@@ -345,23 +469,34 @@ def apply_attempt(
     progress["total_attempts"] = int(progress.get("total_attempts") or 0) + 1
     daily = progress.setdefault("daily_attempts", {})
     daily[iso] = int(daily.get(iso) or 0) + 1
-    streak_incremented = apply_streak(progress, today)
+    streak_result = apply_streak(progress, today)
 
     if is_correct:
         progress["coins"] = int(progress.get("coins") or 0) + 1
+        progress["coins_earned_total"] = int(progress.get("coins_earned_total") or 0) + 1
 
+    guardian_bonus_awarded = 0
     if kind == "vocab":
         vocab_threshold = threshold if threshold is not None else DEFAULT_VOCAB_THRESHOLD
         newly_mastered = apply_vocab_mastery(
             progress, verb_id, is_correct, vocab_threshold, direction=direction
         )
+        if newly_mastered:
+            progress["vocab_master_total"] = int(progress.get("vocab_master_total") or 0) + 1
+            if progress["vocab_master_total"] % DEFAULT_VOCAB_MASTER_BONUS_EVERY == 0:
+                progress["guardian_count"] = int(progress.get("guardian_count") or 0) + 1
+                guardian_bonus_awarded = 1
         conj_threshold = DEFAULT_CONJUGATION_THRESHOLD
     else:
         conj_threshold = threshold if threshold is not None else DEFAULT_CONJUGATION_THRESHOLD
         newly_mastered = apply_mastery(progress, verb_id, tense, is_correct, conj_threshold)
 
     return {
-        "streak_incremented": streak_incremented,
+        "streak_incremented": streak_result["streak_incremented"],
+        "streak_broken": streak_result["streak_broken"],
+        "guardian_used": streak_result["guardian_used"],
+        "guardian_dates_used": streak_result["guardian_dates_used"],
+        "guardian_bonus_awarded": guardian_bonus_awarded,
         "newly_mastered": newly_mastered,
         "current_streak": int(progress.get("current_streak") or 0),
         "longest_streak": int(progress.get("longest_streak") or 0),
@@ -406,6 +541,21 @@ def mastered_vocab_count(
     return count
 
 
+def total_vocab_master_count(
+    progress: dict,
+    threshold: int = DEFAULT_VOCAB_THRESHOLD,
+) -> int:
+    """日→西・西→日の両方向を合算した暗記マスター数（Guardiánボーナス判定に使用）。"""
+    vocab = progress.get("vocab") or {}
+    limit = max(1, int(threshold or DEFAULT_VOCAB_THRESHOLD))
+    total = 0
+    for entry in vocab.values():
+        for direction in VOCAB_DIRECTIONS:
+            if _vocab_side_mastered(entry.get(direction) if isinstance(entry, dict) else None, limit):
+                total += 1
+    return total
+
+
 def learner_level(mastered_count: int) -> int:
     return max(1, 1 + max(0, int(mastered_count)) // 5)
 
@@ -421,7 +571,10 @@ def progress_view(
     vocab_th = max(1, int(vocab_threshold or DEFAULT_VOCAB_THRESHOLD))
     guardian_price = max(1, int(guardian_price or DEFAULT_GUARDIAN_PRICE_COINS))
     coins = int(progress.get("coins") or 0)
+    coins_earned_total = int(progress.get("coins_earned_total") or 0)
     guardian_count = int(progress.get("guardian_count") or 0)
+    guardian_dates = list(progress.get("guardian_dates") or [])
+    stage_info = guardian_stage_info(coins_earned_total)
     mastered = mastered_verb_count(progress, conj_th)
     vocab_mastered = mastered_vocab_count(progress, vocab_th)
     vocab_mastered_ja = mastered_vocab_count(progress, vocab_th, "ja_to_es")
@@ -453,10 +606,30 @@ def progress_view(
         "level": learner_level(mastered),
         "xp": mastered * 10,
         "coins": coins,
+        "coins_earned_total": coins_earned_total,
         "guardian_count": guardian_count,
         "guardian_price": guardian_price,
         "guardian_coins_needed": max(0, guardian_price - coins),
         "can_afford_guardian": coins >= guardian_price,
+        "guardian_dates": guardian_dates,
+        "guardian_stage": stage_info["stage"],
+        "guardian_title": stage_info["title"],
+        "guardian_title_ja": stage_info["title_ja"],
+        "guardian_quote_es": stage_info["quote_es"],
+        "guardian_quote_ja": stage_info["quote_ja"],
+        "guardian_color": stage_info["color"],
+        "guardian_stages": [
+            {
+                "stage": s["stage"],
+                "title": s["title"],
+                "title_ja": s["title_ja"],
+                "min_coins_earned": s["min_coins_earned"],
+                "color": s["color"],
+            }
+            for s in GUARDIAN_STAGES
+        ],
+        "vocab_master_total": int(progress.get("vocab_master_total") or 0),
+        "vocab_master_bonus_every": DEFAULT_VOCAB_MASTER_BONUS_EVERY,
     }
 
 

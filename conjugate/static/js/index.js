@@ -147,6 +147,7 @@
   const progressState = Object.assign(
     {
       practice_dates: [],
+      guardian_dates: [],
       daily_attempts: {},
       daily_goal: 0,
       total_attempts: 0,
@@ -206,9 +207,11 @@
       const iso = isoDay(year, month, day);
       const mark = markForDate(iso) || {};
       const todayClass = iso === today ? " is-today" : "";
-      cells += `<div class="vsc-cal-cell${todayClass}">
+      const guardianClass = mark.guardian ? " is-guardian-day" : "";
+      const markClass = mark.guardian ? "vsc-cal-mark vsc-cal-mark-guardian" : "vsc-cal-mark";
+      cells += `<div class="vsc-cal-cell${todayClass}${guardianClass}">
         <span>${day}</span>
-        ${mark.emoji ? `<span class="vsc-cal-mark">${mark.emoji}</span>` : ""}
+        ${mark.emoji ? `<span class="${markClass}" title="${mark.guardian ? "Guardiánが守った日" : ""}">${mark.emoji}</span>` : ""}
         ${mark.count ? `<span class="vsc-cal-count">${escapeHtml(mark.count)}</span>` : ""}
       </div>`;
     }
@@ -225,11 +228,20 @@
     return new Set(progressState.practice_dates || []);
   }
 
+  function guardianSet() {
+    return new Set(progressState.guardian_dates || []);
+  }
+
   function renderStreakBody() {
     const dates = practicedSet();
+    const guardianDates = guardianSet();
     modalBody.innerHTML = `
-      <p class="vsc-modal-lead">練習した日に🔥がつきます。現在 ${progressState.current_streak || 0} 日連続、最長 ${progressState.longest_streak || 0} 日。</p>
-      ${renderCalendarHtml((iso) => (dates.has(iso) ? { emoji: "🔥" } : null))}
+      <p class="vsc-modal-lead">練習した日に🔥、Guardiánが守ってくれた日に🛡️がつきます。現在 ${progressState.current_streak || 0} 日連続、最長 ${progressState.longest_streak || 0} 日。</p>
+      ${renderCalendarHtml((iso) => {
+        if (dates.has(iso)) return { emoji: "🔥" };
+        if (guardianDates.has(iso)) return { emoji: "🛡️", guardian: true };
+        return null;
+      })}
     `;
   }
 
@@ -299,16 +311,16 @@
     const jaCount = progressState.vocab_mastered_ja_to_es || 0;
     const esCount = progressState.vocab_mastered_es_to_ja || 0;
     modalBody.innerHTML = `
-      <p class="vsc-modal-lead">左右の出題方向ごとに${threshold}回連続正解するとマスターリストに入ります。間違えるとカウントはゼロに戻ります。</p>
+      <p class="vsc-modal-lead">左右の出題方向ごとに${threshold}回連続正解すると暗記マスターリストに入ります。間違えるとカウントはゼロに戻ります。</p>
       <div class="vsc-master-split">
         <section>
           <h3 class="vsc-master-col-title">日本語 → スペイン語</h3>
-          <p class="vsc-master-col-meta">${jaCount}/${total}語マスター</p>
+          <p class="vsc-master-col-meta">${jaCount}/${total}語 暗記マスター</p>
           ${renderMasterList(progressState.vocab_verbs, threshold, "まだ記録がありません。", "ja_to_es")}
         </section>
         <section>
           <h3 class="vsc-master-col-title">スペイン語 → 日本語</h3>
-          <p class="vsc-master-col-meta">${esCount}/${total}語マスター</p>
+          <p class="vsc-master-col-meta">${esCount}/${total}語 暗記マスター</p>
           ${renderMasterList(progressState.vocab_verbs, threshold, "まだ記録がありません。", "es_to_ja")}
         </section>
       </div>
@@ -319,7 +331,7 @@
     streak: { title: "ストリーク", render: renderStreakBody },
     total: { title: "累計問題数", render: renderTotalBody },
     mastered: { title: "習得済み", render: renderMasteredBody },
-    vocab: { title: "マスターした動詞", render: renderVocabBody },
+    vocab: { title: "暗記マスターした単語", render: renderVocabBody },
   };
 
   let activeStat = "streak";

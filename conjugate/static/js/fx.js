@@ -4,6 +4,8 @@
   const CONFETTI_MS = 1800;
   const COUNT_MS = 600;
   const LEAVE_MS = 220;
+  const GUARDIAN_TOAST_MS = 2600;
+  const GUARDIAN_TOAST_FADE_MS = 450;
 
   function prefersReducedMotion() {
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -44,10 +46,62 @@
     window.setTimeout(() => root.remove(), CONFETTI_MS + 80);
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  let guardianToastEl = null;
+  let guardianToastHideTimer = null;
+  let guardianToastRemoveTimer = null;
+
+  function celebrateGuardian(progress) {
+    if (prefersReducedMotion()) return;
+    if (guardianToastHideTimer) window.clearTimeout(guardianToastHideTimer);
+    if (guardianToastRemoveTimer) window.clearTimeout(guardianToastRemoveTimer);
+    if (guardianToastEl) guardianToastEl.remove();
+
+    const titleJa = progress.guardian_title_ja || "見習い";
+    const quoteJa = progress.guardian_quote_ja || "";
+    const color = progress.guardian_color || "#8BC34A";
+
+    const root = document.createElement("div");
+    root.className = "vsc-guardian-toast";
+    root.setAttribute("role", "status");
+    root.setAttribute("aria-live", "polite");
+    root.innerHTML = `
+      <span class="vsc-guardian-toast-icon" style="color:${escapeHtml(color)};">🛡️</span>
+      <div class="vsc-guardian-toast-copy">
+        <div class="vsc-guardian-toast-title">Guardián（${escapeHtml(titleJa)}）がストリークを守った！</div>
+        ${quoteJa ? `<div class="vsc-guardian-toast-quote">「${escapeHtml(quoteJa)}」</div>` : ""}
+      </div>
+    `;
+    document.body.appendChild(root);
+    guardianToastEl = root;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => root.classList.add("is-visible"));
+    });
+    guardianToastHideTimer = window.setTimeout(() => {
+      root.classList.remove("is-visible");
+      guardianToastRemoveTimer = window.setTimeout(() => {
+        root.remove();
+        if (guardianToastEl === root) guardianToastEl = null;
+      }, GUARDIAN_TOAST_FADE_MS);
+    }, GUARDIAN_TOAST_MS);
+  }
+
   function celebrateFromResult(result) {
     if (!result) return;
     const progress = result.progress || {};
-    if (result.newly_mastered || progress.newly_mastered || progress.streak_incremented) {
+    const guardianUsed = Number(progress.guardian_used || 0) > 0;
+    if (guardianUsed) {
+      celebrateGuardian(progress);
+    }
+    // ストリーク更新の紙吹雪は、Guardián発動時は落ち着いた専用演出に置き換える。
+    if (result.newly_mastered || progress.newly_mastered || (progress.streak_incremented && !guardianUsed)) {
       celebrate();
     }
   }
