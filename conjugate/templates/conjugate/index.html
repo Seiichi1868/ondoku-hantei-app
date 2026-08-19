@@ -54,6 +54,12 @@
       </button>
     </div>
 
+    <a href="{{ url_for('conjugate.shop_page') }}" class="vsc-coin-row">
+      <span class="vsc-coin-chip">🪙 <strong>{{ progress.coins }}</strong></span>
+      <span class="vsc-coin-chip">🛡️ <strong>×{{ progress.guardian_count }}</strong></span>
+      <span class="vsc-coin-row-link">ショップへ →</span>
+    </a>
+
     <div class="vsc-vocab-card">
       <p class="vsc-vocab-kicker">MEANING QUIZ</p>
       <h3 class="vsc-vocab-title">単語の意味を4択で練習</h3>

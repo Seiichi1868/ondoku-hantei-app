@@ -1,0 +1,44 @@
+{% extends "conjugate/base.html" %}
+{% block title %}コインショップ - Speaking Lab Conjugate{% endblock %}
+{% block greeting %}コインショップ{% endblock %}
+{% block header_actions %}
+<a href="{{ url_for('conjugate.profile_page') }}" class="vsc-link-quiet">記録へ</a>
+{% endblock %}
+
+{% block body %}
+<section class="vsc-card mb-4">
+  <p class="vsc-section-label vsc-shop-balance-label">現在の残高</p>
+  <div class="vsc-shop-balance" id="shop-balance">🪙 {{ progress.coins }}</div>
+  <p class="text-xs mt-1" style="color: var(--text-secondary);">活用練習・意味クイズで正解すると1問につき1コイン貯まります。</p>
+</section>
+
+<section class="vsc-card">
+  <div class="vsc-shop-item-head">
+    <span class="vsc-shop-item-icon">🛡️</span>
+    <div>
+      <h3 class="vsc-shop-item-title">Guardián（守護者）</h3>
+      <p class="vsc-shop-item-body">ストリークが途切れそうな日にあなたを守ってくれる存在です。今は保有数が増えるだけで、発動ロジックは今後追加予定です。</p>
+    </div>
+  </div>
+  <div class="vsc-shop-item-foot">
+    <span class="vsc-pill vsc-pill-accent">保有数 🛡️×<span id="guardian-count">{{ progress.guardian_count }}</span></span>
+    <button
+      type="button"
+      id="buy-guardian-btn"
+      class="vsc-btn-primary"
+      {% if not progress.can_afford_guardian %}disabled{% endif %}
+    >🪙{{ progress.guardian_price }}で交換する</button>
+  </div>
+  <p id="guardian-hint" class="vsc-shop-item-hint {% if progress.can_afford_guardian %}hidden{% endif %}">
+    あと🪙{{ progress.guardian_coins_needed }}枚必要です。
+  </p>
+  <p id="guardian-message" class="vsc-shop-item-message hidden"></p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.CONJUGATE_PROGRESS = {{ progress | tojson }};
+</script>
+<script src="{{ url_for('conjugate.static', filename='js/shop.js', v='20260819a') }}"></script>
+{% endblock %}

@@ -12,6 +12,7 @@ from conjugate.data.verbs import VERBS, drillable_verbs
 JST = timezone(timedelta(hours=9))
 DEFAULT_CONJUGATION_THRESHOLD = 5
 DEFAULT_VOCAB_THRESHOLD = 5
+DEFAULT_GUARDIAN_PRICE_COINS = 50
 VOCAB_DIRECTIONS = ("ja_to_es", "es_to_ja")
 
 DEFAULT_PROGRESS = {
@@ -22,6 +23,8 @@ DEFAULT_PROGRESS = {
     "current_streak": 0,
     "longest_streak": 0,
     "total_attempts": 0,
+    "coins": 0,
+    "guardian_count": 0,
     "verbs": {},
     "vocab": {},
 }
@@ -61,6 +64,8 @@ def normalize_progress(raw: dict | None) -> dict:
         "current_streak": 0,
         "longest_streak": 0,
         "total_attempts": 0,
+        "coins": 0,
+        "guardian_count": 0,
         "verbs": {},
         "vocab": {},
     }
@@ -96,7 +101,7 @@ def normalize_progress(raw: dict | None) -> dict:
 
     data["daily_goal"] = min(100, _as_nonneg_int(raw.get("daily_goal")))
 
-    for key in ("current_streak", "longest_streak", "total_attempts"):
+    for key in ("current_streak", "longest_streak", "total_attempts", "coins", "guardian_count"):
         data[key] = _as_nonneg_int(raw.get(key))
 
     verbs = raw.get("verbs")
@@ -303,6 +308,26 @@ def apply_vocab_mastery(
     return bool(side["mastered"]) and not was_mastered
 
 
+def can_afford_guardian(progress: dict, price: int = DEFAULT_GUARDIAN_PRICE_COINS) -> bool:
+    """コイン残高がGuardián交換価格以上あるか。"""
+    price = max(1, int(price or DEFAULT_GUARDIAN_PRICE_COINS))
+    return int(progress.get("coins") or 0) >= price
+
+
+def apply_guardian_purchase(progress: dict, price: int = DEFAULT_GUARDIAN_PRICE_COINS) -> bool:
+    """コインを消費してGuardiánを1体購入する（発動ロジックはPart 2）。
+
+    残高不足の場合は何も変更せずFalseを返す。
+    """
+    price = max(1, int(price or DEFAULT_GUARDIAN_PRICE_COINS))
+    coins = int(progress.get("coins") or 0)
+    if coins < price:
+        return False
+    progress["coins"] = coins - price
+    progress["guardian_count"] = int(progress.get("guardian_count") or 0) + 1
+    return True
+
+
 def apply_attempt(
     progress: dict,
     *,
@@ -322,6 +347,9 @@ def apply_attempt(
     daily[iso] = int(daily.get(iso) or 0) + 1
     streak_incremented = apply_streak(progress, today)
 
+    if is_correct:
+        progress["coins"] = int(progress.get("coins") or 0) + 1
+
     if kind == "vocab":
         vocab_threshold = threshold if threshold is not None else DEFAULT_VOCAB_THRESHOLD
         newly_mastered = apply_vocab_mastery(
@@ -339,6 +367,9 @@ def apply_attempt(
         "longest_streak": int(progress.get("longest_streak") or 0),
         "total_attempts": int(progress.get("total_attempts") or 0),
         "mastered_count": mastered_verb_count(progress, conj_threshold),
+        "coins": int(progress.get("coins") or 0),
+        "coin_earned": bool(is_correct),
+        "guardian_count": int(progress.get("guardian_count") or 0),
     }
 
 
@@ -384,9 +415,13 @@ def progress_view(
     *,
     conjugation_threshold: int = DEFAULT_CONJUGATION_THRESHOLD,
     vocab_threshold: int = DEFAULT_VOCAB_THRESHOLD,
+    guardian_price: int = DEFAULT_GUARDIAN_PRICE_COINS,
 ) -> dict:
     conj_th = max(1, int(conjugation_threshold or DEFAULT_CONJUGATION_THRESHOLD))
     vocab_th = max(1, int(vocab_threshold or DEFAULT_VOCAB_THRESHOLD))
+    guardian_price = max(1, int(guardian_price or DEFAULT_GUARDIAN_PRICE_COINS))
+    coins = int(progress.get("coins") or 0)
+    guardian_count = int(progress.get("guardian_count") or 0)
     mastered = mastered_verb_count(progress, conj_th)
     vocab_mastered = mastered_vocab_count(progress, vocab_th)
     vocab_mastered_ja = mastered_vocab_count(progress, vocab_th, "ja_to_es")
@@ -417,6 +452,11 @@ def progress_view(
         "practiced_today": practiced_today,
         "level": learner_level(mastered),
         "xp": mastered * 10,
+        "coins": coins,
+        "guardian_count": guardian_count,
+        "guardian_price": guardian_price,
+        "guardian_coins_needed": max(0, guardian_price - coins),
+        "can_afford_guardian": coins >= guardian_price,
     }
 
 

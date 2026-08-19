@@ -49,7 +49,7 @@ def student_ui_context() -> dict:
     elif path.rstrip("/").endswith("/verbs"):
         nav = "verbs"
         show_bottom_nav = True
-    elif path.rstrip("/").endswith("/profile"):
+    elif path.rstrip("/").endswith("/profile") or path.rstrip("/").endswith("/shop"):
         nav = "profile"
         show_bottom_nav = True
     elif "/vocab" in path or "/session/" in path:

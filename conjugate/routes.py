@@ -14,6 +14,8 @@
  11. GET  /conjugate/vocab/<id>                           … 語彙4択画面
  12. POST /conjugate/api/vocab/<id>/questions/<qid>/answer … 語彙4択の解答
  13. POST /conjugate/api/progress/daily-goal              … 1日の累計目標を保存
+ 14. GET  /conjugate/shop                                 … コインショップ（Guardián交換）
+ 15. POST /conjugate/api/progress/guardian/purchase        … Guardián購入（コイン消費）
 """
 import logging
 import mimetypes
@@ -44,6 +46,7 @@ from conjugate.storage import (
     progress_detail,
     progress_summary,
     progress_verbs,
+    purchase_guardian,
     save_daily_goal,
     save_session,
     save_submission,
@@ -154,6 +157,14 @@ def profile_page():
         weak_verbs=weak_verbs_report(limit=8),
         category_labels=CATEGORY_LABELS,
         tense_labels=TENSE_LABELS,
+    )
+
+
+@main_bp.route("/shop")
+def shop_page():
+    return render_template(
+        "conjugate/shop.html",
+        progress=progress_summary(),
     )
 
 
@@ -433,6 +444,13 @@ def set_daily_goal():
         return jsonify({"ok": False, "error": "1日の目標は1〜100問で設定してください。"}), 400
     view = save_daily_goal(goal)
     return jsonify({"ok": True, "progress": view})
+
+
+@main_bp.route("/api/progress/guardian/purchase", methods=["POST"])
+def purchase_guardian_api():
+    view = purchase_guardian()
+    ok = bool(view.get("ok"))
+    return jsonify({"ok": ok, "error": view.get("error"), "progress": view}), (200 if ok else 400)
 
 
 def _prepare_vocab_session(raw_direction, raw_count) -> dict:

@@ -20,6 +20,7 @@ from conjugate.config import (
     DEFAULT_CONJUGATION_MASTERY_THRESHOLD,
     DEFAULT_ENABLED_CATEGORIES,
     DEFAULT_ENABLED_TENSES,
+    DEFAULT_GUARDIAN_PRICE_COINS,
     DEFAULT_GUSTAR_ENABLED,
     DEFAULT_GUSTAR_PER_SESSION,
     DEFAULT_OPENING_ENABLED,
@@ -36,6 +37,7 @@ from conjugate.config import (
     SUBMISSIONS_FILE,
     WEAK_VERBS_FILE,
     clamp_daily_goal,
+    clamp_guardian_price,
     clamp_mastery_threshold,
     clamp_opening_ms,
     clamp_opacity,
@@ -45,6 +47,7 @@ from conjugate.data.conjugations import TENSE_ORDER
 from conjugate.data.verbs import CATEGORY_ORDER
 from conjugate.progress import (
     apply_attempt,
+    apply_guardian_purchase,
     normalize_progress,
     progress_view,
     verb_progress_list,
@@ -99,6 +102,7 @@ DEFAULT_SETTINGS = {
     "opening_ms": DEFAULT_OPENING_MS,
     "conjugation_mastery_threshold": DEFAULT_CONJUGATION_MASTERY_THRESHOLD,
     "vocab_mastery_threshold": DEFAULT_VOCAB_MASTERY_THRESHOLD,
+    "guardian_price_coins": DEFAULT_GUARDIAN_PRICE_COINS,
 }
 
 
@@ -166,6 +170,11 @@ def _normalize_settings(raw: dict | None) -> dict:
         data["vocab_mastery_threshold"] = clamp_mastery_threshold(
             raw.get("vocab_mastery_threshold"),
             DEFAULT_VOCAB_MASTERY_THRESHOLD,
+        )
+    if "guardian_price_coins" in raw:
+        data["guardian_price_coins"] = clamp_guardian_price(
+            raw.get("guardian_price_coins"),
+            DEFAULT_GUARDIAN_PRICE_COINS,
         )
 
     return data
@@ -335,9 +344,20 @@ def _mastery_thresholds(settings: dict | None = None) -> tuple[int, int]:
     )
 
 
+def _guardian_price(settings: dict | None = None) -> int:
+    data = settings if isinstance(settings, dict) else load_settings()
+    return clamp_guardian_price(data.get("guardian_price_coins"), DEFAULT_GUARDIAN_PRICE_COINS)
+
+
 def _progress_view_from(data: dict, settings: dict | None = None) -> dict:
     conj_th, vocab_th = _mastery_thresholds(settings)
-    return progress_view(data, conjugation_threshold=conj_th, vocab_threshold=vocab_th)
+    guardian_price = _guardian_price(settings)
+    return progress_view(
+        data,
+        conjugation_threshold=conj_th,
+        vocab_threshold=vocab_th,
+        guardian_price=guardian_price,
+    )
 
 
 def load_progress() -> dict:
@@ -372,6 +392,22 @@ def record_progress(
         _write_json(PROGRESS_FILE, data)
         view = _progress_view_from(data, settings)
         view.update(delta)
+        return view
+
+
+def purchase_guardian() -> dict:
+    """コインを消費してGuardiánを1体購入する（発動ロジックはPart 2で実装）。"""
+    settings = load_settings()
+    price = _guardian_price(settings)
+    with _lock:
+        data = normalize_progress(_read_json(PROGRESS_FILE, {}))
+        success = apply_guardian_purchase(data, price)
+        if success:
+            _write_json(PROGRESS_FILE, data)
+        view = _progress_view_from(data, settings)
+        view["ok"] = success
+        if not success:
+            view["error"] = "コインが足りません。"
         return view
 
 

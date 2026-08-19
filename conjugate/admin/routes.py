@@ -115,6 +115,7 @@ def save_settings_api():
         "opening_ms",
         "conjugation_mastery_threshold",
         "vocab_mastery_threshold",
+        "guardian_price_coins",
     ):
         if key in payload:
             updates[key] = payload[key]

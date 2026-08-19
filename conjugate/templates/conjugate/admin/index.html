@@ -127,6 +127,16 @@
         </div>
       </div>
     </div>
+
+    <div>
+      <h3 class="vsc-section-label">コインショップ（Guardián交換）</h3>
+      <p class="text-xs mt-1 mb-1.5" style="color: var(--text-secondary);">活用練習・意味クイズの正解1問につき1コインを獲得します。コインショップでGuardián（守護者）1体と交換できます。</p>
+      <div class="flex items-center gap-2">
+        <span class="text-sm whitespace-nowrap" style="color: var(--text-secondary);">🪙</span>
+        <input type="number" name="guardian_price_coins" min="1" max="9999" value="{{ settings.guardian_price_coins | default(50) }}" class="vsc-select w-28">
+        <span class="text-sm whitespace-nowrap" style="color: var(--text-secondary);">コインで🛡️Guardián 1体</span>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -233,5 +243,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260817a') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260819a') }}"></script>
 {% endblock %}

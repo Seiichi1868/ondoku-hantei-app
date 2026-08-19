@@ -45,6 +45,20 @@
   </div>
 </div>
 
+<section class="vsc-card mb-4">
+  <div class="vsc-coin-card-info">
+    <div class="vsc-coin-card-item">
+      <div class="vsc-coin-card-value">🪙 {{ progress.coins }}</div>
+      <div class="vsc-coin-card-label">コイン</div>
+    </div>
+    <div class="vsc-coin-card-item">
+      <div class="vsc-coin-card-value">🛡️×{{ progress.guardian_count }}</div>
+      <div class="vsc-coin-card-label">Guardián</div>
+    </div>
+  </div>
+  <a href="{{ url_for('conjugate.shop_page') }}" class="vsc-btn-primary w-full mt-3">コインショップへ</a>
+</section>
+
 <nav class="vsc-menu-list mb-4">
   <a class="vsc-menu-item" href="{{ url_for('conjugate.verbs_page') }}">
     <span class="vsc-stat-icon vsc-stat-icon-mint">{{ svg_book() }}</span>

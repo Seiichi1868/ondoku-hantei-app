@@ -126,6 +126,9 @@ DEFAULT_OPENING_MS = 2000
 DEFAULT_CONJUGATION_MASTERY_THRESHOLD = 5
 DEFAULT_VOCAB_MASTERY_THRESHOLD = 5
 
+# ── コイン経済（Guardián） ───────────────────────────────────
+DEFAULT_GUARDIAN_PRICE_COINS = 50
+
 
 def resolve_background(background_id: str | None = None) -> dict:
     preset_id = background_id if background_id in BACKGROUND_PRESETS else DEFAULT_BACKGROUND_ID
@@ -160,6 +163,14 @@ def clamp_mastery_threshold(value, default: int) -> int:
     except (TypeError, ValueError):
         return default
     return max(1, min(50, n))
+
+
+def clamp_guardian_price(value, default: int = DEFAULT_GUARDIAN_PRICE_COINS) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(1, min(9999, n))
 
 
 def clamp_daily_goal(value, default: int = 0) -> int:

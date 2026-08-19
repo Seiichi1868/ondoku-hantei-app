@@ -4,9 +4,11 @@ from datetime import date
 
 from conjugate.progress import (
     apply_attempt,
+    apply_guardian_purchase,
     apply_mastery,
     apply_streak,
     apply_vocab_mastery,
+    can_afford_guardian,
     learner_level,
     mastered_verb_count,
     normalize_progress,
@@ -172,6 +174,67 @@ class MasteryTests(unittest.TestCase):
         self.assertEqual(view["daily_attempts"]["2026-08-17"], 1)
         self.assertEqual(view["conjugation_threshold"], 5)
         self.assertEqual(view["vocab_threshold"], 5)
+
+
+class CoinEconomyTests(unittest.TestCase):
+    def test_correct_answer_earns_one_coin(self):
+        progress = normalize_progress({})
+        today = date(2026, 8, 19)
+        apply_attempt(progress, verb_id=1, tense="present", is_correct=True, today=today, threshold=5)
+        self.assertEqual(progress["coins"], 1)
+        apply_attempt(progress, verb_id=1, tense="present", is_correct=True, today=today, threshold=5)
+        self.assertEqual(progress["coins"], 2)
+
+    def test_wrong_answer_earns_no_coin(self):
+        progress = normalize_progress({})
+        today = date(2026, 8, 19)
+        apply_attempt(progress, verb_id=1, tense="present", is_correct=False, today=today, threshold=5)
+        self.assertEqual(progress["coins"], 0)
+        self.assertEqual(progress["total_attempts"], 1)
+
+    def test_vocab_correct_answer_also_earns_coin(self):
+        progress = normalize_progress({})
+        today = date(2026, 8, 19)
+        apply_attempt(
+            progress,
+            verb_id=1,
+            is_correct=True,
+            today=today,
+            kind="vocab",
+            direction="ja_to_es",
+            threshold=5,
+        )
+        self.assertEqual(progress["coins"], 1)
+
+    def test_apply_attempt_delta_reports_coins(self):
+        progress = normalize_progress({})
+        delta = apply_attempt(progress, verb_id=1, tense="present", is_correct=True, threshold=5)
+        self.assertEqual(delta["coins"], 1)
+        self.assertTrue(delta["coin_earned"])
+        self.assertEqual(delta["guardian_count"], 0)
+
+    def test_guardian_purchase_requires_enough_coins(self):
+        progress = normalize_progress({"coins": 49})
+        self.assertFalse(can_afford_guardian(progress, price=50))
+        self.assertFalse(apply_guardian_purchase(progress, price=50))
+        self.assertEqual(progress["coins"], 49)
+        self.assertEqual(progress["guardian_count"], 0)
+
+    def test_guardian_purchase_spends_coins_and_grants_one(self):
+        progress = normalize_progress({"coins": 120})
+        self.assertTrue(can_afford_guardian(progress, price=50))
+        self.assertTrue(apply_guardian_purchase(progress, price=50))
+        self.assertEqual(progress["coins"], 70)
+        self.assertEqual(progress["guardian_count"], 1)
+
+    def test_progress_view_includes_coin_and_guardian_fields(self):
+        progress = normalize_progress({"coins": 30, "guardian_count": 2})
+        view = progress_view(progress, guardian_price=50)
+        self.assertEqual(view["coins"], 30)
+        self.assertEqual(view["guardian_count"], 2)
+        self.assertEqual(view["guardian_price"], 50)
+        self.assertEqual(view["guardian_coins_needed"], 20)
+        self.assertFalse(view["can_afford_guardian"])
 
 
 if __name__ == "__main__":

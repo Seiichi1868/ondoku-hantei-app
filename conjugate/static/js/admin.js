@@ -79,6 +79,7 @@
       gustar_per_session: parseInt(form.querySelector('input[name="gustar_per_session"]').value, 10),
       conjugation_mastery_threshold: parseInt(form.querySelector('input[name="conjugation_mastery_threshold"]').value, 10),
       vocab_mastery_threshold: parseInt(form.querySelector('input[name="vocab_mastery_threshold"]').value, 10),
+      guardian_price_coins: parseInt(form.querySelector('input[name="guardian_price_coins"]').value, 10),
       background_id: bgIdInput ? bgIdInput.value : "meadow",
       background_opacity: bgOpacityInput ? parseFloat(bgOpacityInput.value) : 0.38,
       opening_enabled: form.querySelector('input[name="opening_enabled"]').checked,
