@@ -678,9 +678,17 @@
         return;
       }
 
+      loadPreviewTranscript();
+    }
+
+    async function loadPreviewTranscript() {
       if (transcriptLoaded || transcriptLoading) return;
 
       transcriptLoading = true;
+      if (cnn10Message) {
+        cnn10Message.classList.add("hidden");
+        cnn10Message.textContent = "";
+      }
       try {
         const data = await loadCnn10Transcript(
           episode.video_id,
@@ -693,11 +701,24 @@
         episodeHighlight = data.highlight?.ok ? data.highlight : null;
         transcriptLoaded = true;
       } catch (err) {
-        transcriptText.textContent = "";
-        if (cnn10Message) {
-          cnn10Message.textContent = err.message || "文字起こしの取得に失敗しました。";
-          cnn10Message.classList.remove("hidden");
-        }
+        const msg = err.message || "文字起こしの取得に失敗しました。";
+        transcriptText.replaceChildren();
+        const errBox = document.createElement("div");
+        errBox.className = "space-y-2";
+        const p = document.createElement("p");
+        p.className = "rounded border border-amber-100 bg-amber-50 p-2 text-[11px] text-amber-800";
+        p.textContent = msg;
+        const retryBtn = document.createElement("button");
+        retryBtn.type = "button";
+        retryBtn.className =
+          "rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100";
+        retryBtn.textContent = "文字起こしを再試行";
+        retryBtn.addEventListener("click", () => {
+          transcriptLoaded = false;
+          loadPreviewTranscript();
+        });
+        errBox.append(p, retryBtn);
+        transcriptText.appendChild(errBox);
       } finally {
         transcriptLoading = false;
       }

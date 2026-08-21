@@ -7,8 +7,8 @@
   const PROXY_BASE_URL = "https://vibe-speak-proxy.kishineseiichi.workers.dev/";
   const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
   const DEFAULT_LANGUAGES = ["en", "ja"];
-  const DEFAULT_TIMEOUT_MS = 30000;
-  const DEFAULT_MAX_RETRIES = 2;
+  const DEFAULT_TIMEOUT_MS = 20000;
+  const DEFAULT_MAX_RETRIES = 4;
   const LANGUAGE_LABELS = { ja: "Japanese", en: "English" };
 
   function extractVideoId(input) {
@@ -367,13 +367,18 @@
     }
   }
 
-  async function fetchWithRetry(url, options, maxRetries) {
+  async function fetchWithRetry(url, baseOptions, maxRetries, timeoutMs) {
     let lastError = null;
+    let lastResponse = null;
     for (let attempt = 0; attempt < maxRetries; attempt += 1) {
       try {
-        const response = await fetch(url, options);
-        if ([408, 425, 429, 500, 502, 503, 504].includes(response.status) && attempt < maxRetries - 1) {
-          const delayMs = response.status === 429 ? 4000 * 2 ** attempt : 2 ** attempt * 1000;
+        const response = await withTimeout(timeoutMs, (signal) =>
+          fetch(url, { ...baseOptions, signal })
+        );
+        lastResponse = response;
+        const retryable = [408, 425, 429, 500, 502, 503, 504].includes(response.status);
+        if (retryable && attempt < maxRetries - 1) {
+          const delayMs = response.status === 429 ? 4000 * (attempt + 1) : 2 ** attempt * 1000;
           await new Promise((resolve) => setTimeout(resolve, delayMs));
           continue;
         }
@@ -384,20 +389,19 @@
         await new Promise((resolve) => setTimeout(resolve, 2 ** attempt * 1000));
       }
     }
+    if (lastResponse) return lastResponse;
     throw translateFetchError(lastError || new Error("字幕の取得に失敗しました。"));
   }
 
   async function fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries) {
     const url = `${PROXY_BASE_URL}?id=${encodeURIComponent(videoId)}`;
-    const response = await withTimeout(timeoutMs, (signal) =>
-      fetchWithRetry(
-        url,
-        {
-          headers: { Accept: "application/json, text/plain, */*" },
-          signal,
-        },
-        maxRetries
-      )
+    const response = await fetchWithRetry(
+      url,
+      {
+        headers: { Accept: "application/json, text/plain, */*" },
+      },
+      maxRetries,
+      timeoutMs
     );
 
     const body = await response.text();
