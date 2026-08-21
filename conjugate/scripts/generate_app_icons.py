@@ -1,7 +1,7 @@
 """ユーザー提供の Conjugate ロゴから、PWA / 画面用 PNG を書き出す。
 
-元データは角丸モック（白余白・「Made with AI」入り）なので、緑のアイコン本体を
-正方形に切り出し、OS が角丸する前提で四隅を緑で埋める。
+元データは角丸のアイコン書き出し（黒または白の余白）なので、アイコン本体を
+正方形に切り出し、OS / CSS が角丸する前提で四隅をライムで埋める。
 
 使い方:
   python3 conjugate/scripts/generate_app_icons.py path/to/source.png
@@ -28,7 +28,13 @@ def _is_mockup_bg(r: int, g: int, b: int, a: int = 255) -> bool:
         return True
     if r > 220 and g > 220 and b > 220:
         return True
-    return abs(r - g) < 14 and abs(g - b) < 14 and r > 200
+    if abs(r - g) < 14 and abs(g - b) < 14 and r > 200:
+        return True
+    # iOS 角丸書き出しの黒余白と、黒との境界の暗いアンチエイリアス
+    brightness = 0.299 * r + 0.587 * g + 0.114 * b
+    if brightness < 72 and b < 40:
+        return True
+    return False
 
 
 def green_bbox(im: Image.Image) -> tuple[int, int, int, int]:
