@@ -42,6 +42,29 @@ AI_MODELS = (
     "gpt-5.4-nano",
 )
 
+WHISPER_MODEL = os.environ.get("NEWS_WHISPER_MODEL", "whisper-1")
+WHISPER_TIMEOUT_SEC = float(os.environ.get("NEWS_WHISPER_TIMEOUT_SEC", "60"))
+WHISPER_MAX_RETRIES = int(os.environ.get("NEWS_WHISPER_MAX_RETRIES", "1"))
+TRANSCRIBE_MAX_BYTES = 60 * 1024 * 1024
+TRANSCRIBE_MAX_SECONDS = 180
+ALLOWED_MEDIA_EXTENSIONS = {
+    "webm",
+    "wav",
+    "mp3",
+    "ogg",
+    "oga",
+    "m4a",
+    "aac",
+    "mp4",
+    "m4v",
+    "mov",
+    "mpeg",
+    "mpg",
+    "mpga",
+    "3gp",
+    "caf",
+}
+
 
 def resolve_ai_model(model: str | None = None) -> str:
     """未対応・旧モデル名はデフォルト（Luna）へ寄せる。"""

@@ -1,7 +1,23 @@
-from flask import Blueprint, jsonify, render_template, request
+import logging
+import mimetypes
+import tempfile
+from pathlib import Path
 
-from news_app.config import CEFR_LEVELS, get_openai_api_key, resolve_ai_model, resolve_cefr_level
+from flask import Blueprint, jsonify, render_template, request
+from werkzeug.utils import secure_filename
+
+from news_app.config import (
+    ALLOWED_MEDIA_EXTENSIONS,
+    CEFR_LEVELS,
+    TRANSCRIBE_MAX_BYTES,
+    TRANSCRIBE_MAX_SECONDS,
+    get_openai_api_key,
+    resolve_ai_model,
+    resolve_cefr_level,
+)
+from news_app.services.audio_convert import prepare_for_whisper
 from news_app.services.openai_eval import evaluate_summary
+from news_app.services.transcription import transcribe_audio
 from news_app.services.storage import (
     current_lesson_identity,
     get_active_class_id,
@@ -14,7 +30,42 @@ from news_app.services.storage import (
 )
 from news_app.services.youtube import build_youtube_embed_url
 
+logger = logging.getLogger(__name__)
+
 main_bp = Blueprint("news_main", __name__)
+
+_MIME_EXTENSIONS = {
+    "audio/mpeg": "mp3",
+    "audio/mp3": "mp3",
+    "audio/mp4": "m4a",
+    "audio/x-m4a": "m4a",
+    "audio/m4a": "m4a",
+    "audio/aac": "aac",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/webm": "webm",
+    "audio/ogg": "ogg",
+    "audio/x-caf": "caf",
+    "video/mp4": "mp4",
+    "video/quicktime": "mov",
+    "video/webm": "webm",
+    "video/3gpp": "3gp",
+}
+
+
+def _media_extension(filename: str, mimetype: str | None) -> str:
+    safe_name = secure_filename(filename or "")
+    if "." in safe_name:
+        ext = safe_name.rsplit(".", 1)[-1].lower()
+        if ext in ALLOWED_MEDIA_EXTENSIONS:
+            return ext
+    mime = (mimetype or "").split(";")[0].strip().lower()
+    if mime in _MIME_EXTENSIONS:
+        return _MIME_EXTENSIONS[mime]
+    guessed = (mimetypes.guess_extension(mime) or "").lstrip(".").lower()
+    if guessed == "qt":
+        guessed = "mov"
+    return guessed if guessed in ALLOWED_MEDIA_EXTENSIONS else ""
 
 
 @main_bp.route("/health")
@@ -286,3 +337,51 @@ def evaluate():
         return jsonify({"ok": False, "error": str(exc)}), 400
     except Exception as exc:
         return jsonify({"ok": False, "error": f"評価に失敗しました: {exc}"}), 500
+
+
+@main_bp.route("/api/transcribe", methods=["POST"])
+def transcribe_media():
+    class_id = (request.form.get("class_id") or "").strip()
+    if not class_id:
+        return jsonify({"ok": False, "error": "クラスを選択してください。"}), 400
+    if not get_class(class_id):
+        return jsonify({"ok": False, "error": "クラスが見つかりません。"}), 404
+
+    uploaded = request.files.get("audio") or request.files.get("media")
+    if uploaded is None:
+        return jsonify({"ok": False, "error": "動画またはボイスメモを選択してください。"}), 400
+
+    uploaded.stream.seek(0, 2)
+    size = uploaded.stream.tell()
+    uploaded.stream.seek(0)
+    if size <= 0:
+        return jsonify({"ok": False, "error": "ファイルが空です。別のファイルを選んでください。"}), 400
+    if size > TRANSCRIBE_MAX_BYTES:
+        return jsonify(
+            {"ok": False, "error": "ファイルが大きすぎます。ボイスメモか、より短い動画にしてください。"},
+        ), 413
+
+    ext = _media_extension(uploaded.filename, uploaded.mimetype)
+    if not ext:
+        return jsonify(
+            {"ok": False, "error": "対応していない形式です。動画（mp4 / mov）か音声（m4a / mp3 / wav）を選んでください。"},
+        ), 400
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="news-stt-") as tmp:
+            src_path = Path(tmp) / f"upload.{ext}"
+            uploaded.save(src_path)
+            prepared = prepare_for_whisper(src_path, TRANSCRIBE_MAX_SECONDS)
+            transcript = transcribe_audio(prepared)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("news transcription failed")
+        return jsonify({"ok": False, "error": f"文字起こしに失敗しました: {exc}"}), 500
+
+    if not transcript:
+        return jsonify(
+            {"ok": False, "error": "音声を認識できませんでした。もう一度録音するか、別のファイルを選んでください。"},
+        ), 400
+
+    return jsonify({"ok": True, "transcript": transcript})

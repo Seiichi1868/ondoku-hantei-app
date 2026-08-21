@@ -109,6 +109,15 @@ def create_app(config_class=Config):
             return jsonify({"ok": False, "error": "public_service_disabled", "message": message}), 503
         return render_template("public_maintenance.html"), 503
 
+    @app.errorhandler(413)
+    def too_large(_error):
+        return jsonify(
+            {
+                "ok": False,
+                "error": "ファイルが大きすぎます。ボイスメモか、より短い動画にしてください。",
+            }
+        ), 413
+
     @app.errorhandler(404)
     def not_found(_error):
         if request.path.startswith("/api/"):

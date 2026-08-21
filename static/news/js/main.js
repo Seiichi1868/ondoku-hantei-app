@@ -27,6 +27,11 @@
   const prepStartBtn = document.getElementById("prep-start-btn");
   const recordBtn = document.getElementById("record-btn");
   const recordStatus = document.getElementById("record-status");
+  const uploadVideoBtn = document.getElementById("upload-video-btn");
+  const uploadAudioBtn = document.getElementById("upload-audio-btn");
+  const uploadVideoInput = document.getElementById("upload-video-input");
+  const uploadAudioInput = document.getElementById("upload-audio-input");
+  const uploadStatus = document.getElementById("upload-status");
   const transcriptArea = document.getElementById("transcript-area");
   const submitBtn = document.getElementById("submit-btn");
   const submitMessage = document.getElementById("submit-message");
@@ -61,7 +66,10 @@
   let recordInterval = null;
   let recognition = null;
   let isRecording = false;
+  let isUploading = false;
+  let speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   let hasRecordingEnded = false;
+  let sharedAudioCtx = null;
   let finalTranscript = "";
   let pendingClassId = "";
   let pendingLessonClassName = "";
@@ -82,8 +90,223 @@
     return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
   }
 
+  const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
+  const MAX_SPEECH_SECONDS = 180;
+
   function updateSubmitState() {
-    submitBtn.disabled = !transcriptArea.value.trim() || !selectedClassId;
+    const busy = isRecording || isUploading;
+    submitBtn.disabled = busy || !transcriptArea.value.trim() || !selectedClassId;
+    if (recordBtn) recordBtn.disabled = isUploading || !speechSupported;
+    if (uploadVideoBtn) uploadVideoBtn.disabled = busy || !selectedClassId;
+    if (uploadAudioBtn) uploadAudioBtn.disabled = busy || !selectedClassId;
+  }
+
+  function setUploadStatus(message, kind) {
+    if (!uploadStatus) return;
+    if (!message) {
+      uploadStatus.classList.add("hidden");
+      uploadStatus.textContent = "";
+      return;
+    }
+    uploadStatus.classList.remove("hidden", "text-red-600", "text-emerald-600", "text-slate-500");
+    uploadStatus.classList.add(kind === "error" ? "text-red-600" : kind === "ok" ? "text-emerald-600" : "text-slate-500");
+    uploadStatus.textContent = message;
+  }
+
+  function unlockAudioContext() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!sharedAudioCtx) sharedAudioCtx = new Ctx();
+    if (sharedAudioCtx.state === "suspended") {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  }
+
+  function isVideoFile(file) {
+    const type = (file.type || "").toLowerCase();
+    const name = (file.name || "").toLowerCase();
+    return type.startsWith("video/") || /\.(mov|mp4|m4v|webm|3gp)$/.test(name);
+  }
+
+  function audioBufferToWavFile(buffer) {
+    const sampleRate = 16000;
+    const srcRate = buffer.sampleRate || sampleRate;
+    const channels = buffer.numberOfChannels || 1;
+    const srcLength = buffer.length;
+    const ratio = srcRate / sampleRate;
+    const newLength = Math.max(1, Math.round(srcLength / ratio));
+    const pcm = new Int16Array(newLength);
+    for (let i = 0; i < newLength; i += 1) {
+      const srcIndex = Math.min(srcLength - 1, Math.round(i * ratio));
+      let sample = 0;
+      for (let ch = 0; ch < channels; ch += 1) {
+        sample += buffer.getChannelData(ch)[srcIndex] || 0;
+      }
+      sample /= channels;
+      sample = Math.max(-1, Math.min(1, sample));
+      pcm[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+    }
+    const header = new ArrayBuffer(44);
+    const view = new DataView(header);
+    const byteLength = pcm.length * 2;
+    function writeString(offset, text) {
+      for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+    }
+    writeString(0, "RIFF");
+    view.setUint32(4, 36 + byteLength, true);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, "data");
+    view.setUint32(40, byteLength, true);
+    const blob = new Blob([header, pcm.buffer], { type: "audio/wav" });
+    return new File([blob], "speech.wav", { type: "audio/wav" });
+  }
+
+  async function extractAudioByDecode(file) {
+    const ctx = unlockAudioContext();
+    if (!ctx) throw new Error("このブラウザでは音声の取り出しに対応していません");
+    const data = await file.arrayBuffer();
+    const decoded = await ctx.decodeAudioData(data.slice(0));
+    if (decoded.duration > MAX_SPEECH_SECONDS) {
+      throw new Error(`音声が長すぎます（${MAX_SPEECH_SECONDS}秒以内にしてください）。`);
+    }
+    return audioBufferToWavFile(decoded);
+  }
+
+  function pickRecorderMime() {
+    if (!window.MediaRecorder) return "";
+    const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+    return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+  }
+
+  function extractAudioByElement(file) {
+    return new Promise((resolve, reject) => {
+      const ctx = unlockAudioContext();
+      if (!ctx || !window.MediaRecorder) {
+        reject(new Error("このブラウザでは動画からの音声抽出に対応していません"));
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const media = document.createElement("video");
+      media.src = url;
+      media.preload = "auto";
+      media.playsInline = true;
+      media.muted = false;
+      media.volume = 1;
+      let settled = false;
+      let started = false;
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+        media.pause();
+        media.removeAttribute("src");
+        media.load();
+      };
+      const fail = (message) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error(message));
+      };
+      const timer = window.setTimeout(() => fail("動画の読み込みがタイムアウトしました"), 20000);
+
+      media.onloadedmetadata = () => {
+        if (media.duration && media.duration > MAX_SPEECH_SECONDS) {
+          window.clearTimeout(timer);
+          fail(`音声が長すぎます（${MAX_SPEECH_SECONDS}秒以内にしてください）。`);
+        }
+      };
+
+      media.oncanplay = () => {
+        if (settled || started) return;
+        started = true;
+        window.clearTimeout(timer);
+        try {
+          const source = ctx.createMediaElementSource(media);
+          const dest = ctx.createMediaStreamDestination();
+          const silent = ctx.createGain();
+          silent.gain.value = 0;
+          source.connect(dest);
+          source.connect(silent);
+          silent.connect(ctx.destination);
+          const mime = pickRecorderMime();
+          const recorder = mime ? new MediaRecorder(dest.stream, { mimeType: mime }) : new MediaRecorder(dest.stream);
+          const chunks = [];
+          recorder.ondataavailable = (event) => {
+            if (event.data && event.data.size) chunks.push(event.data);
+          };
+          recorder.onstop = () => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            const type = recorder.mimeType || mime || "audio/webm";
+            const ext = type.includes("mp4") ? "m4a" : "webm";
+            resolve(new File(chunks, `speech.${ext}`, { type }));
+          };
+          recorder.start();
+          const limitMs = Math.min(MAX_SPEECH_SECONDS + 2, (Number.isFinite(media.duration) ? media.duration : MAX_SPEECH_SECONDS) + 2) * 1000;
+          window.setTimeout(() => {
+            try {
+              if (!settled && recorder.state !== "inactive") recorder.stop();
+            } catch (_) {
+              /* ignore */
+            }
+          }, limitMs);
+          const playPromise = media.play();
+          if (playPromise && playPromise.catch) {
+            playPromise.catch(() => fail("動画を再生できませんでした"));
+          }
+          media.onended = () => {
+            try {
+              if (recorder.state !== "inactive") recorder.stop();
+            } catch (_) {
+              fail("音声の取り出しに失敗しました");
+            }
+          };
+        } catch (err) {
+          fail(err.message || "音声の取り出しに失敗しました");
+        }
+      };
+      media.onerror = () => fail("動画を読み込めませんでした");
+    });
+  }
+
+  async function prepareUploadFile(file) {
+    if (!file) throw new Error("ファイルを選択してください。");
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new Error("ファイルが大きすぎます（60MBまで）。ボイスメモか短い動画にしてください。");
+    }
+    if (!isVideoFile(file)) return file;
+    try {
+      if (file.size <= 40 * 1024 * 1024) {
+        return await extractAudioByDecode(file);
+      }
+    } catch (_) {
+      /* fall through */
+    }
+    try {
+      return await extractAudioByElement(file);
+    } catch (_) {
+      return file;
+    }
+  }
+
+  async function parseJsonResponse(res) {
+    if (res.status === 413) {
+      throw new Error("ファイルが大きすぎます。ボイスメモか、より短い動画にしてください。");
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.error || `通信に失敗しました（${res.status}）`);
+    }
+    return data;
   }
 
   function syncTranscriptFromInput() {
@@ -680,6 +903,7 @@
   }
 
   function startRecording() {
+    if (isUploading) return;
     clearInterval(prepInterval);
     if (prepStartBtn) {
       prepStartBtn.disabled = false;
@@ -737,9 +961,9 @@
 
   prepStartBtn.addEventListener("click", startPrepTimer);
 
-  submitBtn.addEventListener("click", async () => {
+  async function submitSummary() {
     const summary = transcriptArea.value.trim();
-    if (!summary || !selectedClassId) return;
+    if (!summary || !selectedClassId) return false;
 
     submitBtn.disabled = true;
     submitMessage.classList.remove("hidden", "text-red-600", "text-emerald-600", "text-slate-500");
@@ -760,19 +984,88 @@
           student_name: studentName,
         }),
       });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "評価に失敗しました");
+      const data = await parseJsonResponse(res);
       renderFeedback(data.feedback);
       feedbackArea.scrollTop = 0;
       submitMessage.textContent = "評価が完了しました。";
       submitMessage.classList.replace("text-slate-500", "text-emerald-600");
+      return true;
     } catch (err) {
       feedbackArea.textContent = err.message;
       submitMessage.textContent = err.message;
       submitMessage.classList.replace("text-slate-500", "text-red-600");
+      return false;
     } finally {
       updateSubmitState();
     }
+  }
+
+  async function handleMediaUpload(file) {
+    if (!file || !selectedClassId || isUploading) return;
+    if (isRecording) stopRecording();
+
+    isUploading = true;
+    updateSubmitState();
+    setUploadStatus(`${file.name} を読み込み中…`, "info");
+    submitMessage.classList.remove("hidden", "text-red-600", "text-emerald-600", "text-slate-500");
+    submitMessage.textContent = "文字起こし中…";
+    submitMessage.classList.add("text-slate-500");
+    feedbackArea.textContent = "動画・音声から英語を文字起こししています…";
+
+    try {
+      const payload = await prepareUploadFile(file);
+      setUploadStatus("文字起こし中…", "info");
+      const form = new FormData();
+      form.append("audio", payload, payload.name || file.name || "speech.wav");
+      form.append("class_id", selectedClassId);
+      const res = await fetch("/news/api/transcribe", { method: "POST", body: form });
+      const data = await parseJsonResponse(res);
+      const transcript = (data.transcript || "").trim();
+      if (!transcript) throw new Error("音声を認識できませんでした。");
+
+      transcriptArea.value = transcript;
+      finalTranscript = transcript;
+      hasRecordingEnded = true;
+      updateSubmitState();
+      setUploadStatus("文字起こし完了。評価しています…", "info");
+      const ok = await submitSummary();
+      if (ok) setUploadStatus("アップロードした音声の評価が完了しました。", "ok");
+    } catch (err) {
+      setUploadStatus(err.message, "error");
+      submitMessage.textContent = err.message;
+      submitMessage.classList.remove("hidden", "text-emerald-600", "text-slate-500");
+      submitMessage.classList.add("text-red-600");
+      feedbackArea.textContent = err.message;
+    } finally {
+      isUploading = false;
+      if (uploadVideoInput) uploadVideoInput.value = "";
+      if (uploadAudioInput) uploadAudioInput.value = "";
+      updateSubmitState();
+    }
+  }
+
+  function openFilePicker(input) {
+    unlockAudioContext();
+    if (input) input.click();
+  }
+
+  if (uploadVideoBtn && uploadVideoInput) {
+    uploadVideoBtn.addEventListener("click", () => openFilePicker(uploadVideoInput));
+    uploadVideoInput.addEventListener("change", () => {
+      const file = uploadVideoInput.files && uploadVideoInput.files[0];
+      if (file) handleMediaUpload(file);
+    });
+  }
+  if (uploadAudioBtn && uploadAudioInput) {
+    uploadAudioBtn.addEventListener("click", () => openFilePicker(uploadAudioInput));
+    uploadAudioInput.addEventListener("change", () => {
+      const file = uploadAudioInput.files && uploadAudioInput.files[0];
+      if (file) handleMediaUpload(file);
+    });
+  }
+
+  submitBtn.addEventListener("click", () => {
+    submitSummary();
   });
 
   if (classPickerStart) {
