@@ -11,10 +11,8 @@
   <style>
     body { font-family: 'Outfit', system-ui, sans-serif; }
     .page-bg {
-      background-image: url("{{ url_for('static', filename=background_image or 'news/images/nature-bg.jpg') }}");
       background-size: cover;
       background-position: center;
-      background-attachment: fixed;
       background-repeat: no-repeat;
     }
     .glass {
@@ -70,7 +68,8 @@
 </head>
 <body class="relative min-h-screen text-slate-800 antialiased">
   <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
-    <div id="page-bg-layer" class="page-bg absolute inset-0 scale-105" style="opacity: {{ background_opacity if background_opacity is not none else 0.38 }}"></div>
+    <div id="page-bg-layer" class="page-bg absolute inset-0 scale-105"
+      style="opacity: {{ background_opacity if background_opacity is not none else 0.38 }}; background-image: url('{{ url_for('static', filename=background_image or 'news/images/nature-bg.jpg') }}');"></div>
     <div class="absolute inset-0 bg-gradient-to-br from-sky-100/75 via-white/55 to-emerald-100/70"></div>
     <div class="absolute inset-0 bg-gradient-to-t from-emerald-50/40 via-transparent to-sky-50/30"></div>
   </div>

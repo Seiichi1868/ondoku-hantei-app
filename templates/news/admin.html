@@ -111,7 +111,7 @@
     line-height: 1;
   }
   .bg-opacity-slider {
-    width: 7rem;
+    width: 100%;
     height: 0.35rem;
     accent-color: rgb(13 148 136);
     cursor: pointer;
@@ -142,7 +142,7 @@
           <p id="admin-settings-lock-message"
             class="absolute right-0 top-full z-50 mt-1 hidden whitespace-nowrap rounded bg-white/95 px-2 py-1 text-[10px] text-red-600 shadow"></p>
           <form id="settings-form"
-            class="absolute right-0 top-full z-[9999] mt-2 hidden max-h-[calc(100vh-4rem)] w-[min(26rem,calc(100vw-1rem))] space-y-2 overflow-y-auto rounded-xl border border-teal-100 bg-white p-3 shadow-xl">
+            class="absolute right-0 top-full z-[9999] mt-2 hidden max-h-[calc(100vh-4rem)] w-[min(32rem,calc(100vw-1rem))] space-y-2 overflow-y-auto rounded-xl border border-teal-100 bg-white p-3 shadow-xl">
             <div class="flex items-center justify-between gap-2">
               <h2 class="text-sm font-semibold text-slate-800">管理設定</h2>
               <span class="text-[10px] text-slate-500">教員共通</span>
@@ -183,6 +183,31 @@
               </div>
             </div>
 
+            <div>
+              <div class="mb-1 flex items-center justify-between gap-2">
+                <label class="text-[11px] font-medium text-slate-600">背景</label>
+                <span id="bg-current-label" class="text-[10px] font-medium text-teal-700">{{ background_label }}</span>
+              </div>
+              <div id="bg-picker" class="mb-2 flex flex-wrap gap-1">
+                {% for bg_id, bg in backgrounds.items() %}
+                <button type="button"
+                  class="bg-pick-btn{% if bg_id == background_id %} bg-pick-btn-active{% endif %}"
+                  data-bg-id="{{ bg_id }}"
+                  data-bg-image="{{ url_for('static', filename=bg.image) }}"
+                  title="{{ bg.label }}">
+                  <span class="bg-pick-thumb" style="background-image: url('{{ url_for('static', filename=bg.image) }}');"></span>
+                  <span class="bg-pick-label">{{ bg.label }}</span>
+                </button>
+                {% endfor %}
+              </div>
+              <label for="bg-opacity-slider" class="mb-0.5 block text-[11px] font-medium text-slate-600">
+                透過 <span id="bg-opacity-value">{{ (background_opacity * 100)|round|int }}</span>%
+              </label>
+              <input id="bg-opacity-slider" type="range" min="0" max="100" step="1"
+                value="{{ (background_opacity * 100)|round|int }}"
+                class="bg-opacity-slider" />
+            </div>
+
             <details class="compact-details">
               <summary class="text-[11px] font-medium text-teal-700">デフォルト評価基準（全クラス共通）</summary>
               <div class="mt-2 space-y-2">
@@ -203,30 +228,6 @@
         <a href="/news/" class="compact-btn border border-teal-100 bg-white/70 text-teal-700 shadow-sm hover:bg-teal-50">
           生徒画面
         </a>
-      </div>
-    </div>
-    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-2">
-      <span class="text-[10px] font-semibold text-slate-500 shrink-0">背景</span>
-      <span id="bg-current-label" class="text-[10px] font-medium text-teal-700 shrink-0">{{ background_label }}</span>
-      <div id="bg-picker" class="flex flex-wrap gap-1 flex-1 min-w-0">
-        {% for bg_id, bg in backgrounds.items() %}
-        <button type="button"
-          class="bg-pick-btn{% if bg_id == background_id %} bg-pick-btn-active{% endif %}"
-          data-bg-id="{{ bg_id }}"
-          data-bg-image="{{ url_for('static', filename=bg.image) }}"
-          title="{{ bg.label }}">
-          <span class="bg-pick-thumb" style="background-image: url('{{ url_for('static', filename=bg.image) }}');"></span>
-          <span class="bg-pick-label">{{ bg.label }}</span>
-        </button>
-        {% endfor %}
-      </div>
-      <div class="flex items-center gap-1.5 shrink-0">
-        <label for="bg-opacity-slider" class="text-[10px] font-medium text-slate-500 whitespace-nowrap">
-          透過 <span id="bg-opacity-value">{{ (background_opacity * 100)|round|int }}</span>%
-        </label>
-        <input id="bg-opacity-slider" type="range" min="0" max="100" step="1"
-          value="{{ (background_opacity * 100)|round|int }}"
-          class="bg-opacity-slider" />
       </div>
     </div>
   </header>
@@ -643,5 +644,5 @@
   window.ADMIN_WARMUP_QUESTIONS = {{ (current.warmup_questions or [])|tojson }};
 </script>
 <script src="{{ url_for('static', filename='news/js/youtube-transcript.js', v='20260821a') }}"></script>
-<script src="{{ url_for('static', filename='news/js/admin.js', v='20260821a') }}"></script>
+<script src="{{ url_for('static', filename='news/js/admin.js', v='20260822b') }}"></script>
 {% endblock %}

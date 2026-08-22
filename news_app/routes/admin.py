@@ -142,6 +142,7 @@ def admin_index():
         end_time_display=seconds_to_display(int(current.get("end_seconds") or 0)),
         api_key_configured=api_key_configured,
         api_key_masked=mask_api_key(state.get("openai_api_key") or get_openai_api_key()),
+        **appearance_context(state),
     )
 
 
@@ -165,6 +166,10 @@ def save_settings():
             "default_cefr_level": resolve_cefr_level(data.get("default_cefr_level")),
             "openai_api_key": openai_api_key,
         }
+        if "background_id" in data:
+            kwargs["background_id"] = data.get("background_id")
+        if "background_opacity" in data:
+            kwargs["background_opacity"] = data.get("background_opacity")
         if isinstance(default_criteria, dict):
             kwargs["default_evaluation_criteria"] = default_criteria
 
@@ -178,6 +183,7 @@ def save_settings():
                 "ok": True,
                 "state": {**state, "openai_api_key": mask_api_key(state.get("openai_api_key", ""))},
                 "api_key_configured": bool(openai_api_key),
+                **appearance_context(state),
             }
         )
     except Exception as exc:

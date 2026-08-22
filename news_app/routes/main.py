@@ -27,6 +27,7 @@ from news_app.services.storage import (
     load_state,
     save_submission,
     vocabulary_for_student,
+    appearance_context,
 )
 from news_app.services.youtube import build_youtube_embed_url
 
@@ -221,6 +222,7 @@ def index():
         page_origin=request.host_url.rstrip("/"),
         vocabulary_scaffolding_enabled=vocabulary_scaffolding_enabled,
         vocabulary_data=vocabulary_data,
+        **appearance_context(state),
     )
 
 
@@ -238,6 +240,7 @@ def screen():
         initial_class_id=class_id,
         classes=classes,
         page_origin=request.host_url.rstrip("/"),
+        **appearance_context(),
     )
 
 

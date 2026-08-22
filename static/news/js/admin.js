@@ -92,7 +92,6 @@
   const bgOpacitySlider = document.getElementById("bg-opacity-slider");
   const bgOpacityValue = document.getElementById("bg-opacity-value");
   let currentBackgroundId = bgPicker?.querySelector(".bg-pick-btn-active")?.dataset.bgId || "mountain";
-  let appearanceSaveTimer = null;
 
   function showMessage(el, text, isError) {
     if (!el) return;
@@ -101,9 +100,17 @@
     el.classList.add(isError ? "text-red-600" : "text-emerald-600");
   }
 
+  function pageBackgroundLayers() {
+    const layers = Array.from(document.querySelectorAll(".page-bg"));
+    if (pageBgLayer && !layers.includes(pageBgLayer)) layers.push(pageBgLayer);
+    return layers;
+  }
+
   function applyBackgroundOpacity(opacity) {
     const value = Math.max(0, Math.min(1, Number(opacity) || 0));
-    if (pageBgLayer) pageBgLayer.style.opacity = String(value);
+    pageBackgroundLayers().forEach((el) => {
+      el.style.opacity = String(value);
+    });
     const percent = Math.round(value * 100);
     if (bgOpacitySlider) bgOpacitySlider.value = String(percent);
     if (bgOpacityValue) bgOpacityValue.textContent = String(percent);
@@ -116,8 +123,10 @@
 
   function applyBackground(bgId, imageUrl, label) {
     currentBackgroundId = bgId;
-    if (pageBgLayer && imageUrl) {
-      pageBgLayer.style.backgroundImage = `url("${imageUrl}")`;
+    if (imageUrl) {
+      pageBackgroundLayers().forEach((el) => {
+        el.style.backgroundImage = `url("${imageUrl}")`;
+      });
     }
     if (bgCurrentLabel && label) {
       bgCurrentLabel.textContent = label;
@@ -125,32 +134,6 @@
     bgPicker?.querySelectorAll(".bg-pick-btn").forEach((btn) => {
       btn.classList.toggle("bg-pick-btn-active", btn.dataset.bgId === bgId);
     });
-  }
-
-  async function saveAppearance() {
-    const res = await fetch("/news/admin/api/appearance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        background_id: currentBackgroundId,
-        background_opacity: getBackgroundOpacityFromSlider(),
-      }),
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || "背景設定の保存に失敗しました");
-    const activeBtn = bgPicker?.querySelector(`.bg-pick-btn[data-bg-id="${data.background_id}"]`);
-    applyBackground(data.background_id, activeBtn?.dataset.bgImage, data.background_label || activeBtn?.title);
-    applyBackgroundOpacity(data.background_opacity ?? 0.38);
-  }
-
-  function scheduleAppearanceSave() {
-    if (appearanceSaveTimer) window.clearTimeout(appearanceSaveTimer);
-    appearanceSaveTimer = window.setTimeout(() => {
-      saveAppearance().catch((err) => {
-        console.error(err);
-        if (classMessage) showMessage(classMessage, err.message || "背景設定の保存に失敗しました。", true);
-      });
-    }, 280);
   }
 
   function showCnn10Panel() {
@@ -1335,6 +1318,8 @@
         default_cefr_level: document.getElementById("default-cefr-level").value,
         openai_api_key: document.getElementById("openai-api-key").value.trim(),
         default_evaluation_criteria: collectDefaultCriteria(),
+        background_id: currentBackgroundId,
+        background_opacity: getBackgroundOpacityFromSlider(),
         admin_password: adminSettingsPasswordValue,
       };
       try {
@@ -1345,6 +1330,13 @@
         });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || "保存に失敗しました");
+        const activeBtn = bgPicker?.querySelector(`.bg-pick-btn[data-bg-id="${data.background_id}"]`);
+        applyBackground(
+          data.background_id || currentBackgroundId,
+          activeBtn?.dataset.bgImage,
+          data.background_label || activeBtn?.title
+        );
+        applyBackgroundOpacity(data.background_opacity ?? getBackgroundOpacityFromSlider());
         showMessage(settingsMessage, "管理設定を保存しました。", false);
         document.getElementById("openai-api-key").value = "";
         closeAdminSettingsPanel();
@@ -1357,13 +1349,12 @@
   bgPicker?.addEventListener("click", (event) => {
     const btn = event.target.closest(".bg-pick-btn");
     if (!btn) return;
+    event.preventDefault();
     applyBackground(btn.dataset.bgId, btn.dataset.bgImage, btn.title);
-    scheduleAppearanceSave();
   });
 
   bgOpacitySlider?.addEventListener("input", () => {
     applyBackgroundOpacity(getBackgroundOpacityFromSlider());
-    scheduleAppearanceSave();
   });
 
   function copyTextFromInput(inputEl, buttonEl, emptyMessage) {
