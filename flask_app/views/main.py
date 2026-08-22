@@ -10,6 +10,13 @@ from flask_app.services.tts_service import TTSService
 main_bp = Blueprint("main", __name__)
 
 
+@main_bp.context_processor
+def _inject_appearance():
+    from flask_app.services.runtime_settings import appearance_context
+
+    return appearance_context()
+
+
 @main_bp.route("/")
 def index():
     if "user_id" not in session:

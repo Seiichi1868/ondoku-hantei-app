@@ -21,12 +21,31 @@ body {
   font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: var(--text);
   background-color: #eaf2ee;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
-    url("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1800&q=80");
+}
+
+.page-bg-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.page-bg-layer {
+  position: absolute;
+  inset: 0;
+  transform: scale(1.05);
   background-size: cover;
   background-position: center;
-  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+.page-bg-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom right, rgba(224, 242, 254, 0.75), rgba(255, 255, 255, 0.55), rgba(209, 250, 229, 0.7)),
+    linear-gradient(to top, rgba(236, 253, 245, 0.4), transparent, rgba(240, 249, 255, 0.3));
 }
 
 .bg-blobs {
@@ -1312,6 +1331,8 @@ body.gate-locked {
 }
 
 .admin-shell {
+  position: relative;
+  z-index: 1;
   width: min(1180px, 100%);
 }
 
@@ -1433,6 +1454,97 @@ body.gate-locked {
 
 .admin-card--span-full {
   grid-column: 1 / -1;
+}
+
+.admin-card--bg {
+  padding: 6px 10px;
+}
+
+.admin-bg-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.admin-bg-title {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.admin-bg-current {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #0369a1;
+  flex-shrink: 0;
+}
+
+.admin-bg-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bg-pick-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bg-pick-btn:hover {
+  border-color: rgba(14, 165, 233, 0.4);
+}
+
+.bg-pick-btn-active {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 1px rgba(3, 105, 161, 0.22);
+}
+
+.bg-pick-thumb {
+  display: block;
+  width: 3.1rem;
+  height: 1.85rem;
+  border-radius: 5px;
+  background-size: cover;
+  background-position: center;
+}
+
+.bg-pick-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #475569;
+  line-height: 1;
+}
+
+.admin-bg-opacity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  min-width: 7.5rem;
+}
+
+.admin-bg-opacity label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.bg-opacity-slider {
+  width: 7.5rem;
+  height: 0.35rem;
+  accent-color: #0284c7;
+  cursor: pointer;
 }
 
 .admin-eyebrow {
@@ -2369,9 +2481,6 @@ body.gate-locked {
   inset: 0;
   transform: scale(1.1);
   opacity: 0.45;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
-    url("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1800&q=80");
   background-size: cover;
   background-position: center;
 }

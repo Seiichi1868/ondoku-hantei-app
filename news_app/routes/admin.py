@@ -49,6 +49,7 @@ from news_app.services.storage import (
     update_submission_lesson_title,
     _normalize_vocabulary_data,
     _normalize_warmup_questions,
+    appearance_context,
 )
 from news_app.services.pdf_report import build_submissions_pdf
 from news_app.services.youtube import extract_video_id, fetch_youtube_title, parse_time_to_seconds, seconds_to_display
@@ -179,6 +180,24 @@ def save_settings():
                 "api_key_configured": bool(openai_api_key),
             }
         )
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
+@admin_bp.route("/api/appearance", methods=["GET", "POST"])
+def appearance_settings():
+    if request.method == "GET":
+        return jsonify({"ok": True, **appearance_context()})
+
+    data = request.get_json(silent=True) or {}
+    try:
+        updates = {}
+        if "background_id" in data:
+            updates["background_id"] = data.get("background_id")
+        if "background_opacity" in data:
+            updates["background_opacity"] = data.get("background_opacity")
+        state = update_settings(**updates) if updates else load_state()
+        return jsonify({"ok": True, **appearance_context(state)})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
 

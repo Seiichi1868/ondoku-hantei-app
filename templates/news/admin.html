@@ -79,6 +79,43 @@
     accent-color: rgb(13 148 136);
     cursor: pointer;
   }
+  .bg-pick-btn {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.15rem;
+    border-radius: 0.45rem;
+    border: 2px solid transparent;
+    background: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .bg-pick-btn:hover { border-color: rgba(13, 148, 136, 0.4); }
+  .bg-pick-btn-active {
+    border-color: rgb(13 148 136);
+    box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.22);
+  }
+  .bg-pick-thumb {
+    display: block;
+    width: 2.9rem;
+    height: 1.7rem;
+    border-radius: 0.3rem;
+    background-size: cover;
+    background-position: center;
+  }
+  .bg-pick-label {
+    font-size: 0.58rem;
+    font-weight: 600;
+    color: rgb(71 85 105);
+    line-height: 1;
+  }
+  .bg-opacity-slider {
+    width: 7rem;
+    height: 0.35rem;
+    accent-color: rgb(13 148 136);
+    cursor: pointer;
+  }
 </style>
 {% endblock %}
 
@@ -166,6 +203,30 @@
         <a href="/news/" class="compact-btn border border-teal-100 bg-white/70 text-teal-700 shadow-sm hover:bg-teal-50">
           生徒画面
         </a>
+      </div>
+    </div>
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-2">
+      <span class="text-[10px] font-semibold text-slate-500 shrink-0">背景</span>
+      <span id="bg-current-label" class="text-[10px] font-medium text-teal-700 shrink-0">{{ background_label }}</span>
+      <div id="bg-picker" class="flex flex-wrap gap-1 flex-1 min-w-0">
+        {% for bg_id, bg in backgrounds.items() %}
+        <button type="button"
+          class="bg-pick-btn{% if bg_id == background_id %} bg-pick-btn-active{% endif %}"
+          data-bg-id="{{ bg_id }}"
+          data-bg-image="{{ url_for('static', filename=bg.image) }}"
+          title="{{ bg.label }}">
+          <span class="bg-pick-thumb" style="background-image: url('{{ url_for('static', filename=bg.image) }}');"></span>
+          <span class="bg-pick-label">{{ bg.label }}</span>
+        </button>
+        {% endfor %}
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <label for="bg-opacity-slider" class="text-[10px] font-medium text-slate-500 whitespace-nowrap">
+          透過 <span id="bg-opacity-value">{{ (background_opacity * 100)|round|int }}</span>%
+        </label>
+        <input id="bg-opacity-slider" type="range" min="0" max="100" step="1"
+          value="{{ (background_opacity * 100)|round|int }}"
+          class="bg-opacity-slider" />
       </div>
     </div>
   </header>

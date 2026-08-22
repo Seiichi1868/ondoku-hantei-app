@@ -10,11 +10,17 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260817a') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260822a') }}" />
+    <style>
+      .page-bg-layer {
+        background-image: url("{{ url_for('static', filename=background_image) }}");
+      }
+    </style>
   </head>
   <body class="splash-active">
     <div id="splashScreen" class="splash-screen" role="presentation" aria-label="起動中">
-      <div class="splash-screen__bg" aria-hidden="true"></div>
+      <div class="splash-screen__bg" aria-hidden="true"
+        style="background-image: url('{{ url_for('static', filename=background_image) }}');"></div>
       <div class="splash-screen__veil splash-screen__veil--1" aria-hidden="true"></div>
       <div class="splash-screen__veil splash-screen__veil--2" aria-hidden="true"></div>
       <div class="splash-vibe-orb splash-vibe-orb--left" aria-hidden="true"></div>
@@ -25,10 +31,9 @@
         <p class="splash-intro-glass-sub">Read. Speak. Get instant feedback.</p>
       </div>
     </div>
-    <div class="bg-blobs" aria-hidden="true">
-      <span class="bg-blob bg-blob--uk"></span>
-      <span class="bg-blob bg-blob--es"></span>
-      <span class="bg-blob bg-blob--mint"></span>
+    <div class="page-bg-wrap" aria-hidden="true">
+      <div id="page-bg-layer" class="page-bg-layer" style="opacity: {{ background_opacity }}"></div>
+      <div class="page-bg-veil"></div>
     </div>
     <div id="gateOverlay" class="gate-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
       <div class="gate-card">

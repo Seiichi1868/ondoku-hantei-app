@@ -4,9 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Speaking Lab 管理者</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260822a') }}" />
+    <style>
+      .page-bg-layer {
+        background-image: url("{{ url_for('static', filename=background_image) }}");
+      }
+    </style>
   </head>
   <body class="admin-page">
+    <div class="page-bg-wrap" aria-hidden="true">
+      <div id="page-bg-layer" class="page-bg-layer" style="opacity: {{ background_opacity }}"></div>
+      <div class="page-bg-veil"></div>
+    </div>
     <main class="admin-shell">
       <header class="admin-top-bar">
         <div class="admin-top-bar__brand">
@@ -76,6 +85,33 @@
           <label class="admin-section-chip"><input type="checkbox" name="adminSection" value="recorder" checked /><span>ステータス</span></label>
           <label class="admin-section-chip"><input type="checkbox" name="adminSection" value="result" checked /><span>判定結果</span></label>
           <label class="admin-section-chip"><input type="checkbox" name="adminSection" value="comparison" checked /><span>発音一致率</span></label>
+        </div>
+      </section>
+
+      <section class="admin-card admin-card--span-full admin-card--compact admin-card--bg">
+        <div class="admin-bg-row">
+          <h2 class="admin-card__title admin-bg-title">背景</h2>
+          <span id="bg-current-label" class="admin-bg-current">{{ background_label }}</span>
+          <div id="bg-picker" class="admin-bg-picker">
+            {% for bg_id, bg in backgrounds.items() %}
+            <button type="button"
+              class="bg-pick-btn{% if bg_id == background_id %} bg-pick-btn-active{% endif %}"
+              data-bg-id="{{ bg_id }}"
+              data-bg-image="{{ url_for('static', filename=bg.image) }}"
+              title="{{ bg.label }}">
+              <span class="bg-pick-thumb" style="background-image: url('{{ url_for('static', filename=bg.image) }}');"></span>
+              <span class="bg-pick-label">{{ bg.label }}</span>
+            </button>
+            {% endfor %}
+          </div>
+          <div class="admin-bg-opacity">
+            <label for="bg-opacity-slider">
+              透過 <span id="bg-opacity-value">{{ (background_opacity * 100)|round|int }}</span>%
+            </label>
+            <input id="bg-opacity-slider" type="range" min="0" max="100" step="1"
+              value="{{ (background_opacity * 100)|round|int }}"
+              class="bg-opacity-slider" />
+          </div>
         </div>
       </section>
 
@@ -197,6 +233,11 @@
       const adminSettingsUnlock = document.getElementById("adminSettingsUnlock");
       const adminSettingsLockMessage = document.getElementById("adminSettingsLockMessage");
       const adminSettingsGated = document.getElementById("adminSettingsGated");
+      const pageBgLayer = document.getElementById("page-bg-layer");
+      const bgCurrentLabel = document.getElementById("bg-current-label");
+      const bgPicker = document.getElementById("bg-picker");
+      const bgOpacitySlider = document.getElementById("bg-opacity-slider");
+      const bgOpacityValue = document.getElementById("bg-opacity-value");
 
       const ALL_SHARE_TARGET_LANGS = ["en", "es", "ja", "ro"];
       const SHARE_TARGET_LABELS = {
@@ -208,6 +249,8 @@
       let shareLinkEnabledLangs = [...ALL_SHARE_TARGET_LANGS];
       let shareLinkCopyToastTimer = null;
       let adminSettingsPasswordValue = null;
+      let appearanceSaveTimer = null;
+      let currentBackgroundId = {{ background_id|tojson }};
 
       function showAdminSettingsLockMessage(message) {
         if (!adminSettingsLockMessage) return;
@@ -487,6 +530,61 @@
           input.checked = input.value === lang;
           input.disabled = false;
         });
+      }
+
+      function applyBackgroundOpacity(opacity) {
+        const value = Math.max(0, Math.min(1, Number(opacity) || 0));
+        if (pageBgLayer) pageBgLayer.style.opacity = String(value);
+        const percent = Math.round(value * 100);
+        if (bgOpacitySlider) bgOpacitySlider.value = String(percent);
+        if (bgOpacityValue) bgOpacityValue.textContent = String(percent);
+      }
+
+      function getBackgroundOpacityFromSlider() {
+        const percent = parseInt(bgOpacitySlider?.value, 10);
+        return Number.isFinite(percent) ? percent / 100 : 0.38;
+      }
+
+      function applyBackground(bgId, imageUrl, label) {
+        currentBackgroundId = bgId;
+        if (pageBgLayer && imageUrl) {
+          pageBgLayer.style.backgroundImage = `url("${imageUrl}")`;
+        }
+        if (bgCurrentLabel && label) {
+          bgCurrentLabel.textContent = label;
+        }
+        bgPicker?.querySelectorAll(".bg-pick-btn").forEach((btn) => {
+          btn.classList.toggle("bg-pick-btn-active", btn.dataset.bgId === bgId);
+        });
+      }
+
+      async function saveAppearance() {
+        const response = await fetch("/api/admin/appearance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            background_id: currentBackgroundId,
+            background_opacity: getBackgroundOpacityFromSlider(),
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "背景設定の保存に失敗しました");
+        }
+        const activeBtn = bgPicker?.querySelector(`.bg-pick-btn[data-bg-id="${data.background_id}"]`);
+        applyBackground(data.background_id, activeBtn?.dataset.bgImage, data.background_label || activeBtn?.title);
+        applyBackgroundOpacity(data.background_opacity ?? 0.38);
+        statusText.textContent = "背景を更新しました（生徒画面に即時反映）";
+      }
+
+      function scheduleAppearanceSave() {
+        if (appearanceSaveTimer) window.clearTimeout(appearanceSaveTimer);
+        appearanceSaveTimer = window.setTimeout(() => {
+          saveAppearance().catch((error) => {
+            console.error(error);
+            statusText.textContent = "背景設定の保存に失敗しました。";
+          });
+        }, 280);
       }
 
       async function loadAdminState() {
@@ -791,6 +889,18 @@
           if (!input.checked) return;
           saveUiLanguageState(input.value);
         });
+      });
+
+      bgPicker?.addEventListener("click", (event) => {
+        const btn = event.target.closest(".bg-pick-btn");
+        if (!btn) return;
+        applyBackground(btn.dataset.bgId, btn.dataset.bgImage, btn.title);
+        scheduleAppearanceSave();
+      });
+
+      bgOpacitySlider?.addEventListener("input", () => {
+        applyBackgroundOpacity(getBackgroundOpacityFromSlider());
+        scheduleAppearanceSave();
       });
 
       if (shareLinkUiSelect) {

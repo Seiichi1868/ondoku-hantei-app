@@ -69,7 +69,58 @@ DEFAULT_STATE = {
     "default_evaluation_criteria": deepcopy(DEFAULT_EVALUATION_CRITERIA),
     "active_class_id": "",
     "classes": {},
+    "background_id": "mountain",
+    "background_opacity": 0.38,
 }
+
+BACKGROUND_PRESETS = {
+    "meadow": {"label": "草原", "image": "news/images/bg/meadow.jpg"},
+    "forest": {"label": "森", "image": "news/images/bg/forest.jpg"},
+    "mountain": {"label": "山", "image": "news/images/bg/mountain.jpg"},
+    "ocean": {"label": "海", "image": "news/images/bg/ocean.jpg"},
+    "misty-lake": {"label": "湖", "image": "news/images/bg/misty-lake.jpg"},
+}
+DEFAULT_BACKGROUND_ID = "mountain"
+DEFAULT_BACKGROUND_OPACITY = 0.38
+
+
+def _clamp_opacity(value, default: float = DEFAULT_BACKGROUND_OPACITY) -> float:
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return default
+    return round(max(0.0, min(n, 1.0)), 2)
+
+
+def resolve_background(background_id: str | None = None) -> dict:
+    preset_id = background_id if background_id in BACKGROUND_PRESETS else DEFAULT_BACKGROUND_ID
+    preset = BACKGROUND_PRESETS[preset_id]
+    return {
+        "background_id": preset_id,
+        "background_label": preset["label"],
+        "background_image": preset["image"],
+    }
+
+
+def _apply_appearance(data: dict | None, merged: dict) -> dict:
+    raw = data if isinstance(data, dict) else {}
+    bg_id = raw.get("background_id")
+    if bg_id in BACKGROUND_PRESETS:
+        merged["background_id"] = bg_id
+    if "background_opacity" in raw:
+        merged["background_opacity"] = _clamp_opacity(raw.get("background_opacity"))
+    return merged
+
+
+def appearance_context(state: dict | None = None) -> dict:
+    current = state if isinstance(state, dict) else load_state()
+    return {
+        **resolve_background(current.get("background_id")),
+        "background_opacity": _clamp_opacity(
+            current.get("background_opacity"), DEFAULT_BACKGROUND_OPACITY
+        ),
+        "backgrounds": BACKGROUND_PRESETS,
+    }
 
 
 def _now_iso() -> str:
@@ -294,6 +345,7 @@ def _migrate_legacy_state(data: dict) -> dict:
         if key in data and data[key] is not None:
             state[key] = data[key]
     state["default_cefr_level"] = resolve_cefr_level(data.get("default_cefr_level"))
+    _apply_appearance(data, state)
 
     if isinstance(data.get("default_evaluation_criteria"), dict):
         state["default_evaluation_criteria"] = _normalize_criteria(data["default_evaluation_criteria"])
@@ -346,6 +398,7 @@ def _normalize_state(data: dict | None) -> dict:
                 merged["classes"][cid] = _normalize_class(cid, cls)
         if merged["active_class_id"] not in merged["classes"] and merged["classes"]:
             merged["active_class_id"] = next(iter(merged["classes"]))
+        _apply_appearance(data, merged)
         return merged
 
     if "video" in data:
@@ -360,6 +413,7 @@ def _normalize_state(data: dict | None) -> dict:
                 merged["classes"][cid] = _normalize_class(cid, cls)
     if merged["active_class_id"] not in merged["classes"] and merged["classes"]:
         merged["active_class_id"] = next(iter(merged["classes"]))
+    _apply_appearance(data, merged)
     return merged
 
 
@@ -407,6 +461,7 @@ def update_settings(**kwargs) -> dict:
         for level in CEFR_LEVELS:
             if not state["default_evaluation_criteria"][level]:
                 state["default_evaluation_criteria"][level] = DEFAULT_EVALUATION_CRITERIA[level]
+    _apply_appearance(kwargs, state)
     return save_state(state)
 
 

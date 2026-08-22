@@ -16,6 +16,13 @@ from flask import Blueprint, render_template, session
 
 public_bp = Blueprint("public", __name__)
 
+
+@public_bp.context_processor
+def _inject_appearance():
+    from flask_app.services.runtime_settings import appearance_context
+
+    return appearance_context()
+
 PUBLIC_USER_ID_PREFIX = "public_"
 
 

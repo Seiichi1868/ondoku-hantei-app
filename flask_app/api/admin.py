@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 
 from flask_app.config import Config
 from flask_app.services.gate_service import set_gate_lock_enabled
+from flask_app.services.runtime_settings import appearance_response, update_runtime_settings
 from flask_app.services.status_service import get_public_status, set_public_status
 from flask_app.utils.language_utils import (
     ai_mode_response,
@@ -184,3 +185,19 @@ def admin_sections():
         return jsonify({"error": str(exc)}), 400
 
     return jsonify(sections_response() | {"visible_sections": visible})
+
+
+@admin_bp.route("/admin/appearance", methods=["GET", "POST"])
+def admin_appearance():
+    if request.method == "GET":
+        return jsonify(appearance_response())
+
+    payload = request.get_json(silent=True) or {}
+    updates = {}
+    if "background_id" in payload:
+        updates["background_id"] = payload.get("background_id")
+    if "background_opacity" in payload:
+        updates["background_opacity"] = payload.get("background_opacity")
+    if updates:
+        update_runtime_settings(**updates)
+    return jsonify(appearance_response())

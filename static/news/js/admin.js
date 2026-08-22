@@ -86,12 +86,71 @@
   let scriptAutoManaged = false;
   let autoScriptTimer = null;
   let autoScriptRequestId = 0;
+  const pageBgLayer = document.getElementById("page-bg-layer");
+  const bgCurrentLabel = document.getElementById("bg-current-label");
+  const bgPicker = document.getElementById("bg-picker");
+  const bgOpacitySlider = document.getElementById("bg-opacity-slider");
+  const bgOpacityValue = document.getElementById("bg-opacity-value");
+  let currentBackgroundId = bgPicker?.querySelector(".bg-pick-btn-active")?.dataset.bgId || "mountain";
+  let appearanceSaveTimer = null;
 
   function showMessage(el, text, isError) {
     if (!el) return;
     el.textContent = text;
     el.classList.remove("hidden", "text-emerald-600", "text-red-600", "text-amber-800");
     el.classList.add(isError ? "text-red-600" : "text-emerald-600");
+  }
+
+  function applyBackgroundOpacity(opacity) {
+    const value = Math.max(0, Math.min(1, Number(opacity) || 0));
+    if (pageBgLayer) pageBgLayer.style.opacity = String(value);
+    const percent = Math.round(value * 100);
+    if (bgOpacitySlider) bgOpacitySlider.value = String(percent);
+    if (bgOpacityValue) bgOpacityValue.textContent = String(percent);
+  }
+
+  function getBackgroundOpacityFromSlider() {
+    const percent = parseInt(bgOpacitySlider?.value, 10);
+    return Number.isFinite(percent) ? percent / 100 : 0.38;
+  }
+
+  function applyBackground(bgId, imageUrl, label) {
+    currentBackgroundId = bgId;
+    if (pageBgLayer && imageUrl) {
+      pageBgLayer.style.backgroundImage = `url("${imageUrl}")`;
+    }
+    if (bgCurrentLabel && label) {
+      bgCurrentLabel.textContent = label;
+    }
+    bgPicker?.querySelectorAll(".bg-pick-btn").forEach((btn) => {
+      btn.classList.toggle("bg-pick-btn-active", btn.dataset.bgId === bgId);
+    });
+  }
+
+  async function saveAppearance() {
+    const res = await fetch("/news/admin/api/appearance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        background_id: currentBackgroundId,
+        background_opacity: getBackgroundOpacityFromSlider(),
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "背景設定の保存に失敗しました");
+    const activeBtn = bgPicker?.querySelector(`.bg-pick-btn[data-bg-id="${data.background_id}"]`);
+    applyBackground(data.background_id, activeBtn?.dataset.bgImage, data.background_label || activeBtn?.title);
+    applyBackgroundOpacity(data.background_opacity ?? 0.38);
+  }
+
+  function scheduleAppearanceSave() {
+    if (appearanceSaveTimer) window.clearTimeout(appearanceSaveTimer);
+    appearanceSaveTimer = window.setTimeout(() => {
+      saveAppearance().catch((err) => {
+        console.error(err);
+        if (classMessage) showMessage(classMessage, err.message || "背景設定の保存に失敗しました。", true);
+      });
+    }, 280);
   }
 
   function showCnn10Panel() {
@@ -1294,6 +1353,18 @@
       }
     });
   }
+
+  bgPicker?.addEventListener("click", (event) => {
+    const btn = event.target.closest(".bg-pick-btn");
+    if (!btn) return;
+    applyBackground(btn.dataset.bgId, btn.dataset.bgImage, btn.title);
+    scheduleAppearanceSave();
+  });
+
+  bgOpacitySlider?.addEventListener("input", () => {
+    applyBackgroundOpacity(getBackgroundOpacityFromSlider());
+    scheduleAppearanceSave();
+  });
 
   function copyTextFromInput(inputEl, buttonEl, emptyMessage) {
     const text = inputEl ? inputEl.value.trim() : "";

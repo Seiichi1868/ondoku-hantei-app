@@ -79,3 +79,7 @@ CLASS_CODE_LOCK_ENABLED = _env_bool(
 DEFAULT_UI_LANGUAGE = "ja"
 DEFAULT_VISIBLE_SECTIONS: dict[str, bool] = {key: True for key in ("sample", "compose", "grammar", "recorder", "result", "comparison")}
 VISIBLE_SECTIONS: dict[str, bool] = dict(DEFAULT_VISIBLE_SECTIONS)
+DEFAULT_BACKGROUND_ID = "mountain"
+DEFAULT_BACKGROUND_OPACITY = 0.38
+BACKGROUND_ID = DEFAULT_BACKGROUND_ID
+BACKGROUND_OPACITY = DEFAULT_BACKGROUND_OPACITY

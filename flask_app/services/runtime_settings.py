@@ -5,13 +5,25 @@ from copy import deepcopy
 from pathlib import Path
 
 import flask_app.state as state
-from flask_app.state import DEFAULT_ENABLED_LANGUAGES
+from flask_app.state import (
+    DEFAULT_BACKGROUND_ID,
+    DEFAULT_BACKGROUND_OPACITY,
+    DEFAULT_ENABLED_LANGUAGES,
+)
 from flask_app.utils.language_utils import (
     normalize_ai_mode,
     normalize_enabled_languages,
     normalize_ui_language,
 )
 from flask_app.utils.section_utils import DEFAULT_VISIBLE_SECTIONS, normalize_visible_sections
+
+BACKGROUND_PRESETS = {
+    "meadow": {"label": "草原", "image": "images/bg/meadow.jpg"},
+    "forest": {"label": "森", "image": "images/bg/forest.jpg"},
+    "mountain": {"label": "山", "image": "images/bg/mountain.jpg"},
+    "ocean": {"label": "海", "image": "images/bg/ocean.jpg"},
+    "misty-lake": {"label": "湖", "image": "images/bg/misty-lake.jpg"},
+}
 
 _lock = threading.Lock()
 DATA_DIR = Path(
@@ -26,6 +38,8 @@ DEFAULT_SETTINGS = {
     "enabled_study_languages": None,
     "default_ui_language": None,
     "visible_sections": None,
+    "background_id": DEFAULT_BACKGROUND_ID,
+    "background_opacity": DEFAULT_BACKGROUND_OPACITY,
 }
 
 
@@ -64,7 +78,46 @@ def _normalize_settings(raw: dict | None) -> dict:
     if raw.get("visible_sections") is not None:
         data["visible_sections"] = normalize_visible_sections(raw.get("visible_sections"))
 
+    bg_id = raw.get("background_id")
+    if bg_id in BACKGROUND_PRESETS:
+        data["background_id"] = bg_id
+
+    if "background_opacity" in raw:
+        data["background_opacity"] = _clamp_opacity(raw.get("background_opacity"))
+
     return data
+
+
+def _clamp_opacity(value, default: float = DEFAULT_BACKGROUND_OPACITY) -> float:
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return default
+    return round(max(0.0, min(n, 1.0)), 2)
+
+
+def resolve_background(background_id: str | None = None) -> dict:
+    preset_id = background_id if background_id in BACKGROUND_PRESETS else DEFAULT_BACKGROUND_ID
+    preset = BACKGROUND_PRESETS[preset_id]
+    return {
+        "background_id": preset_id,
+        "background_label": preset["label"],
+        "background_image": preset["image"],
+    }
+
+
+def appearance_context() -> dict:
+    settings = load_runtime_settings()
+    return {
+        **resolve_background(settings.get("background_id")),
+        "background_opacity": settings.get("background_opacity", DEFAULT_BACKGROUND_OPACITY),
+        "backgrounds": BACKGROUND_PRESETS,
+    }
+
+
+def appearance_response() -> dict:
+    ctx = appearance_context()
+    return {"ok": True, **ctx}
 
 
 def load_runtime_settings() -> dict:
@@ -96,6 +149,8 @@ def current_runtime_settings() -> dict:
         "enabled_study_languages": list(state.ENABLED_STUDY_LANGUAGES),
         "default_ui_language": state.DEFAULT_UI_LANGUAGE,
         "visible_sections": dict(state.VISIBLE_SECTIONS),
+        "background_id": state.BACKGROUND_ID,
+        "background_opacity": state.BACKGROUND_OPACITY,
     }
 
 
@@ -126,6 +181,10 @@ def apply_runtime_settings(data: dict | None = None) -> None:
         state.VISIBLE_SECTIONS = dict(normalized["visible_sections"])
     else:
         state.VISIBLE_SECTIONS = dict(DEFAULT_VISIBLE_SECTIONS)
+
+    bg = resolve_background(normalized.get("background_id"))
+    state.BACKGROUND_ID = bg["background_id"]
+    state.BACKGROUND_OPACITY = float(normalized.get("background_opacity", DEFAULT_BACKGROUND_OPACITY))
 
 
 def update_runtime_settings(**kwargs) -> dict:
