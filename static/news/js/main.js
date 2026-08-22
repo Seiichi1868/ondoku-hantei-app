@@ -27,6 +27,9 @@
   const prepStartBtn = document.getElementById("prep-start-btn");
   const recordBtn = document.getElementById("record-btn");
   const recordStatus = document.getElementById("record-status");
+  const recordModePopover = document.getElementById("record-mode-popover");
+  const recordModeLiveBtn = document.getElementById("record-mode-live");
+  const recordModeDeferredBtn = document.getElementById("record-mode-deferred");
   const uploadVideoBtn = document.getElementById("upload-video-btn");
   const uploadAudioBtn = document.getElementById("upload-audio-btn");
   const uploadVideoInput = document.getElementById("upload-video-input");
@@ -67,6 +70,10 @@
   let recognition = null;
   let isRecording = false;
   let isUploading = false;
+  let recordMode = null;
+  let mediaRecorder = null;
+  let mediaStream = null;
+  let recordedChunks = [];
   let speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   let hasRecordingEnded = false;
   let sharedAudioCtx = null;
@@ -96,7 +103,7 @@
   function updateSubmitState() {
     const busy = isRecording || isUploading;
     submitBtn.disabled = busy || !transcriptArea.value.trim() || !selectedClassId;
-    if (recordBtn) recordBtn.disabled = isUploading || !speechSupported;
+    if (recordBtn) recordBtn.disabled = isUploading;
     if (uploadVideoBtn) uploadVideoBtn.disabled = busy || !selectedClassId;
     if (uploadAudioBtn) uploadAudioBtn.disabled = busy || !selectedClassId;
   }
@@ -827,7 +834,7 @@
 
   function startPrepTimer() {
     if (prepSeconds <= 0) {
-      if (!isRecording) startRecording();
+      if (!isRecording) showRecordModePicker();
       return;
     }
     clearInterval(prepInterval);
@@ -841,7 +848,7 @@
         clearInterval(prepInterval);
         prepStartBtn.textContent = "完了";
         prepStartBtn.disabled = false;
-        if (!isRecording) startRecording();
+        if (!isRecording) showRecordModePicker();
       }
     }, 1000);
     prepStartBtn.textContent = "計測中…";
@@ -865,8 +872,6 @@
   function initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      recordStatus.textContent = "このブラウザは Web Speech API 非対応です";
-      recordBtn.disabled = true;
       return null;
     }
     const rec = new SpeechRecognition();
@@ -902,16 +907,22 @@
     return rec;
   }
 
-  function startRecording() {
-    if (isUploading) return;
+  function hideRecordModePicker() {
+    if (recordModePopover) recordModePopover.classList.add("hidden");
+  }
+
+  function showRecordModePicker() {
+    if (isUploading || isRecording) return;
+    if (recordModePopover) recordModePopover.classList.remove("hidden");
+    if (recordStatus) recordStatus.textContent = "方式を選んでください";
+  }
+
+  function prepareRecordingUi(statusText) {
     clearInterval(prepInterval);
     if (prepStartBtn) {
       prepStartBtn.disabled = false;
       prepStartBtn.textContent = prepSeconds > 0 ? "準備開始" : "準備なし";
     }
-    if (!recognition) recognition = initSpeechRecognition();
-    if (!recognition) return;
-
     if (hasRecordingEnded) {
       transcriptArea.value = "";
       finalTranscript = "";
@@ -924,17 +935,105 @@
     recordBtn.textContent = "録音停止";
     recordBtn.classList.replace("from-teal-600", "from-slate-500");
     recordBtn.classList.replace("to-emerald-600", "to-slate-600");
-    recordStatus.textContent = "録音中…";
+    recordStatus.textContent = statusText;
+    startRecordTimer();
+    updateSubmitState();
+  }
+
+  function resetRecordButton() {
+    recordBtn.textContent = "録音開始";
+    recordBtn.classList.replace("from-slate-500", "from-teal-600");
+    recordBtn.classList.replace("to-slate-600", "to-emerald-600");
+  }
+
+  function stopMediaTracks() {
+    if (!mediaStream) return;
+    mediaStream.getTracks().forEach((track) => {
+      try {
+        track.stop();
+      } catch (_) {
+        /* ignore */
+      }
+    });
+    mediaStream = null;
+  }
+
+  function startLiveRecording() {
+    if (isUploading) return;
+    if (!speechSupported) {
+      recordStatus.textContent = "このブラウザは同時読み込みに非対応です。録音後読み込みを選んでください。";
+      return;
+    }
+    hideRecordModePicker();
+    if (!recognition) recognition = initSpeechRecognition();
+    if (!recognition) return;
+
+    recordMode = "live";
+    prepareRecordingUi("同時読み込み中…");
     try {
       recognition.start();
     } catch (_) {
       /* ignore */
     }
-    startRecordTimer();
+  }
+
+  async function startDeferredRecording() {
+    if (isUploading) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      recordStatus.textContent = "このブラウザは録音後読み込みに非対応です。";
+      return;
+    }
+    hideRecordModePicker();
+    unlockAudioContext();
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (_) {
+      recordStatus.textContent = "マイクの許可が必要です。ブラウザの設定を確認してください。";
+      return;
+    }
+
+    const mime = pickRecorderMime();
+    recordedChunks = [];
+    mediaRecorder = mime ? new MediaRecorder(mediaStream, { mimeType: mime }) : new MediaRecorder(mediaStream);
+    mediaRecorder.addEventListener("dataavailable", (event) => {
+      if (event.data && event.data.size) recordedChunks.push(event.data);
+    });
+    mediaRecorder.addEventListener("stop", () => {
+      stopMediaTracks();
+      const type = (mediaRecorder && mediaRecorder.mimeType) || mime || "audio/webm";
+      const ext = type.includes("mp4") ? "m4a" : type.includes("wav") ? "wav" : "webm";
+      mediaRecorder = null;
+      if (!recordedChunks.length) {
+        recordStatus.textContent = "音声を録音できませんでした。";
+        return;
+      }
+      const file = new File(recordedChunks, `speech.${ext}`, { type });
+      recordedChunks = [];
+      handleMediaUpload(file);
+    });
+
+    recordMode = "deferred";
+    prepareRecordingUi("録音中…（停止後に読み込みます）");
+    try {
+      mediaRecorder.start();
+    } catch (err) {
+      stopMediaTracks();
+      mediaRecorder = null;
+      isRecording = false;
+      resetRecordButton();
+      recordStatus.textContent = err.message || "録音を開始できませんでした。";
+      updateSubmitState();
+    }
+  }
+
+  function startRecording() {
+    showRecordModePicker();
   }
 
   function stopRecording() {
+    const mode = recordMode;
     isRecording = false;
+    recordMode = null;
     clearInterval(recordInterval);
     if (recognition) {
       try {
@@ -943,10 +1042,17 @@
         /* ignore */
       }
     }
-    recordBtn.textContent = "録音開始";
-    recordBtn.classList.replace("from-slate-500", "from-teal-600");
-    recordBtn.classList.replace("to-slate-600", "to-emerald-600");
-    recordStatus.textContent = "停止";
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      try {
+        mediaRecorder.stop();
+      } catch (_) {
+        stopMediaTracks();
+      }
+    } else {
+      stopMediaTracks();
+    }
+    resetRecordButton();
+    recordStatus.textContent = mode === "deferred" ? "読み込み中…" : "停止";
     hasRecordingEnded = true;
     updateSubmitState();
   }
@@ -955,8 +1061,41 @@
   transcriptArea.addEventListener("paste", () => setTimeout(syncTranscriptFromInput, 0));
 
   recordBtn.addEventListener("click", () => {
-    if (isRecording) stopRecording();
-    else startRecording();
+    if (isRecording) {
+      hideRecordModePicker();
+      stopRecording();
+      return;
+    }
+    if (recordModePopover && !recordModePopover.classList.contains("hidden")) {
+      hideRecordModePicker();
+      if (recordStatus && recordStatus.textContent === "方式を選んでください") {
+        recordStatus.textContent = "待機中";
+      }
+      return;
+    }
+    showRecordModePicker();
+  });
+
+  if (recordModeLiveBtn) {
+    recordModeLiveBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      startLiveRecording();
+    });
+  }
+  if (recordModeDeferredBtn) {
+    recordModeDeferredBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      startDeferredRecording();
+    });
+  }
+  document.addEventListener("click", (event) => {
+    if (!recordModePopover || recordModePopover.classList.contains("hidden")) return;
+    const wrap = recordBtn && recordBtn.parentElement;
+    if (wrap && wrap.contains(event.target)) return;
+    hideRecordModePicker();
+    if (!isRecording && recordStatus && recordStatus.textContent === "方式を選んでください") {
+      recordStatus.textContent = "待機中";
+    }
   });
 
   prepStartBtn.addEventListener("click", startPrepTimer);
@@ -1008,13 +1147,13 @@
     updateSubmitState();
     setUploadStatus(`${file.name} を読み込み中…`, "info");
     submitMessage.classList.remove("hidden", "text-red-600", "text-emerald-600", "text-slate-500");
-    submitMessage.textContent = "文字起こし中…";
+    submitMessage.textContent = "読み込み中…";
     submitMessage.classList.add("text-slate-500");
-    feedbackArea.textContent = "動画・音声から英語を文字起こししています…";
+    feedbackArea.textContent = "動画・音声を読み込み中…";
 
     try {
       const payload = await prepareUploadFile(file);
-      setUploadStatus("文字起こし中…", "info");
+      setUploadStatus("読み込み中…", "info");
       const form = new FormData();
       form.append("audio", payload, payload.name || file.name || "speech.wav");
       form.append("class_id", selectedClassId);
@@ -1027,7 +1166,7 @@
       finalTranscript = transcript;
       hasRecordingEnded = true;
       updateSubmitState();
-      setUploadStatus("文字起こし完了。評価しています…", "info");
+      setUploadStatus("読み込み完了。評価しています…", "info");
       const ok = await submitSummary();
       if (ok) setUploadStatus("アップロードした音声の評価が完了しました。", "ok");
     } catch (err) {
