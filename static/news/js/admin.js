@@ -109,7 +109,10 @@
   function applyBackgroundOpacity(opacity) {
     const value = Math.max(0, Math.min(1, Number(opacity) || 0));
     pageBackgroundLayers().forEach((el) => {
-      el.style.opacity = String(value);
+      el.style.opacity = "1";
+    });
+    document.querySelectorAll(".page-bg-veil").forEach((el) => {
+      el.style.opacity = String(1 - value);
     });
     const percent = Math.round(value * 100);
     if (bgOpacitySlider) bgOpacitySlider.value = String(percent);

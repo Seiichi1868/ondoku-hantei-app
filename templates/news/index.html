@@ -65,11 +65,12 @@
 {% block body %}
 <!-- オープニング -->
 <div id="opening-overlay"
-  class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-6">
+  class="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-sky-50 p-6">
+  {% set bg_opacity = background_opacity if background_opacity is not none else 0.38 %}
   <div class="page-bg absolute inset-0 scale-110"
-    style="opacity: {{ background_opacity if background_opacity is not none else 0.38 }}; background-image: url('{{ url_for('static', filename=background_image or 'news/images/nature-bg.jpg') }}');"></div>
-  <div class="absolute inset-0 bg-gradient-to-br from-white/70 via-sky-50/55 to-emerald-50/65"></div>
-  <div class="absolute inset-0 bg-white/20"></div>
+    style="background-image: url('{{ url_for('static', filename=background_image or 'news/images/nature-bg.jpg') }}');"></div>
+  <div class="page-bg-veil absolute inset-0 bg-gradient-to-br from-sky-50 via-white to-emerald-50"
+    style="opacity: {{ 1 - bg_opacity }}"></div>
   <div class="vibe-orb absolute -left-16 top-14 h-48 w-48 rounded-full bg-sky-200/45 blur-3xl"></div>
   <div class="vibe-orb absolute -right-12 bottom-16 h-56 w-56 rounded-full bg-emerald-200/45 blur-3xl" style="animation-delay: .35s"></div>
   <div class="vibe-intro-card relative text-center">
