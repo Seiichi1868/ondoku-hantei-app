@@ -45,7 +45,7 @@ _STOP_WORDS = {
 }
 INTRO_SKIP_SEC = 35
 DEFAULT_STORY_SEC = 150
-END_PAD_SEC = 20
+END_PAD_SEC = 3
 MIN_STORY_SEC = 40
 MAX_STORY_RATIO = 0.55
 
@@ -212,8 +212,8 @@ def find_title_segment_in_transcript(
                     "Rules:\n"
                     "- Ignore brief teaser mentions in the first 30-90 seconds unless the full story starts there.\n"
                     "- start_sec: when the host begins covering this story in depth.\n"
-                    "- end_sec: a little into the next story or transition so the last lines are not cut "
-                    "(10-20 seconds of overlap is OK).\n"
+                    "- end_sec: when this story ends, plus at most 3 seconds into the next story or transition "
+                    "so the last line is not cut. Do NOT include the next story's content.\n"
                     "- A valid story is usually 60-240 seconds. NEVER return almost the entire episode.\n"
                     "- Return JSON only."
                 ),
@@ -228,7 +228,7 @@ def find_title_segment_in_transcript(
                     f"Transcript (timestamp at line start in M:SS format):\n{transcript_text}\n\n"
                     "Return JSON with:\n"
                     '- "start_sec": integer seconds where this story begins in depth\n'
-                    '- "end_sec": integer seconds a little after this story ends\n'
+                    '- "end_sec": integer seconds at this story\'s end, overlapping the next story by 3 seconds at most\n'
                     '- "confidence": "high", "medium", or "low"\n'
                     '- "note": one short English sentence explaining the match'
                 ),
@@ -244,7 +244,7 @@ def find_title_segment_in_transcript(
         confidence = "medium"
     note = str(payload.get("note") or "").strip()
 
-    start_sec, end_sec = _clamp_and_pad(start_sec, end_sec, duration, pad=8)
+    start_sec, end_sec = _clamp_and_pad(start_sec, end_sec, duration, pad=END_PAD_SEC)
     if _looks_like_full_video(start_sec, end_sec, duration):
         if guessed:
             start_sec, end_sec = _clamp_and_pad(guessed[0], guessed[1], duration, pad=0)
