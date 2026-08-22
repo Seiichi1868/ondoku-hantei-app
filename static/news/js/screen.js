@@ -55,6 +55,8 @@
       enablejsapi: 1,
       fs: 1,
       iv_load_policy: 3,
+      hl: "en",
+      cc_lang_pref: "en",
       origin: window.location.origin,
       widget_referrer: window.location.origin,
     };

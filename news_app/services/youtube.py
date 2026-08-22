@@ -40,8 +40,9 @@ def build_youtube_embed_url(
     ]
     if end_sec and int(end_sec) > int(start_sec):
         params.append(f"end={int(end_sec)}")
+    params.extend(["hl=en", "cc_lang_pref=en"])
     if subtitles_enabled:
-        params.extend(["cc_load_policy=1", "cc_lang_pref=en"])
+        params.append("cc_load_policy=1")
     if origin:
         origin_clean = origin.rstrip("/")
         params.append(f"origin={quote(origin_clean, safe='')}")
@@ -84,8 +85,65 @@ def _urlopen(request: Request, timeout: int = 12):
     return urlopen(request, timeout=timeout, context=ssl._create_unverified_context())
 
 
+_JP_TITLE_RE = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
+
+
+def _looks_japanese_title(title: str) -> bool:
+    return bool(_JP_TITLE_RE.search(str(title or "")))
+
+
+def _fetch_title_innertube(video_id: str) -> str:
+    payload = {
+        "context": {
+            "client": {
+                "clientName": "WEB",
+                "clientVersion": "2.20260101.00.00",
+                "hl": "en",
+                "gl": "US",
+            }
+        },
+        "videoId": video_id,
+    }
+    request = Request(
+        "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+        method="POST",
+    )
+    try:
+        with _urlopen(request, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except (OSError, URLError, json.JSONDecodeError):
+        return ""
+    details = data.get("videoDetails") if isinstance(data, dict) else None
+    if not isinstance(details, dict):
+        return ""
+    return str(details.get("title") or "").strip()
+
+
+def _fetch_title_oembed(watch_url: str) -> str:
+    endpoint = f"https://www.youtube.com/oembed?format=json&url={quote(watch_url, safe='')}"
+    try:
+        request = Request(
+            endpoint,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        )
+        with _urlopen(request, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except (OSError, URLError, json.JSONDecodeError):
+        return ""
+    return str(data.get("title") or "").strip()
+
+
 def fetch_youtube_title(url_or_video_id: str) -> str:
-    """YouTube oEmbed から動画タイトルを取得。失敗時は空文字を返す。"""
+    """英語の動画タイトルを優先して取得。失敗時は空文字を返す。"""
     raw = (url_or_video_id or "").strip()
     if not raw:
         return ""
@@ -95,16 +153,26 @@ def fetch_youtube_title(url_or_video_id: str) -> str:
     except ValueError:
         video_id = ""
 
-    watch_url = raw if raw.startswith(("http://", "https://")) else f"https://www.youtube.com/watch?v={video_id or raw}"
-    endpoint = f"https://www.youtube.com/oembed?format=json&url={quote(watch_url, safe='')}"
-    try:
-        request = Request(endpoint, headers={"User-Agent": "Mozilla/5.0"})
-        with _urlopen(request, timeout=8) as response:
-            data = json.loads(response.read().decode("utf-8"))
-    except (OSError, URLError, json.JSONDecodeError):
-        return ""
+    if video_id:
+        innertube_title = _fetch_title_innertube(video_id)
+        if innertube_title and not _looks_japanese_title(innertube_title):
+            return innertube_title
 
-    return str(data.get("title") or "").strip()
+    watch_url = (
+        f"https://www.youtube.com/watch?v={video_id}&hl=en"
+        if video_id
+        else (raw if raw.startswith(("http://", "https://")) else "")
+    )
+    if not watch_url:
+        return ""
+    oembed_title = _fetch_title_oembed(watch_url)
+    if oembed_title and not _looks_japanese_title(oembed_title):
+        return oembed_title
+    if video_id:
+        innertube_title = _fetch_title_innertube(video_id)
+        if innertube_title:
+            return innertube_title
+    return oembed_title
 
 
 def parse_time_to_seconds(value: str) -> int:

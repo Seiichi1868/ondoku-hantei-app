@@ -321,7 +321,7 @@
     const end = Math.max(start + 1, parseInt(endSec, 10) || start + 1);
     iframe.src =
       `https://www.youtube.com/embed/${encodeURIComponent(videoId)}` +
-      `?start=${start}&end=${end}&rel=0&modestbranding=1`;
+      `?start=${start}&end=${end}&rel=0&modestbranding=1&hl=en&cc_lang_pref=en`;
   }
 
   async function loadCnn10Transcript(videoId, episodeTitle, transcriptMeta, transcriptText, highlightBanner, iframe) {
@@ -351,6 +351,9 @@
           maxSec
         )
       : null;
+    if (adjustable) {
+      adjustable.story_title = episodeTitle || highlight?.title || "";
+    }
     if (adjustable && highlight?.ok) {
       adjustable.confidence = highlight.confidence;
       adjustable.note = highlight.note;
@@ -393,8 +396,8 @@
       return;
     }
 
-    const startSec = highlight?.ok ? highlight.start_sec : null;
-    const endSec = highlight?.ok ? highlight.end_sec : null;
+    const startSec = highlight?.from_ai && highlight?.ok ? highlight.start_sec : null;
+    const endSec = highlight?.from_ai && highlight?.ok ? highlight.end_sec : null;
     snippets.forEach((snippet) => {
       const line = document.createElement("div");
       const start = Number(snippet.start) || 0;
@@ -416,8 +419,11 @@
 
     const heading = document.createElement("p");
     heading.className = "font-semibold";
+    const storyTitle = String(highlight.story_title || highlight.title || "").trim();
     heading.textContent = highlight.from_ai
-      ? "タイトルに対応する区間（AI推定・スライダーで調整可）"
+      ? storyTitle
+        ? `タイトル（${storyTitle}）に対応する区間（AI推定・スライダーで調整可）`
+        : "タイトルに対応する区間（AI推定・スライダーで調整可）"
       : "再生区間（スライダーで調整可）";
     banner.appendChild(heading);
 
@@ -602,7 +608,7 @@
     const iframe = document.createElement("iframe");
     iframe.className = "h-full w-full";
     iframe.src = episode.video_id
-      ? `https://www.youtube.com/embed/${encodeURIComponent(episode.video_id)}?rel=0&modestbranding=1`
+      ? `https://www.youtube.com/embed/${encodeURIComponent(episode.video_id)}?rel=0&modestbranding=1&hl=en&cc_lang_pref=en`
       : "";
     iframe.title = episode.title || "YouTube preview";
     iframe.loading = "lazy";
