@@ -467,6 +467,16 @@
       })
       .join("");
     feedbackArea.innerHTML = html;
+    revealFeedbackIfNeeded();
+  }
+
+  function revealFeedbackIfNeeded() {
+    if (!window.matchMedia || !window.matchMedia("(max-width: 639px)").matches) return;
+    const section = document.getElementById("feedback-section");
+    if (!section) return;
+    window.setTimeout(() => {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   }
 
   function updatePrepDisplay() {
