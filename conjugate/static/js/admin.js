@@ -60,6 +60,33 @@
     });
   }
 
+  const streakPreviewBtn = document.getElementById("streak-preview-btn");
+  const streakPreviewDays = document.getElementById("streak-preview-days");
+
+  function previewStreakCelebration() {
+    const streak = Math.max(1, Math.min(365, parseInt((streakPreviewDays && streakPreviewDays.value) || "5", 10) || 5));
+    if (streakPreviewDays) streakPreviewDays.value = String(streak);
+    if (typeof window.showStreakCelebration !== "function") return;
+    window.showStreakCelebration(streak, Math.max(streak - 1, 0));
+  }
+
+  if (streakPreviewBtn) {
+    streakPreviewBtn.addEventListener("click", previewStreakCelebration);
+  }
+  if (streakPreviewDays) {
+    streakPreviewDays.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      previewStreakCelebration();
+    });
+  }
+
+  const previewParam = Number(new URLSearchParams(window.location.search).get("preview_streak"));
+  if (Number.isFinite(previewParam) && previewParam > 0) {
+    if (streakPreviewDays) streakPreviewDays.value = String(previewParam);
+    window.setTimeout(previewStreakCelebration, 80);
+  }
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 

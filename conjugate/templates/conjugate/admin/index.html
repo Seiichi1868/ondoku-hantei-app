@@ -248,6 +248,16 @@
     </div>
   </div>
 
+  <h3 id="streak-preview" class="text-sm font-bold mb-2">ストリーク更新のお祝い</h3>
+  <p class="text-xs mb-2" style="color: var(--text-secondary);">その日最初の練習でストリークが伸びたときに出るモーダルです。保存せずに見た目だけ確認できます。</p>
+  <div class="flex flex-wrap items-end gap-2 mb-3">
+    <div>
+      <label for="streak-preview-days" class="block text-xs font-medium mb-1">プレビューする日数</label>
+      <input id="streak-preview-days" type="number" min="1" max="365" value="5" class="vsc-select w-28">
+    </div>
+    <button type="button" id="streak-preview-btn" class="vsc-btn-secondary">お祝いを表示</button>
+  </div>
+
   <div>
     <h3 class="vsc-section-label">管理パスワード</h3>
     <input type="password" name="admin_password" placeholder="保存には管理パスワードが必要です" class="vsc-select mt-1.5" autocomplete="off">
@@ -259,5 +269,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260820a') }}"></script>
+<script src="{{ url_for('conjugate.static', filename='js/admin.js', v='20260823a') }}"></script>
 {% endblock %}
