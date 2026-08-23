@@ -1270,8 +1270,62 @@
   font-size: 0.92rem;
   flex: 1;
 }
+.vsc-menu-item-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.vsc-menu-item-copy .vsc-menu-item-title {
+  flex: none;
+}
+.vsc-menu-item-sub {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
 .vsc-menu-chevron {
   color: var(--text-secondary);
+}
+.vsc-sfx-row {
+  cursor: pointer;
+}
+.vsc-sfx-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  border: none;
+  border-radius: 999px;
+  background: #D8DEC8;
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.vsc-sfx-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+  transition: transform 0.15s ease;
+}
+.vsc-sfx-switch:checked {
+  background: var(--accent-green);
+}
+.vsc-sfx-switch:checked::after {
+  transform: translateX(18px);
+}
+.vsc-sfx-switch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(124, 179, 66, 0.35);
 }
 
 /* ── 動詞一覧 ──────────────────────────────── */
@@ -2391,7 +2445,9 @@ body.vsc-page-leave .vsc-main {
   .celebrate-button {
     animation: none !important;
   }
-  .vsc-guardian-toast {
+  .vsc-guardian-toast,
+  .vsc-sfx-switch,
+  .vsc-sfx-switch::after {
     transition: none !important;
   }
   .vsc-record-control.is-recording .vsc-btn-record,

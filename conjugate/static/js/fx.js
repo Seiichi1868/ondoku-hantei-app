@@ -59,6 +59,7 @@
   let guardianToastRemoveTimer = null;
 
   function celebrateGuardian(progress) {
+    if (window.SoundFX) window.SoundFX.guardian();
     if (prefersReducedMotion()) return;
     if (guardianToastHideTimer) window.clearTimeout(guardianToastHideTimer);
     if (guardianToastRemoveTimer) window.clearTimeout(guardianToastRemoveTimer);
@@ -147,6 +148,7 @@
   let celebrationOnKey = null;
 
   function showStreakCelebration(streak, previousStreak = null, message = "今日の練習、いいスタート！", options = {}) {
+    if (window.SoundFX) window.SoundFX.streakUpdate();
     const to = Math.max(0, Number(streak) || 0);
     const from = previousStreak == null ? Math.max(to - 1, 0) : Math.max(0, Number(previousStreak) || 0);
     const progress = (options && options.progress) || {};
@@ -271,9 +273,29 @@
     document.addEventListener("keydown", onKey);
   }
 
+  function isGradedCorrect(result) {
+    if (result.level) return result.level === "correct";
+    if (typeof result.correct === "boolean") return result.correct;
+    return false;
+  }
+
+  function hasGrade(result) {
+    return Boolean(result.level) || typeof result.correct === "boolean";
+  }
+
   function celebrateFromResult(result) {
     if (!result) return;
     const progress = result.progress || {};
+    if (window.SoundFX && hasGrade(result)) {
+      if (isGradedCorrect(result)) {
+        window.SoundFX.correct();
+        if (progress.coin_earned) {
+          window.setTimeout(() => window.SoundFX && window.SoundFX.coin(), 160);
+        }
+      } else {
+        window.SoundFX.incorrect();
+      }
+    }
     const guardianUsed = Number(progress.guardian_used || 0) > 0;
     if (guardianUsed) {
       celebrateGuardian(progress);

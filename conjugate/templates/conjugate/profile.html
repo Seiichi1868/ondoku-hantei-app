@@ -1,5 +1,5 @@
 {% extends "conjugate/base.html" %}
-{% from "conjugate/macros.html" import svg_user, svg_star, svg_flame, svg_trophy, svg_book, svg_clock, svg_settings, svg_chevron %}
+{% from "conjugate/macros.html" import svg_user, svg_star, svg_flame, svg_trophy, svg_book, svg_clock, svg_settings, svg_chevron, svg_volume %}
 {% block title %}記録 - Speaking Lab Conjugate{% endblock %}
 {% block greeting %}{{ greeting }}！{% endblock %}
 
@@ -60,6 +60,14 @@
 </section>
 
 <nav class="vsc-menu-list mb-4">
+  <label class="vsc-menu-item vsc-sfx-row" for="sfx-toggle">
+    <span class="vsc-stat-icon vsc-stat-icon-lime">{{ svg_volume() }}</span>
+    <span class="vsc-menu-item-copy">
+      <span class="vsc-menu-item-title">効果音</span>
+      <span class="vsc-menu-item-sub">正解・ボタンなどのサウンド</span>
+    </span>
+    <input type="checkbox" id="sfx-toggle" class="vsc-sfx-switch" role="switch" checked>
+  </label>
   <a class="vsc-menu-item" href="{{ url_for('conjugate.verbs_page') }}">
     <span class="vsc-stat-icon vsc-stat-icon-mint">{{ svg_book() }}</span>
     <span class="vsc-menu-item-title">動詞一覧</span>
