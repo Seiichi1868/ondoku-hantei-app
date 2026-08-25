@@ -249,6 +249,7 @@
     }
 
     function close() {
+      if (window.SoundFX && window.SoundFX.stop) window.SoundFX.stop("streak");
       if (celebrationEl === backdrop) celebrationEl = null;
       if (celebrationOnKey === onKey) celebrationOnKey = null;
       backdrop.remove();
@@ -286,24 +287,25 @@
   function celebrateFromResult(result) {
     if (!result) return;
     const progress = result.progress || {};
+    const streakUp = Boolean(progress.streak_incremented);
+    const guardianUsed = Number(progress.guardian_used || 0) > 0;
     if (window.SoundFX && hasGrade(result)) {
       if (isGradedCorrect(result)) {
-        window.SoundFX.correct();
-        if (progress.coin_earned) {
-          window.setTimeout(() => window.SoundFX && window.SoundFX.coin(), 160);
+        if (!streakUp && !guardianUsed) {
+          window.SoundFX.correct();
+          if (progress.coin_earned) window.SoundFX.coin();
         }
       } else {
         window.SoundFX.incorrect();
       }
     }
-    const guardianUsed = Number(progress.guardian_used || 0) > 0;
     if (guardianUsed) {
       celebrateGuardian(progress);
     }
     if (result.newly_mastered || progress.newly_mastered) {
       celebrate();
     }
-    if (progress.streak_incremented) {
+    if (streakUp) {
       const streak = Number(progress.current_streak || 0);
       const broken = Boolean(progress.streak_broken);
       const previous = broken ? 0 : Math.max(streak - 1, 0);
