@@ -1,8 +1,10 @@
 /**
- * 軽量サウンドエフェクトモジュール（Web Audio APIによる音声合成、外部ファイル不要）
+ * サウンドエフェクトモジュール（ElevenLabsで生成した音声ファイルを再生）
  */
 const SoundFX = (() => {
   const MUTE_KEY = "sfx_muted";
+  const SFX_BASE = "/static/audio/conjugate/";
+  const SFX_VERSION = "20260825a";
   const TAP_SELECTOR = [
     ".vsc-btn-primary",
     ".vsc-btn-secondary",
@@ -14,7 +16,6 @@ const SoundFX = (() => {
     ".celebrate-button",
   ].join(",");
 
-  let audioCtx = null;
   let unlocked = false;
   let muted = readMuted();
 
@@ -34,46 +35,51 @@ const SoundFX = (() => {
     }
   }
 
-  function getContext() {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    return audioCtx;
+  function makeAudio(name) {
+    const audio = new Audio(`${SFX_BASE}${name}.mp3?v=${SFX_VERSION}`);
+    audio.preload = "auto";
+    audio.volume = 0.5;
+    return audio;
+  }
+
+  const sounds = {
+    correct: makeAudio("sfx-correct"),
+    incorrect: makeAudio("sfx-incorrect"),
+    tap: makeAudio("sfx-tap"),
+    coin: makeAudio("sfx-coin"),
+    streak: makeAudio("sfx-streak"),
+    guardian: makeAudio("sfx-guardian"),
+  };
+
+  function play(key) {
+    if (muted || !unlocked) return;
+    const base = sounds[key];
+    if (!base) return;
+    const clone = base.cloneNode();
+    clone.volume = base.volume;
+    clone.play().catch(() => {
+      /* 自動再生制限等でエラーになっても静かに無視する */
+    });
   }
 
   // iOS Safari等の自動再生制限を解除するため、初回のユーザー操作時に呼ぶ
   function unlock() {
-    if (unlocked && audioCtx && audioCtx.state !== "suspended") return;
-    try {
-      const ctx = getContext();
-      if (ctx.state === "suspended") ctx.resume();
-      unlocked = true;
-    } catch (_) {
-      /* AudioContext 非対応環境では黙ってスキップ */
-    }
-  }
-
-  // 単音を鳴らす基本関数
-  function playTone({ freq, duration = 0.15, type = "sine", volume = 0.2, delay = 0 }) {
-    if (muted || !unlocked) return;
-    let ctx;
-    try {
-      ctx = getContext();
-    } catch (_) {
-      return;
-    }
-    if (ctx.state === "suspended") ctx.resume();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0, ctx.currentTime + delay);
-    gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + delay + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(ctx.currentTime + delay);
-    osc.stop(ctx.currentTime + delay + duration);
+    if (unlocked) return;
+    unlocked = true;
+    Object.values(sounds).forEach((audio) => {
+      const prev = audio.volume;
+      audio.volume = 0;
+      audio
+        .play()
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = prev;
+        })
+        .catch(() => {
+          audio.volume = prev;
+        });
+    });
   }
 
   function bindUnlock() {
@@ -111,7 +117,6 @@ const SoundFX = (() => {
 
   const api = {
     unlock,
-
     setMuted(value) {
       muted = Boolean(value);
       persistMuted(muted);
@@ -119,41 +124,12 @@ const SoundFX = (() => {
     isMuted() {
       return muted;
     },
-
-    // 正解音：明るい2音上昇（ド→ソ的な進行）
-    correct() {
-      playTone({ freq: 523.25, duration: 0.12, type: "sine", volume: 0.18 });
-      playTone({ freq: 783.99, duration: 0.18, type: "sine", volume: 0.18, delay: 0.09 });
-    },
-
-    // 不正解音：柔らかい低音1音（責める印象を避けるため短く控えめに）
-    incorrect() {
-      playTone({ freq: 220, duration: 0.18, type: "sine", volume: 0.12 });
-    },
-
-    // ボタンタップ音：ごく短いクリック
-    tap() {
-      playTone({ freq: 600, duration: 0.04, type: "square", volume: 0.06 });
-    },
-
-    // コイン獲得音：キラッとした高音の2音
-    coin() {
-      playTone({ freq: 987.77, duration: 0.08, type: "triangle", volume: 0.15 });
-      playTone({ freq: 1318.51, duration: 0.14, type: "triangle", volume: 0.15, delay: 0.06 });
-    },
-
-    // ストリーク更新音：3音の華やかな上昇（ド・ミ・ソ）
-    streakUpdate() {
-      playTone({ freq: 523.25, duration: 0.15, type: "sine", volume: 0.2 });
-      playTone({ freq: 659.25, duration: 0.15, type: "sine", volume: 0.2, delay: 0.1 });
-      playTone({ freq: 783.99, duration: 0.3, type: "sine", volume: 0.22, delay: 0.2 });
-    },
-
-    // Guardián発動音：落ち着いた鐘のような低め2音
-    guardian() {
-      playTone({ freq: 392, duration: 0.3, type: "sine", volume: 0.15 });
-      playTone({ freq: 587.33, duration: 0.4, type: "sine", volume: 0.12, delay: 0.15 });
-    },
+    correct: () => play("correct"),
+    incorrect: () => play("incorrect"),
+    tap: () => play("tap"),
+    coin: () => play("coin"),
+    streakUpdate: () => play("streak"),
+    guardian: () => play("guardian"),
   };
 
   bindUnlock();

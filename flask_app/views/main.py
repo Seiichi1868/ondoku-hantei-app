@@ -1,5 +1,4 @@
 from datetime import datetime
-from pathlib import Path
 
 from flask import Blueprint, jsonify, render_template, send_from_directory, session
 
@@ -31,8 +30,8 @@ def admin_page():
 
 @main_bp.route("/static/audio/<path:filename>")
 def serve_cached_audio(filename: str):
-    safe_name = Path(filename).name
-    return send_from_directory(Config.AUDIO_CACHE_DIR, safe_name, mimetype="audio/mpeg")
+    # TTS cache lives in static/audio/*.mp3; committed SFX use subfolders (e.g. conjugate/).
+    return send_from_directory(Config.AUDIO_CACHE_DIR, filename, mimetype="audio/mpeg")
 
 
 @main_bp.route("/health", methods=["GET"])
