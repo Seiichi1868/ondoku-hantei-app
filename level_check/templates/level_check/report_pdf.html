@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Speaking Level Check Test 評価個票</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 14mm 14mm 16mm 14mm;
+    }
+
+    @font-face {
+      font-family: "ReportJP";
+      src: url("{{ font_regular_url }}");
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: "ReportJP";
+      src: url("{{ font_bold_url }}");
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      color: #0369a1;
+      font-family: "ReportJP", "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.5;
+      background: #ffffff;
+    }
+
+    .page {
+      page-break-after: always;
+      break-after: page;
+      position: relative;
+      min-height: 260mm;
+      padding: 2mm;
+      background:
+        linear-gradient(160deg, rgba(224, 242, 254, 0.55) 0%, rgba(255, 255, 255, 0.95) 42%, rgba(224, 242, 254, 0.4) 100%);
+      border: 1px solid rgba(125, 211, 252, 0.75);
+      border-radius: 10px;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid rgba(56, 189, 248, 0.55);
+      margin-bottom: 12px;
+    }
+
+    .brand-name {
+      margin: 0;
+      font-size: 14.5pt;
+      font-weight: 700;
+      color: #0284c7;
+    }
+
+    .brand-sub {
+      margin: 2px 0 0;
+      font-size: 9.5pt;
+      font-weight: 400;
+      color: #0369a1;
+      letter-spacing: 0.04em;
+    }
+
+    .submitted-at {
+      text-align: right;
+      font-size: 9pt;
+      color: #475569;
+      white-space: nowrap;
+    }
+
+    .submitted-at strong {
+      display: block;
+      color: #0284c7;
+      font-size: 8pt;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid rgba(186, 230, 253, 0.8);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+
+    .panel-title {
+      margin: 0 0 8px;
+      font-size: 9pt;
+      font-weight: 700;
+      color: #0284c7;
+      letter-spacing: 0.05em;
+    }
+
+    .meta-grid {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .meta-grid td {
+      padding: 3px 8px 3px 0;
+      vertical-align: top;
+      color: #334155;
+      font-size: 10pt;
+    }
+
+    .meta-grid .label {
+      width: 16%;
+      color: #64748b;
+      font-size: 8.5pt;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .hero {
+      display: table;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 8px 0;
+      margin: 0 -8px;
+    }
+
+    .hero-main, .hero-sub {
+      display: table-cell;
+      vertical-align: top;
+      background: rgba(240, 249, 255, 0.9);
+      border: 1px solid rgba(125, 211, 252, 0.75);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+
+    .hero-main { width: 46%; }
+    .hero-sub { width: 27%; }
+
+    .score-label {
+      font-size: 8pt;
+      font-weight: 700;
+      color: #0369a1;
+      margin-bottom: 4px;
+    }
+
+    .score-value {
+      font-size: 20pt;
+      font-weight: 700;
+      color: #0284c7;
+      line-height: 1.1;
+    }
+
+    .score-max {
+      font-size: 8.5pt;
+      color: #64748b;
+      font-weight: 400;
+    }
+
+    .scores {
+      display: table;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 6px 6px;
+      margin: 0 -6px;
+    }
+
+    .score-card {
+      display: table-cell;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid rgba(125, 211, 252, 0.8);
+      border-radius: 8px;
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+
+    .bar {
+      margin-top: 6px;
+      height: 6px;
+      background: rgba(224, 242, 254, 0.95);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #0284c7);
+      border-radius: 999px;
+    }
+
+    .task {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .task-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 700;
+      color: #0284c7;
+      font-size: 9pt;
+      margin-bottom: 4px;
+    }
+
+    .task-prompt, .task-transcript, .task-comments {
+      margin: 0 0 4px;
+      color: #1e293b;
+      font-size: 8.5pt;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .task-transcript, .task-comments { color: #64748b; }
+
+    .task-axes {
+      font-size: 8pt;
+      font-weight: 700;
+      color: #0369a1;
+      margin: 0 0 4px;
+    }
+
+    .footer {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(125, 211, 252, 0.65);
+      font-size: 8pt;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  {% for report in reports %}
+  <section class="page">
+    <header class="header">
+      <div>
+        <p class="brand-name">Speaking Level Check Test 評価個票</p>
+        <p class="brand-sub">Individual Score Report</p>
+      </div>
+      <div class="submitted-at">
+        <strong>受験日時</strong>
+        {{ report.submitted_at_display or "—" }}
+      </div>
+    </header>
+
+    <section class="panel">
+      <h2 class="panel-title">受験者情報</h2>
+      <table class="meta-grid">
+        <tr>
+          <td class="label">クラス</td>
+          <td>{{ report.class_name or "—" }}</td>
+          <td class="label">出席番号</td>
+          <td>{{ report.student_number or "—" }}</td>
+        </tr>
+        <tr>
+          <td class="label">氏名</td>
+          <td>{{ report.student_name or "—" }}</td>
+          <td class="label">情報レベル</td>
+          <td>{{ report.info_level_label or "—" }}</td>
+        </tr>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-title">総合結果</h2>
+      <div class="hero">
+        <div class="hero-main">
+          <div class="score-label">Speaking Level Score</div>
+          {% if report.speaking_level_score is not none %}
+          <div class="score-value">{{ report.speaking_level_score }}<span class="score-max"> / 90</span></div>
+          {% else %}
+          <div class="score-value" style="font-size: 12pt; color: #94a3b8;">—</div>
+          {% endif %}
+        </div>
+        <div class="hero-sub">
+          <div class="score-label">CEFR帯</div>
+          <div class="score-value" style="font-size: 16pt; color: #0c4a6e;">{{ report.cefr_band or "—" }}</div>
+        </div>
+        <div class="hero-sub">
+          <div class="score-label">スピーキング / リスニング</div>
+          <div class="score-value" style="font-size: 13pt;">
+            {{ report.speaking_subscore if report.speaking_subscore is not none else "—" }}
+            <span class="score-max">/90</span>
+            &nbsp;/&nbsp;
+            {{ report.listening_subscore if report.listening_subscore is not none else "—" }}
+            <span class="score-max">/90</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-title">カテゴリ別スコア（1〜5）</h2>
+      {% for row in report.category_items|batch(3) %}
+      <div class="scores">
+        {% for score in row %}
+        <div class="score-card">
+          <div class="score-label">{{ score.label }}</div>
+          <div class="score-value" style="font-size: 13pt;">{{ score.display }}<span class="score-max"> / 5</span></div>
+          <div class="bar"><div class="bar-fill" style="width: {{ score.percent }}%;"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-title">スピーキング評価軸</h2>
+      <div class="scores">
+        {% for score in report.speaking_axes %}
+        <div class="score-card">
+          <div class="score-label">{{ score.label }}</div>
+          <div class="score-value" style="font-size: 12pt;">{{ score.display }}<span class="score-max"> / 5</span></div>
+          <div class="bar"><div class="bar-fill" style="width: {{ score.percent }}%;"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-title">リスニング評価軸</h2>
+      <div class="scores">
+        {% for score in report.listening_axes %}
+        <div class="score-card">
+          <div class="score-label">{{ score.label }}</div>
+          <div class="score-value" style="font-size: 12pt;">{{ score.display }}<span class="score-max"> / 5</span></div>
+          <div class="bar"><div class="bar-fill" style="width: {{ score.percent }}%;"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if report.tasks %}
+    <section class="panel">
+      <h2 class="panel-title">設問ごとの結果</h2>
+      {% for task in report.tasks %}
+      <article class="task" style="margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(186, 230, 253, 0.7);">
+        <div class="task-head">
+          <span>{{ task.index }}. {{ task.label }}</span>
+          <span>{{ task.weighted_display }}/5{% if task.cefr_band %}　{{ task.cefr_band }}{% endif %}</span>
+        </div>
+        <p class="task-prompt">{{ task.prompt or "（設問なし）" }}</p>
+        <p class="task-transcript">認識: {{ task.transcript or task.transcript_error or "（発話なし）" }}</p>
+        <p class="task-axes">
+          {% for item in task.score_items %}{{ item.label }} {{ item.display }}{% if not loop.last %}　{% endif %}{% endfor %}
+        </p>
+        {% if task.comments %}
+        <p class="task-comments">{{ task.comments }}</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <footer class="footer">
+      <span>提出ID: {{ report.id or "—" }}</span>
+      <span>Speaking Level Check Test</span>
+    </footer>
+  </section>
+  {% endfor %}
+</body>
+</html>

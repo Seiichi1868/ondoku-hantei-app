@@ -271,6 +271,38 @@ body {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
 }
 
+.admin-toolbar-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  color: #0369a1;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(186, 230, 253, 0.8);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.admin-toolbar-btn:hover:not(:disabled) {
+  background: rgba(240, 249, 255, 0.95);
+}
+.admin-toolbar-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.admin-toolbar-btn--pdf {
+  color: #047857;
+  border-color: rgba(167, 243, 208, 0.9);
+}
+.admin-toolbar-btn--pdf:hover:not(:disabled) {
+  background: rgba(236, 253, 245, 0.95);
+}
+.submission-select {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #0284c7;
+  cursor: pointer;
+}
+
 .lc-input {
   border: 1px solid rgb(224, 242, 254);
   border-radius: 0.5rem;

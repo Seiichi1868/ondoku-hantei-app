@@ -497,6 +497,16 @@ def get_submissions() -> list[dict]:
     return list(reversed(load_submissions()))
 
 
+def get_submission(submission_id: str) -> dict | None:
+    wanted = str(submission_id or "")
+    if not wanted:
+        return None
+    for item in load_submissions():
+        if str(item.get("id") or "") == wanted:
+            return item
+    return None
+
+
 def delete_submission(submission_id: str) -> bool:
     with _lock:
         submissions = _read_json(SUBMISSIONS_FILE, [])

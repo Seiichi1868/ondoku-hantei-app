@@ -3,6 +3,7 @@
 roster 管理・問題バンク編集・結果閲覧・設定切替をすべてここに含む。
 """
 import io
+import logging
 
 import openpyxl
 from flask import Blueprint, jsonify, render_template, request, send_file
@@ -24,6 +25,7 @@ from level_check.scoring.rubric import (
     LISTENING_AXES,
     SPEAKING_AXES,
 )
+from level_check.pdf_report import build_submissions_pdf
 from level_check.storage import (
     QUESTION_PRIMARY_FIELD,
     add_or_update_student,
@@ -31,6 +33,7 @@ from level_check.storage import (
     delete_question,
     delete_student,
     delete_submission,
+    get_submission,
     get_submissions,
     import_students_from_excel,
     load_questions,
@@ -42,6 +45,8 @@ from level_check.storage import (
 from level_check.tasks.definitions import TASK_DEFINITIONS
 from level_check.tasks.generator import generate_questions
 from level_check.tts import ensure_prompt_audio, synthesize_prompt, tts_text_for_question
+
+logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint(
     "level_check_admin",
@@ -371,3 +376,76 @@ def export_submissions():
         download_name="level_check_submissions.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+def _ascii_safe_filename(value: str, fallback: str = "report") -> str:
+    """Content-Disposition に安全に載せられる ASCII のみのファイル名断片を作る。"""
+    ascii_only = "".join(ch for ch in str(value or "") if ch.isascii() and (ch.isalnum() or ch in ("-", "_")))
+    ascii_only = ascii_only[:40]
+    return ascii_only or fallback
+
+
+def _pdf_response(submissions: list[dict], *, download_name: str, inline: bool = False):
+    pdf_bytes = build_submissions_pdf(submissions)
+    buf = io.BytesIO(pdf_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=not inline,
+        download_name=download_name,
+        mimetype="application/pdf",
+    )
+
+
+@admin_bp.route("/api/submissions/<submission_id>/pdf", methods=["GET"])
+def export_submission_pdf(submission_id):
+    """個別受験の評価個票 PDF。"""
+    try:
+        submission = get_submission(submission_id)
+        if not submission:
+            return jsonify({"ok": False, "error": "データが見つかりません。"}), 404
+        student = submission.get("student_info") or {}
+        safe_name = _ascii_safe_filename(student.get("name"), fallback="")
+        if not safe_name:
+            safe_name = _ascii_safe_filename(
+                f"{student.get('class_name')}_{student.get('number')}",
+                fallback=submission.get("id") or "student",
+            )
+        return _pdf_response(
+            [submission],
+            download_name=f"level_check_{safe_name}.pdf",
+            inline=True,
+        )
+    except Exception:
+        logger.exception("個別PDFの生成に失敗しました: submission_id=%s", submission_id)
+        return jsonify({"ok": False, "error": "PDFの生成に失敗しました。"}), 500
+
+
+@admin_bp.route("/api/submissions/pdf", methods=["POST"])
+def export_submissions_pdf_bulk():
+    """選択した受験結果の評価個票を1つの PDF にまとめてダウンロード。"""
+    try:
+        payload = request.get_json(silent=True) or {}
+        ids = payload.get("ids") or []
+        if not isinstance(ids, list) or not ids:
+            return jsonify({"ok": False, "error": "受験結果が選択されていません。"}), 400
+
+        wanted = {str(i) for i in ids if i}
+        by_id = {}
+        for submission in get_submissions():
+            sid = str(submission.get("id") or "")
+            if sid in wanted:
+                by_id[sid] = submission
+
+        ordered = [by_id[str(i)] for i in ids if str(i) in by_id]
+        if not ordered:
+            return jsonify({"ok": False, "error": "対象の受験結果が見つかりません。"}), 404
+
+        return _pdf_response(
+            ordered,
+            download_name=f"level_check_reports_{len(ordered)}.pdf",
+            inline=False,
+        )
+    except Exception:
+        logger.exception("一括PDFの生成に失敗しました")
+        return jsonify({"ok": False, "error": "PDFの生成に失敗しました。"}), 500

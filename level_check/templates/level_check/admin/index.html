@@ -121,9 +121,17 @@
   <section class="admin-tab-panel hidden" data-tab-panel="submissions">
     <div class="lc-card rounded-2xl p-4 md:p-5 mb-3 flex items-center justify-between flex-wrap gap-2">
       <h2 class="text-sm font-bold text-slate-800">受験結果一覧</h2>
-      <a id="export-submissions-link" href="#" class="text-xs px-3 py-1.5 rounded-full bg-brand text-white font-semibold hover:bg-brand-dark">
-        Excelでダウンロード
-      </a>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button id="submissions-select-all-btn" type="button" class="admin-toolbar-btn" disabled>
+          全て選択
+        </button>
+        <button id="submissions-pdf-selected-btn" type="button" class="admin-toolbar-btn admin-toolbar-btn--pdf" disabled>
+          PDF個票ダウンロード
+        </button>
+        <a id="export-submissions-link" href="#" class="text-xs px-3 py-1.5 rounded-full bg-brand text-white font-semibold hover:bg-brand-dark">
+          Excelでダウンロード
+        </a>
+      </div>
     </div>
     <div id="submissions-list" class="space-y-2"></div>
   </section>
@@ -137,5 +145,5 @@
   window.LEVEL_CHECK_LISTENING_AXES = ["comprehension_accuracy", "response_relevance"];
   window.LEVEL_CHECK_CATEGORIES = {{ categories | tojson }};
 </script>
-<script src="{{ url_for('level_check.static', filename='js/admin.js', v='20260802c') }}"></script>
+<script src="{{ url_for('level_check.static', filename='js/admin.js', v='20260826a') }}"></script>
 {% endblock %}

@@ -435,10 +435,56 @@
     }
   });
 
+  let allSubmissionsSelected = false;
+
   async function loadSubmissions() {
     const data = await apiFetch("/level_check/admin/api/submissions");
     renderSubmissions(data.submissions || []);
     document.getElementById("export-submissions-link").href = "/level_check/admin/api/submissions/export";
+  }
+
+  function getSubmissionCheckboxes() {
+    return Array.from(document.querySelectorAll("#submissions-list .submission-select"));
+  }
+
+  function updateBulkPdfState() {
+    const boxes = getSubmissionCheckboxes();
+    const selectedCount = boxes.filter((box) => box.checked).length;
+    const selectAllBtn = document.getElementById("submissions-select-all-btn");
+    const pdfSelectedBtn = document.getElementById("submissions-pdf-selected-btn");
+    if (selectAllBtn) {
+      selectAllBtn.disabled = boxes.length === 0;
+      allSubmissionsSelected = boxes.length > 0 && selectedCount === boxes.length;
+      selectAllBtn.textContent = allSubmissionsSelected ? "選択解除" : "全て選択";
+    }
+    if (pdfSelectedBtn) {
+      pdfSelectedBtn.disabled = selectedCount === 0;
+      pdfSelectedBtn.textContent = selectedCount
+        ? `PDF個票ダウンロード（${selectedCount}件）`
+        : "PDF個票ダウンロード";
+    }
+  }
+
+  async function downloadPdfFromResponse(res, filename) {
+    if (!res.ok) {
+      let message = "PDFの生成に失敗しました。";
+      try {
+        const data = await res.json();
+        if (data && data.error) message = data.error;
+      } catch (_) {
+        /* ignore */
+      }
+      throw new Error(message);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   function renderSubmissions(submissions) {
@@ -446,6 +492,7 @@
     list.innerHTML = "";
     if (!submissions.length) {
       list.innerHTML = '<p class="text-sm text-slate-400">受験結果はまだありません。</p>';
+      updateBulkPdfState();
       return;
     }
     submissions.forEach((s) => {
@@ -456,13 +503,57 @@
       const infoText = [info.class_name, info.number, info.name].filter(Boolean).join(" / ") || "（情報なし）";
       const score = overall.speaking_level_score ?? overall.score_100 ?? "—";
       row.innerHTML = `
-        <div>
-          <p class="text-sm font-semibold text-slate-700">${infoText}</p>
-          <p class="text-xs text-slate-400">${s.submitted_at || ""} ・ Speaking Level Score: <strong>${score}/90</strong>（CEFR: ${overall.cefr_band || "—"}） / S:${overall.speaking_subscore ?? "—"} L:${overall.listening_subscore ?? "—"}</p>
+        <label class="flex items-center gap-2 min-w-0 flex-1">
+          <input type="checkbox" class="submission-select shrink-0" data-id="${s.id}">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-slate-700">${infoText}</p>
+            <p class="text-xs text-slate-400">${s.submitted_at || ""} ・ Speaking Level Score: <strong>${score}/90</strong>（CEFR: ${overall.cefr_band || "—"}） / S:${overall.speaking_subscore ?? "—"} L:${overall.listening_subscore ?? "—"}</p>
+          </div>
+        </label>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button type="button" class="text-xs px-2.5 py-1 rounded-full border border-emerald-200 text-emerald-700 hover:bg-emerald-50" data-action="pdf">PDF</button>
+          <button type="button" class="text-xs px-2.5 py-1 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50" data-action="delete">削除</button>
         </div>
-        <button type="button" class="text-xs px-2.5 py-1 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50">削除</button>
       `;
-      row.querySelector("button").addEventListener("click", async () => {
+      row.querySelector(".submission-select").addEventListener("change", updateBulkPdfState);
+      row.querySelector('[data-action="pdf"]').addEventListener("click", async (event) => {
+        const btn = event.currentTarget;
+        if (!confirm("この受験結果の個票をPDFで出力しますか？")) return;
+        const originalLabel = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "生成中…";
+        try {
+          const res = await fetch(`/level_check/admin/api/submissions/${encodeURIComponent(s.id)}/pdf`);
+          if (!res.ok) {
+            let message = "PDFの生成に失敗しました。";
+            try {
+              const data = await res.json();
+              if (data && data.error) message = data.error;
+            } catch (_) {
+              /* ignore */
+            }
+            throw new Error(message);
+          }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const opened = window.open(url, "_blank", "noopener,noreferrer");
+          if (!opened) {
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `level_check_${s.id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          }
+          setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        } catch (err) {
+          showStatus(err.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalLabel || "PDF";
+        }
+      });
+      row.querySelector('[data-action="delete"]').addEventListener("click", async () => {
         try {
           await apiFetch(`/level_check/admin/api/submissions/${s.id}`, { method: "DELETE" });
           await loadSubmissions();
@@ -472,5 +563,40 @@
       });
       list.appendChild(row);
     });
+    updateBulkPdfState();
   }
+
+  document.getElementById("submissions-select-all-btn")?.addEventListener("click", () => {
+    const boxes = getSubmissionCheckboxes();
+    const nextChecked = !allSubmissionsSelected;
+    boxes.forEach((box) => {
+      box.checked = nextChecked;
+    });
+    updateBulkPdfState();
+  });
+
+  document.getElementById("submissions-pdf-selected-btn")?.addEventListener("click", async () => {
+    const ids = getSubmissionCheckboxes()
+      .filter((box) => box.checked)
+      .map((box) => box.dataset.id)
+      .filter(Boolean);
+    if (!ids.length) return;
+
+    const btn = document.getElementById("submissions-pdf-selected-btn");
+    btn.disabled = true;
+    btn.textContent = ids.length >= 5 ? `PDF生成中（${ids.length}件）…` : "PDF生成中…";
+    try {
+      const res = await fetch("/level_check/admin/api/submissions/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      await downloadPdfFromResponse(res, `level_check_reports_${ids.length}.pdf`);
+      showStatus(`${ids.length}件の個票PDFをダウンロードしました。`);
+    } catch (err) {
+      showStatus(err.message, true);
+    } finally {
+      updateBulkPdfState();
+    }
+  });
 })();
