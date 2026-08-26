@@ -1,7 +1,7 @@
 import logging
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_from_directory
 
 from flask_app.config import Config
 from flask_app.extensions import cors
@@ -25,6 +25,22 @@ def create_app(config_class=Config):
     )
 
     cors.init_app(app)
+
+    @app.route("/static/manifest.json")
+    def web_app_manifest():
+        """PWA manifest を application/manifest+json で配信する。
+
+        Flask の static ハンドラは .json を application/json にするため、
+        専用ルートで MIME を明示する。start_url / scope は / だが、
+        Conjugate 等の他アプリは各ページで別 manifest をリンクしている。
+        """
+        response = send_from_directory(
+            app.static_folder,
+            "manifest.json",
+            mimetype="application/manifest+json",
+        )
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
 
     from flask_app.services.runtime_settings import load_and_apply_runtime_settings
 
