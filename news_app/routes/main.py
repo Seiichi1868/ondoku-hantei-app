@@ -3,7 +3,7 @@ import mimetypes
 import tempfile
 from pathlib import Path
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, current_app, jsonify, render_template, request, send_from_directory
 from werkzeug.utils import secure_filename
 
 from news_app.config import (
@@ -72,6 +72,18 @@ def _media_extension(filename: str, mimetype: str | None) -> str:
 @main_bp.route("/health")
 def health():
     return jsonify({"ok": True})
+
+
+@main_bp.route("/manifest.json")
+def web_app_manifest():
+    """PWA manifest は /news/ 配下に置き、scope が News 画面全体を覆うようにする。"""
+    response = send_from_directory(
+        Path(current_app.static_folder) / "news",
+        "manifest.json",
+        mimetype="application/manifest+json",
+    )
+    response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
 
 
 def _class_public_payload(class_id: str, origin: str) -> dict | None:
