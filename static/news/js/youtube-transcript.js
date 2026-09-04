@@ -525,6 +525,158 @@
     }
   }
 
+  function loadYouTubeIframeApi() {
+    if (global.YT && global.YT.Player) return Promise.resolve();
+    if (global.__vibeNewsYtApiReady) return global.__vibeNewsYtApiReady;
+    global.__vibeNewsYtApiReady = new Promise((resolve) => {
+      const previous = global.onYouTubeIframeAPIReady;
+      global.onYouTubeIframeAPIReady = () => {
+        if (typeof previous === "function") previous();
+        resolve();
+      };
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const script = document.createElement("script");
+        script.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(script);
+      }
+      if (global.YT && global.YT.Player) resolve();
+    });
+    return global.__vibeNewsYtApiReady;
+  }
+
+  function tracksFromUnknownPayload(data) {
+    if (!data) return [];
+    if (Array.isArray(data.captionTracks)) return data.captionTracks;
+    const nested =
+      data.captions?.playerCaptionsTracklistRenderer?.captionTracks ||
+      data.playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks ||
+      data.response?.captions?.playerCaptionsTracklistRenderer?.captionTracks ||
+      data.info?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    return Array.isArray(nested) ? nested : [];
+  }
+
+  function listenForEmbedCaptionTracks(timeoutMs) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (tracks) => {
+        if (settled) return;
+        settled = true;
+        global.removeEventListener("message", onMessage);
+        resolve(tracks || []);
+      };
+      const timer = setTimeout(() => finish([]), timeoutMs);
+      function onMessage(event) {
+        const origin = String(event.origin || "");
+        if (!origin.includes("youtube.com")) return;
+        let payload = event.data;
+        if (typeof payload === "string") {
+          try {
+            payload = JSON.parse(payload);
+          } catch (_err) {
+            return;
+          }
+        }
+        const tracks = tracksFromUnknownPayload(payload);
+        if (tracks.length && tracks.some((track) => track.baseUrl || track.url)) {
+          clearTimeout(timer);
+          finish(tracks);
+        }
+      }
+      global.addEventListener("message", onMessage);
+    });
+  }
+
+  function publicTracksFromPlayerList(list) {
+    return (list || [])
+      .map((track) => ({
+        languageCode: track.languageCode || track.language || "",
+        kind: track.kind || (String(track.vssId || "").startsWith("a.") ? "asr" : ""),
+        baseUrl: track.baseUrl || track.url || "",
+      }))
+      .filter((track) => track.baseUrl);
+  }
+
+  async function fetchCaptionTracksFromEmbed(videoId, timeoutMs) {
+    if (!document.body) return [];
+    await loadYouTubeIframeApi();
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText = "position:absolute;width:1px;height:1px;left:-9999px;opacity:0;pointer-events:none";
+    iframe.allow = "encrypted-media";
+    iframe.src =
+      `https://www.youtube.com/embed/${encodeURIComponent(videoId)}` +
+      `?enablejsapi=1&rel=0&origin=${encodeURIComponent(global.location.origin)}`;
+    document.body.appendChild(iframe);
+
+    const messageTracksPromise = listenForEmbedCaptionTracks(Math.min(timeoutMs, 8000));
+    const playerTracksPromise = new Promise((resolve) => {
+      let finished = false;
+      const done = (tracks) => {
+        if (finished) return;
+        finished = true;
+        resolve(publicTracksFromPlayerList(tracks));
+      };
+      const timer = setTimeout(() => done([]), Math.min(timeoutMs, 8000));
+      try {
+        const player = new global.YT.Player(iframe, {
+          events: {
+            onReady: () => {
+              try {
+                if (typeof player.loadModule === "function") player.loadModule("captions");
+              } catch (_err) {
+                /* ignore */
+              }
+              const tryRead = () => {
+                try {
+                  const optionTracks = typeof player.getOption === "function"
+                    ? player.getOption("captions", "tracklist")
+                    : [];
+                  const info =
+                    player.playerInfo?.playerResponse ||
+                    player.playerInfo?.response ||
+                    (typeof player.getPlayerResponse === "function" ? player.getPlayerResponse() : null);
+                  const nested = tracksFromUnknownPayload(info);
+                  const merged = [...(optionTracks || []), ...nested];
+                  if (merged.length) {
+                    clearTimeout(timer);
+                    done(merged);
+                    return true;
+                  }
+                } catch (_err) {
+                  /* ignore */
+                }
+                return false;
+              };
+              if (!tryRead()) setTimeout(tryRead, 600);
+            },
+            onApiChange: () => {
+              try {
+                const optionTracks = player.getOption("captions", "tracklist") || [];
+                if (optionTracks.length) {
+                  clearTimeout(timer);
+                  done(optionTracks);
+                }
+              } catch (_err) {
+                /* ignore */
+              }
+            },
+          },
+        });
+      } catch (_err) {
+        clearTimeout(timer);
+        done([]);
+      }
+    });
+
+    try {
+      const [messageTracks, playerTracks] = await Promise.all([messageTracksPromise, playerTracksPromise]);
+      const merged = publicTracksFromPlayerList([...(playerTracks || []), ...(messageTracks || [])]);
+      return merged;
+    } finally {
+      iframe.remove();
+    }
+  }
+
   async function fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries) {
     const urls = [
       `${SAME_ORIGIN_TRANSCRIPT_URL}?id=${encodeURIComponent(videoId)}`,
@@ -537,6 +689,21 @@
         const parsed = await fetchTranscriptFromUrl(url, languages, timeoutMs, url.includes("workers.dev") ? maxRetries : 1);
         if (parsed?.snippets?.length) return parsed;
         if (parsed?.captionTracks?.length && !tracksOnly) tracksOnly = parsed;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    if (!tracksOnly?.captionTracks?.length) {
+      try {
+        const embedTracks = await fetchCaptionTracksFromEmbed(videoId, timeoutMs);
+        if (embedTracks.length) {
+          tracksOnly = {
+            languageCode: embedTracks[0].languageCode || languages[0] || "en",
+            isGenerated: embedTracks[0].kind === "asr",
+            snippets: [],
+            captionTracks: embedTracks,
+          };
+        }
       } catch (err) {
         lastError = err;
       }

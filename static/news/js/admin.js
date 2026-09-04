@@ -653,7 +653,7 @@
     const iframe = document.createElement("iframe");
     iframe.className = "h-full w-full";
     iframe.src = episode.video_id
-      ? `https://www.youtube.com/embed/${encodeURIComponent(episode.video_id)}?rel=0&modestbranding=1&hl=en&cc_lang_pref=en`
+      ? `https://www.youtube.com/embed/${encodeURIComponent(episode.video_id)}?rel=0&modestbranding=1&hl=en&cc_lang_pref=en&enablejsapi=1`
       : "";
     iframe.title = episode.title || "YouTube preview";
     iframe.loading = "lazy";
