@@ -11,7 +11,7 @@ import threading
 from html import unescape
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
+from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener, urlopen as std_urlopen
 
 from news_app.config import DATA_DIR
 from news_app.services.youtube import extract_video_id
@@ -21,8 +21,10 @@ logger = logging.getLogger(__name__)
 INNERTUBE_PLAYER_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
 DEFAULT_LANGUAGES = ("en", "ja")
 CACHE_DIR = DATA_DIR / "youtube_transcripts"
-YOUTUBE_HOME = "https://www.youtube.com/"
+# 本番 Render ではトップページより CNN10 チャンネル HTML の方が通る（一覧取得と同じ経路）。
+YOUTUBE_WARMUP_URL = "https://www.youtube.com/@CNN10/videos"
 CONSENT_COOKIE = "CONSENT=YES+; SOCS=CAI; PREF=hl=en&tz=UTC"
+CHANNEL_UA = "Mozilla/5.0"
 
 INNERTUBE_CLIENTS = (
     {
@@ -83,6 +85,18 @@ def _get_opener():
     return _opener
 
 
+def _simple_urlopen(request: Request, timeout: int = 12):
+    """CNN10 一覧と同じく Cookie なしの素の GET。"""
+    try:
+        return std_urlopen(request, timeout=timeout)
+    except ssl.SSLError:
+        pass
+    except URLError as exc:
+        if not isinstance(exc.reason, ssl.SSLError):
+            raise
+    return std_urlopen(request, timeout=timeout, context=ssl._create_unverified_context())
+
+
 def _urlopen(request: Request, timeout: int = 12):
     global _opener
     opener = _get_opener()
@@ -98,24 +112,34 @@ def _urlopen(request: Request, timeout: int = 12):
     return _opener.open(request, timeout=timeout)
 
 
+def _reset_youtube_session() -> None:
+    global _opener, _session_warmed
+    with _opener_lock:
+        _opener = None
+        _session_warmed = False
+
+
 def _warmup_youtube_session() -> None:
-    """VISITOR / CONSENT Cookie を付けてから InnerTube を叩く。データセンター IP ではこれがないと字幕トラックが空になる。"""
+    """CNN10 一覧と同じチャンネル HTML で VISITOR Cookie を取る。データセンターではトップページだけだと字幕が空になる。"""
     global _session_warmed
     if _session_warmed:
         return
     request = Request(
-        YOUTUBE_HOME,
+        YOUTUBE_WARMUP_URL,
         headers={
-            "User-Agent": BROWSER_UA,
+            "User-Agent": CHANNEL_UA,
             "Accept-Language": "en-US,en;q=0.9",
             "Cookie": CONSENT_COOKIE,
         },
     )
     try:
-        with _urlopen(request, timeout=10) as response:
-            response.read(2048)
-        _session_warmed = True
-        logger.info("youtube session warmed for transcript fetch")
+        with _urlopen(request, timeout=12) as response:
+            html = response.read().decode("utf-8", errors="replace")
+        if "ytInitialData" in html or "ytcfg.set" in html:
+            _session_warmed = True
+            logger.info("youtube session warmed via CNN10 channel page (%d bytes)", len(html))
+        else:
+            logger.info("youtube warmup html had no ytInitialData (%d bytes)", len(html))
     except (OSError, URLError, HTTPError) as exc:
         logger.info("youtube session warmup failed: %s", exc)
 
@@ -286,21 +310,28 @@ def _tracks_from_player_response(data: dict | None) -> list[dict]:
 def _fetch_tracks_from_watch_page(video_id: str) -> list[dict]:
     """CNN10 一覧と同じく watch HTML は Render から通ることがある。"""
     headers = {
-        "User-Agent": BROWSER_UA,
+        "User-Agent": CHANNEL_UA,
         "Accept-Language": "en-US,en;q=0.9",
         "Cookie": CONSENT_COOKIE,
-        "Referer": "https://www.youtube.com/",
+        "Referer": YOUTUBE_WARMUP_URL,
     }
     watch_request = Request(
         f"https://www.youtube.com/watch?v={video_id}&hl=en",
         headers=headers,
     )
     try:
-        with _urlopen(watch_request, timeout=12) as response:
+        with _simple_urlopen(watch_request, timeout=12) as response:
             html = response.read().decode("utf-8", errors="replace")
     except (OSError, URLError, HTTPError) as exc:
         logger.info("watch html failed for %s: %s", video_id, exc)
         return []
+    logger.info(
+        "watch html %s len=%d player=%s recaptcha=%s",
+        video_id,
+        len(html),
+        "ytInitialPlayerResponse" in html,
+        "g-recaptcha" in html,
+    )
     if "g-recaptcha" in html and "ytInitialPlayerResponse" not in html:
         logger.info("watch html recaptcha for %s", video_id)
         return []
@@ -359,6 +390,28 @@ def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = 
     last_rate_limited = False
     collected_tracks: list[dict] = []
 
+    html_tracks = _fetch_tracks_from_watch_page(video_id)
+    if html_tracks:
+        collected_tracks = html_tracks
+        selected = _select_track(_public_tracks(html_tracks), languages)
+        if selected and selected.get("baseUrl"):
+            try:
+                snippets = _fetch_timedtext(str(selected["baseUrl"]))
+            except TranscriptRateLimited:
+                last_rate_limited = True
+                snippets = []
+            if snippets:
+                payload = _payload_from_tracks(html_tracks, languages, snippets)
+                if payload:
+                    _write_cache(video_id, payload)
+                    logger.info(
+                        "youtube transcript fetched (%s, %s, %d snippets) via watch html",
+                        video_id,
+                        payload["language_code"],
+                        len(snippets),
+                    )
+                    return payload
+
     for client in INNERTUBE_CLIENTS:
         try:
             tracks = _fetch_caption_tracks(video_id, client)
@@ -366,7 +419,9 @@ def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = 
             last_rate_limited = True
             continue
         if not tracks:
+            logger.info("innertube %s returned no caption tracks for %s", client["name"], video_id)
             continue
+        logger.info("innertube %s returned %d caption tracks for %s", client["name"], len(tracks), video_id)
         collected_tracks = tracks
         selected = _select_track(_public_tracks(tracks), languages)
         if not selected or not selected.get("baseUrl"):
@@ -389,28 +444,6 @@ def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = 
                 )
                 return payload
 
-    html_tracks = _fetch_tracks_from_watch_page(video_id)
-    if html_tracks:
-        collected_tracks = html_tracks or collected_tracks
-        selected = _select_track(_public_tracks(html_tracks), languages)
-        if selected and selected.get("baseUrl"):
-            try:
-                snippets = _fetch_timedtext(str(selected["baseUrl"]))
-            except TranscriptRateLimited:
-                last_rate_limited = True
-                snippets = []
-            if snippets:
-                payload = _payload_from_tracks(html_tracks, languages, snippets)
-                if payload:
-                    _write_cache(video_id, payload)
-                    logger.info(
-                        "youtube transcript fetched (%s, %s, %d snippets) via watch html",
-                        video_id,
-                        payload["language_code"],
-                        len(snippets),
-                    )
-                    return payload
-
     if collected_tracks:
         payload = _payload_from_tracks(collected_tracks, languages, [])
         if payload:
@@ -421,6 +454,7 @@ def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = 
             )
             return payload
 
+    _reset_youtube_session()
     if last_rate_limited:
         raise TranscriptRateLimited("YouTube へのリクエストが制限されています。しばらく待ってから再試行してください。")
     raise TranscriptNotFound("日本語・英語の字幕が見つかりませんでした。")
