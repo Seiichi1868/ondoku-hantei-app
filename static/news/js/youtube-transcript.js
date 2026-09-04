@@ -146,6 +146,79 @@
     return [];
   }
 
+  function decodeXmlEntities(text) {
+    return String(text || "")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+  }
+
+  function parseTimedTextXml(xml) {
+    const results = [];
+    const pRegex = /<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
+    let match;
+    while ((match = pRegex.exec(xml || "")) !== null) {
+      const startMs = parseInt(match[1], 10);
+      const durMs = parseInt(match[2], 10);
+      const inner = match[3];
+      let text = "";
+      const sRegex = /<s[^>]*>([^<]*)<\/s>/g;
+      let sMatch;
+      while ((sMatch = sRegex.exec(inner)) !== null) {
+        text += sMatch[1];
+      }
+      if (!text) text = inner.replace(/<[^>]+>/g, "");
+      text = decodeXmlEntities(text).trim();
+      if (text) {
+        results.push({
+          start: Math.round((startMs / 1000) * 1000) / 1000,
+          duration: Math.round(Math.max(durMs / 1000, 0.1) * 1000) / 1000,
+          text,
+        });
+      }
+    }
+    if (results.length) return results;
+
+    const classicRegex = /<text start="([^"]*)" dur="([^"]*)">([^<]*)<\/text>/g;
+    while ((match = classicRegex.exec(xml || "")) !== null) {
+      const text = decodeXmlEntities(match[3]).trim();
+      if (!text) continue;
+      results.push({
+        start: Math.round(parseFloat(match[1]) * 1000) / 1000,
+        duration: Math.round(Math.max(parseFloat(match[2]), 0.1) * 1000) / 1000,
+        text,
+      });
+    }
+    return results;
+  }
+
+  async function fetchTimedTextInBrowser(tracks, languages) {
+    const selected = selectCaptionTrack(tracks, languages, true);
+    if (!selected?.baseUrl) {
+      throw new Error("日本語・英語の字幕が見つかりませんでした。");
+    }
+    const response = await fetch(selected.baseUrl);
+    if (!response.ok) {
+      throw new Error("YouTube から字幕本文を取得できませんでした。");
+    }
+    const xml = await response.text();
+    const snippets = normalizeSnippets(parseTimedTextXml(xml));
+    if (!snippets.length) {
+      throw new Error("日本語・英語の字幕が見つかりませんでした。");
+    }
+    return {
+      languageCode: selected.languageCode || languages[0] || "en",
+      isGenerated: selected.kind === "asr",
+      snippets,
+      captionTracks: tracks,
+    };
+  }
+
   function parseProxyPayload(rawText, videoId, languages) {
     const trimmed = String(rawText || "").trim();
     if (!trimmed) throw new Error("プロキシから空のレスポンスが返されました。");
@@ -225,24 +298,26 @@
     }
 
     const tracks =
-      data?.captions?.playerCaptionsTracklistRenderer?.captionTracks ||
+      data?.caption_tracks ||
       data?.captionTracks ||
+      data?.captions?.playerCaptionsTracklistRenderer?.captionTracks ||
       data?.tracks;
     if (Array.isArray(tracks) && tracks.length) {
       const selected = selectCaptionTrack(tracks, languages, true);
       const snippets = parseCaptionTrackEvents(selected);
       if (!snippets.length && selected?.baseUrl && data?.events) {
         return {
-          languageCode: selected.languageCode || "en",
-          isGenerated: selected.kind === "asr",
+          languageCode: selected.languageCode || data.language_code || "en",
+          isGenerated: selected.kind === "asr" || Boolean(data.is_generated),
           snippets: parseTimedTextEvents(data),
+          captionTracks: tracks,
         };
       }
-      if (!snippets.length) throw new Error("日本語・英語の字幕が見つかりませんでした。");
       return {
-        languageCode: selected?.languageCode || "en",
-        isGenerated: selected?.kind === "asr",
+        languageCode: selected?.languageCode || data.language_code || "en",
+        isGenerated: selected?.kind === "asr" || Boolean(data.is_generated ?? data.isGenerated),
         snippets,
+        captionTracks: tracks,
       };
     }
 
@@ -446,7 +521,10 @@
     const endSec = opts.endSec ?? null;
 
     const videoId = extractVideoId(videoIdOrUrl);
-    const parsed = await fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries);
+    let parsed = await fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries);
+    if (!parsed?.snippets?.length && parsed?.captionTracks?.length) {
+      parsed = await fetchTimedTextInBrowser(parsed.captionTracks, languages);
+    }
     if (!parsed?.snippets?.length) {
       throw new Error("日本語・英語の字幕が見つかりませんでした。");
     }

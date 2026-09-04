@@ -147,6 +147,22 @@ def _write_cache(video_id: str, payload: dict) -> None:
         logger.warning("failed to cache youtube transcript for %s", video_id)
 
 
+def _public_tracks(tracks: list[dict]) -> list[dict]:
+    out = []
+    for track in tracks or []:
+        base_url = track.get("baseUrl")
+        if not base_url:
+            continue
+        out.append(
+            {
+                "languageCode": str(track.get("languageCode") or ""),
+                "kind": str(track.get("kind") or ""),
+                "baseUrl": str(base_url),
+            }
+        )
+    return out
+
+
 def _fetch_caption_tracks(video_id: str, client: dict) -> list[dict]:
     payload = {"context": client["context"], "videoId": video_id}
     request = Request(
@@ -180,28 +196,8 @@ def _fetch_caption_tracks(video_id: str, client: dict) -> list[dict]:
     return tracks if isinstance(tracks, list) else []
 
 
-def _fetch_timedtext(base_url: str) -> list[dict]:
-    request = Request(
-        base_url,
-        headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-        },
-    )
-    try:
-        with _urlopen(request, timeout=12) as response:
-            body = response.read().decode("utf-8", errors="replace")
-    except HTTPError as exc:
-        if exc.code == 429:
-            raise TranscriptRateLimited("YouTube へのリクエストが制限されています。") from exc
-        return []
-    except (OSError, URLError):
-        return []
-    return _parse_timedtext_xml(body)
-
-
 def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = DEFAULT_LANGUAGES) -> dict:
-    """英語→日本語の順で字幕を取得。失敗時は例外。"""
+    """InnerTube で字幕トラック URL を返す。本文はブラウザ側で timedtext を取る。"""
     video_id = extract_video_id(url_or_video_id)
     cached = _read_cache(video_id)
     if cached:
@@ -214,27 +210,20 @@ def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = 
         except TranscriptRateLimited:
             last_rate_limited = True
             continue
-        track = _select_track(tracks, languages)
-        if not track or not track.get("baseUrl"):
-            continue
-        try:
-            snippets = _fetch_timedtext(str(track["baseUrl"]))
-        except TranscriptRateLimited:
-            last_rate_limited = True
-            continue
-        if not snippets:
+        caption_tracks = _public_tracks(tracks)
+        selected = _select_track(caption_tracks, languages)
+        if not selected:
             continue
         payload = {
-            "language_code": str(track.get("languageCode") or languages[0] or "en"),
-            "is_generated": track.get("kind") == "asr",
-            "snippets": snippets,
+            "language_code": str(selected.get("languageCode") or languages[0] or "en"),
+            "is_generated": selected.get("kind") == "asr",
+            "snippets": [],
+            "caption_tracks": caption_tracks,
         }
-        _write_cache(video_id, payload)
         logger.info(
-            "youtube transcript fetched (%s, %s, %d snippets) via %s",
+            "youtube caption tracks fetched (%s, %d tracks) via %s",
             video_id,
-            payload["language_code"],
-            len(snippets),
+            len(caption_tracks),
             client["name"],
         )
         return payload
