@@ -5,10 +5,11 @@
   "use strict";
 
   const PROXY_BASE_URL = "https://vibe-speak-proxy.kishineseiichi.workers.dev/";
+  const SAME_ORIGIN_TRANSCRIPT_URL = "/news/api/youtube-transcript";
   const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
   const DEFAULT_LANGUAGES = ["en", "ja"];
-  const DEFAULT_TIMEOUT_MS = 20000;
-  const DEFAULT_MAX_RETRIES = 4;
+  const DEFAULT_TIMEOUT_MS = 12000;
+  const DEFAULT_MAX_RETRIES = 1;
   const LANGUAGE_LABELS = { ja: "Japanese", en: "English" };
 
   function extractVideoId(input) {
@@ -393,17 +394,7 @@
     throw translateFetchError(lastError || new Error("字幕の取得に失敗しました。"));
   }
 
-  async function fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries) {
-    const url = `${PROXY_BASE_URL}?id=${encodeURIComponent(videoId)}`;
-    const response = await fetchWithRetry(
-      url,
-      {
-        headers: { Accept: "application/json, text/plain, */*" },
-      },
-      maxRetries,
-      timeoutMs
-    );
-
+  async function readTranscriptResponse(response) {
     const body = await response.text();
     if (!response.ok) {
       try {
@@ -414,8 +405,36 @@
         throw translateFetchError(new Error(body.slice(0, 200) || `HTTP ${response.status}`), response.status);
       }
     }
+    return body;
+  }
 
-    return parseProxyPayload(body, videoId, languages);
+  async function fetchTranscriptFromUrl(url, languages, timeoutMs, maxRetries) {
+    const response = await fetchWithRetry(
+      url,
+      { headers: { Accept: "application/json, text/plain, */*" } },
+      maxRetries,
+      timeoutMs
+    );
+    const body = await readTranscriptResponse(response);
+    return parseProxyPayload(body, "", languages);
+  }
+
+  async function fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries) {
+    const workerUrl = `${PROXY_BASE_URL}?id=${encodeURIComponent(videoId)}`;
+    try {
+      return await fetchTranscriptFromUrl(workerUrl, languages, timeoutMs, maxRetries);
+    } catch (err) {
+      const fallbackUrl = `${SAME_ORIGIN_TRANSCRIPT_URL}?id=${encodeURIComponent(videoId)}`;
+      try {
+        return await fetchTranscriptFromUrl(fallbackUrl, languages, timeoutMs, 1);
+      } catch (fallbackErr) {
+        throw fallbackErr instanceof Error
+          ? fallbackErr
+          : err instanceof Error
+            ? err
+            : new Error(String(err || "字幕の取得に失敗しました。"));
+      }
+    }
   }
 
   async function fetchTranscript(videoIdOrUrl, options) {

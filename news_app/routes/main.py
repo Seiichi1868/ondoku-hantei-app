@@ -30,6 +30,11 @@ from news_app.services.storage import (
     appearance_context,
 )
 from news_app.services.youtube import build_youtube_embed_url
+from news_app.services.youtube_transcript import (
+    TranscriptNotFound,
+    TranscriptRateLimited,
+    fetch_youtube_transcript,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +77,26 @@ def _media_extension(filename: str, mimetype: str | None) -> str:
 @main_bp.route("/health")
 def health():
     return jsonify({"ok": True})
+
+
+@main_bp.route("/api/youtube-transcript")
+def youtube_transcript():
+    """Cloudflare Worker が 429 のとき、Render 側 IP から InnerTube で字幕を取る。"""
+    raw_id = (request.args.get("id") or "").strip()
+    if not raw_id:
+        return jsonify({"ok": False, "error": "動画 ID を指定してください (?id=VIDEO_ID)。"}), 400
+    try:
+        payload = fetch_youtube_transcript(raw_id)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except TranscriptRateLimited as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 429
+    except TranscriptNotFound as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+    except Exception:
+        logger.exception("youtube transcript fallback failed")
+        return jsonify({"ok": False, "error": "字幕の取得に失敗しました。"}), 502
+    return jsonify(payload)
 
 
 @main_bp.route("/manifest.json")
