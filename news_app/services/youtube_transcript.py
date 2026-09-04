@@ -11,6 +11,7 @@ import threading
 from html import unescape
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener, urlopen as std_urlopen
 
 from news_app.config import DATA_DIR
@@ -406,6 +407,33 @@ def _payload_from_tracks(
         "is_generated": selected.get("kind") == "asr",
         "snippets": snippets or [],
         "caption_tracks": caption_tracks,
+    }
+
+
+def _is_safe_timedtext_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme != "https":
+        return False
+    host = (parsed.hostname or "").lower()
+    if host not in ("www.youtube.com", "youtube.com"):
+        return False
+    return "timedtext" in (parsed.path or "")
+
+
+def fetch_timedtext_from_url(url: str) -> dict:
+    """ブラウザが CORS で本文を取れないとき、署名付き timedtext URL をサーバー経由で取得する。"""
+    if not _is_safe_timedtext_url(url):
+        raise ValueError("timedtext URL が不正です。")
+    snippets = _fetch_timedtext(url)
+    if not snippets:
+        raise TranscriptNotFound("日本語・英語の字幕が見つかりませんでした。")
+    return {
+        "language_code": "en",
+        "is_generated": True,
+        "snippets": snippets,
     }
 
 

@@ -10,8 +10,8 @@
   const LOCAL_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
   const DEFAULT_LANGUAGES = ["en", "ja"];
-  const DEFAULT_TIMEOUT_MS = 12000;
-  const DEFAULT_MAX_RETRIES = 1;
+  const DEFAULT_TIMEOUT_MS = 20000;
+  const DEFAULT_MAX_RETRIES = 4;
   const LANGUAGE_LABELS = { ja: "Japanese", en: "English" };
 
   function extractVideoId(input) {
@@ -162,15 +162,20 @@
 
   function parseTimedTextXml(xml) {
     const results = [];
-    const pRegex = /<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
+    const pRegex = /<p\b([^>]*)>([\s\S]*?)<\/p>/g;
+    const sRegex = /<s[^>]*>([^<]*)<\/s>/g;
     let match;
     while ((match = pRegex.exec(xml || "")) !== null) {
-      const startMs = parseInt(match[1], 10);
-      const durMs = parseInt(match[2], 10);
-      const inner = match[3];
+      const attrs = match[1] || "";
+      const tMatch = attrs.match(/\bt="(\d+)"/);
+      const dMatch = attrs.match(/\bd="(\d+)"/);
+      if (!tMatch || !dMatch) continue;
+      const startMs = parseInt(tMatch[1], 10);
+      const durMs = parseInt(dMatch[1], 10);
+      const inner = match[2] || "";
       let text = "";
-      const sRegex = /<s[^>]*>([^<]*)<\/s>/g;
       let sMatch;
+      sRegex.lastIndex = 0;
       while ((sMatch = sRegex.exec(inner)) !== null) {
         text += sMatch[1];
       }
@@ -199,26 +204,57 @@
     return results;
   }
 
+  async function snippetsFromTimedTextBody(rawText) {
+    const trimmed = String(rawText || "").trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith("{")) {
+      try {
+        const data = JSON.parse(trimmed);
+        if (Array.isArray(data?.snippets) && data.snippets.length) {
+          return normalizeSnippets(data.snippets);
+        }
+        if (data?.events) return normalizeSnippets(parseTimedTextEvents(data));
+      } catch (_err) {
+        /* fall through to XML */
+      }
+    }
+    return normalizeSnippets(parseTimedTextXml(trimmed));
+  }
+
   async function fetchTimedTextInBrowser(tracks, languages) {
     const selected = selectCaptionTrack(tracks, languages, true);
     if (!selected?.baseUrl) {
       throw new Error("日本語・英語の字幕が見つかりませんでした。");
     }
-    const response = await fetch(selected.baseUrl);
-    if (!response.ok) {
-      throw new Error("YouTube から字幕本文を取得できませんでした。");
+    const timedTextUrls = [
+      selected.baseUrl,
+      `${PROXY_BASE_URL}?timedtext=${encodeURIComponent(selected.baseUrl)}`,
+      `${SAME_ORIGIN_TRANSCRIPT_URL.replace(/youtube-transcript$/, "youtube-timedtext")}?url=${encodeURIComponent(selected.baseUrl)}`,
+    ];
+    let lastError = null;
+    for (const url of timedTextUrls) {
+      try {
+        const response = await fetch(url, { credentials: "omit", headers: { Accept: "application/json, text/xml, */*" } });
+        if (!response.ok) {
+          lastError = new Error("YouTube から字幕本文を取得できませんでした。");
+          continue;
+        }
+        const snippets = await snippetsFromTimedTextBody(await response.text());
+        if (!snippets.length) {
+          lastError = new Error("日本語・英語の字幕が見つかりませんでした。");
+          continue;
+        }
+        return {
+          languageCode: selected.languageCode || languages[0] || "en",
+          isGenerated: selected.kind === "asr",
+          snippets,
+          captionTracks: tracks,
+        };
+      } catch (err) {
+        lastError = err;
+      }
     }
-    const xml = await response.text();
-    const snippets = normalizeSnippets(parseTimedTextXml(xml));
-    if (!snippets.length) {
-      throw new Error("日本語・英語の字幕が見つかりませんでした。");
-    }
-    return {
-      languageCode: selected.languageCode || languages[0] || "en",
-      isGenerated: selected.kind === "asr",
-      snippets,
-      captionTracks: tracks,
-    };
+    throw lastError instanceof Error ? lastError : new Error("日本語・英語の字幕が見つかりませんでした。");
   }
 
   function parseProxyPayload(rawText, videoId, languages) {
@@ -679,8 +715,8 @@
 
   async function fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries) {
     const urls = [
-      `${SAME_ORIGIN_TRANSCRIPT_URL}?id=${encodeURIComponent(videoId)}`,
       `${PROXY_BASE_URL}?id=${encodeURIComponent(videoId)}`,
+      `${SAME_ORIGIN_TRANSCRIPT_URL}?id=${encodeURIComponent(videoId)}`,
     ];
     let lastError = null;
     let tracksOnly = null;

@@ -33,6 +33,7 @@ from news_app.services.youtube import build_youtube_embed_url
 from news_app.services.youtube_transcript import (
     TranscriptNotFound,
     TranscriptRateLimited,
+    fetch_timedtext_from_url,
     fetch_youtube_transcript,
 )
 
@@ -95,6 +96,26 @@ def youtube_transcript():
         return jsonify({"ok": False, "error": str(exc), "source": "render-session"}), 404
     except Exception:
         logger.exception("youtube transcript fallback failed")
+        return jsonify({"ok": False, "error": "字幕の取得に失敗しました。"}), 502
+    return jsonify(payload)
+
+
+@main_bp.route("/api/youtube-timedtext")
+def youtube_timedtext():
+    """署名付き timedtext URL の本文を取得する（ブラウザ CORS 回避用）。"""
+    raw_url = (request.args.get("url") or "").strip()
+    if not raw_url:
+        return jsonify({"ok": False, "error": "timedtext URL を指定してください。"}), 400
+    try:
+        payload = fetch_timedtext_from_url(raw_url)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except TranscriptRateLimited as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 429
+    except TranscriptNotFound as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+    except Exception:
+        logger.exception("youtube timedtext proxy failed")
         return jsonify({"ok": False, "error": "字幕の取得に失敗しました。"}), 502
     return jsonify(payload)
 
