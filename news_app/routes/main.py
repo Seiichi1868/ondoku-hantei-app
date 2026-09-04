@@ -92,7 +92,7 @@ def youtube_transcript():
     except TranscriptRateLimited as exc:
         return jsonify({"ok": False, "error": str(exc)}), 429
     except TranscriptNotFound as exc:
-        return jsonify({"ok": False, "error": str(exc)}), 404
+        return jsonify({"ok": False, "error": str(exc), "source": "render-session"}), 404
     except Exception:
         logger.exception("youtube transcript fallback failed")
         return jsonify({"ok": False, "error": "字幕の取得に失敗しました。"}), 502

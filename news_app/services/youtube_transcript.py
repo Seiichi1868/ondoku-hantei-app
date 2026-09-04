@@ -54,6 +54,7 @@ _P_TAG_RE = re.compile(r'<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)</p>')
 _S_TAG_RE = re.compile(r"<s[^>]*>([^<]*)</s>")
 _TEXT_TAG_RE = re.compile(r'<text start="([^"]*)" dur="([^"]*)">([^<]*)</text>')
 _TAG_RE = re.compile(r"<[^>]+>")
+_VISITOR_RE = re.compile(r'"visitorData":"([^"]+)"')
 
 _opener_lock = threading.Lock()
 _opener = None
@@ -245,8 +246,38 @@ def _public_tracks(tracks: list[dict]) -> list[dict]:
     return out
 
 
-def _fetch_caption_tracks(video_id: str, client: dict) -> list[dict]:
-    payload = {"context": client["context"], "videoId": video_id}
+def _fetch_channel_visitor_data() -> str:
+    """CNN10 一覧と同じ単純 GET で visitorData を取る。"""
+    request = Request(
+        YOUTUBE_WARMUP_URL,
+        headers={
+            "User-Agent": CHANNEL_UA,
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cookie": CONSENT_COOKIE,
+        },
+    )
+    try:
+        with _simple_urlopen(request, timeout=12) as response:
+            html = response.read().decode("utf-8", errors="replace")
+    except (OSError, URLError, HTTPError) as exc:
+        logger.info("channel visitor fetch failed: %s", exc)
+        return ""
+    match = _VISITOR_RE.search(html)
+    visitor = match.group(1) if match else ""
+    logger.info(
+        "channel html len=%d visitor=%s ytInitialData=%s",
+        len(html),
+        bool(visitor),
+        "ytInitialData" in html,
+    )
+    return visitor
+
+
+def _fetch_caption_tracks(video_id: str, client: dict, visitor_data: str = "") -> list[dict]:
+    context = json.loads(json.dumps(client["context"]))
+    if visitor_data:
+        context.setdefault("client", {})["visitorData"] = visitor_data
+    payload = {"context": context, "videoId": video_id}
     request = Request(
         INNERTUBE_PLAYER_URL,
         data=json.dumps(payload).encode("utf-8"),
@@ -386,6 +417,7 @@ def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = 
         return cached
 
     _warmup_youtube_session()
+    visitor_data = _fetch_channel_visitor_data()
 
     last_rate_limited = False
     collected_tracks: list[dict] = []
@@ -414,7 +446,7 @@ def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = 
 
     for client in INNERTUBE_CLIENTS:
         try:
-            tracks = _fetch_caption_tracks(video_id, client)
+            tracks = _fetch_caption_tracks(video_id, client, visitor_data)
         except TranscriptRateLimited:
             last_rate_limited = True
             continue
