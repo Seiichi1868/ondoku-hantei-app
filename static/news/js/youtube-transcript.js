@@ -713,26 +713,57 @@
     }
   }
 
+  async function tryUpgradeTracksWithBrowserBody(tracks, languages) {
+    if (!tracks?.length) return null;
+    try {
+      const withBody = await fetchTimedTextInBrowser(tracks, languages);
+      return withBody?.snippets?.length ? withBody : null;
+    } catch (_err) {
+      return null;
+    }
+  }
+
   async function fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries) {
     const urls = [
       `${PROXY_BASE_URL}?id=${encodeURIComponent(videoId)}`,
       `${SAME_ORIGIN_TRANSCRIPT_URL}?id=${encodeURIComponent(videoId)}`,
     ];
+
     let lastError = null;
     let tracksOnly = null;
+    // Worker がすぐに本文まで返してくれる（多くの場合はこれで済む）間は埋め込み
+    // プレイヤーを起動しない。Worker が失敗/トラックのみだった時点で初めて、
+    // 埋め込みプレイヤー経由のトラック取得を裏で並行して走らせ、Render を試す
+    // 待ち時間と重ねることで最終フォールバックの待ち時間を短縮する。
+    let embedTracksPromise = null;
+
     for (const url of urls) {
       try {
         const parsed = await fetchTranscriptFromUrl(url, languages, timeoutMs, url.includes("workers.dev") ? maxRetries : 1);
         if (parsed?.snippets?.length) return parsed;
-        if (parsed?.captionTracks?.length && !tracksOnly) tracksOnly = parsed;
+        if (parsed?.captionTracks?.length) {
+          if (!tracksOnly) tracksOnly = parsed;
+          if (!embedTracksPromise) {
+            embedTracksPromise = fetchCaptionTracksFromEmbed(videoId, timeoutMs).catch(() => []);
+          }
+          const withBody = await tryUpgradeTracksWithBrowserBody(parsed.captionTracks, languages);
+          if (withBody) return withBody;
+        }
       } catch (err) {
         lastError = err;
+        if (!embedTracksPromise) {
+          embedTracksPromise = fetchCaptionTracksFromEmbed(videoId, timeoutMs).catch(() => []);
+        }
       }
     }
-    if (!tracksOnly?.captionTracks?.length) {
-      try {
-        const embedTracks = await fetchCaptionTracksFromEmbed(videoId, timeoutMs);
-        if (embedTracks.length) {
+
+    if (!embedTracksPromise) {
+      embedTracksPromise = fetchCaptionTracksFromEmbed(videoId, timeoutMs).catch(() => []);
+    }
+    try {
+      const embedTracks = await embedTracksPromise;
+      if (embedTracks.length) {
+        if (!tracksOnly) {
           tracksOnly = {
             languageCode: embedTracks[0].languageCode || languages[0] || "en",
             isGenerated: embedTracks[0].kind === "asr",
@@ -740,10 +771,13 @@
             captionTracks: embedTracks,
           };
         }
-      } catch (err) {
-        lastError = err;
+        const withBody = await tryUpgradeTracksWithBrowserBody(embedTracks, languages);
+        if (withBody) return withBody;
       }
+    } catch (err) {
+      lastError = err;
     }
+
     if (tracksOnly?.captionTracks?.length) return tracksOnly;
     throw lastError instanceof Error ? lastError : new Error(String(lastError || "字幕の取得に失敗しました。"));
   }
