@@ -196,6 +196,91 @@ def _fetch_caption_tracks(video_id: str, client: dict) -> list[dict]:
     return tracks if isinstance(tracks, list) else []
 
 
+def _extract_json_object(html: str, marker: str) -> dict | None:
+    start = html.find(marker)
+    if start < 0:
+        return None
+    start = html.find("{", start)
+    if start < 0:
+        return None
+    depth = 0
+    for index, char in enumerate(html[start:], start=start):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    data = json.loads(html[start : index + 1])
+                except json.JSONDecodeError:
+                    return None
+                return data if isinstance(data, dict) else None
+    return None
+
+
+def _tracks_from_player_response(data: dict | None) -> list[dict]:
+    if not isinstance(data, dict):
+        return []
+    tracks = (
+        (data.get("captions") or {})
+        .get("playerCaptionsTracklistRenderer", {})
+        .get("captionTracks")
+        or []
+    )
+    return tracks if isinstance(tracks, list) else []
+
+
+def _fetch_tracks_from_watch_page(video_id: str) -> list[dict]:
+    """CNN10 一覧と同じく watch HTML / pbj=1 は Render から通ることがある。"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    pbj_request = Request(
+        f"https://www.youtube.com/watch?v={video_id}&pbj=1&hl=en",
+        headers={
+            **headers,
+            "X-YouTube-Client-Name": "1",
+            "X-YouTube-Client-Version": "2.20260903.01.00",
+        },
+    )
+    try:
+        with _urlopen(pbj_request, timeout=12) as response:
+            raw = response.read().decode("utf-8", errors="replace")
+        payload = json.loads(raw)
+        items = payload if isinstance(payload, list) else [payload]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            player = item.get("playerResponse") or item.get("player_response")
+            if isinstance(player, str):
+                try:
+                    player = json.loads(player)
+                except json.JSONDecodeError:
+                    player = None
+            tracks = _tracks_from_player_response(player if isinstance(player, dict) else item)
+            if tracks:
+                return tracks
+    except (OSError, URLError, json.JSONDecodeError, HTTPError) as exc:
+        logger.info("watch pbj=1 failed for %s: %s", video_id, exc)
+
+    watch_request = Request(
+        f"https://www.youtube.com/watch?v={video_id}&hl=en",
+        headers=headers,
+    )
+    try:
+        with _urlopen(watch_request, timeout=12) as response:
+            html = response.read().decode("utf-8", errors="replace")
+    except (OSError, URLError, HTTPError) as exc:
+        logger.info("watch html failed for %s: %s", video_id, exc)
+        return []
+    if "g-recaptcha" in html:
+        logger.info("watch html recaptcha for %s", video_id)
+        return []
+    player = _extract_json_object(html, "ytInitialPlayerResponse")
+    return _tracks_from_player_response(player)
+
+
 def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = DEFAULT_LANGUAGES) -> dict:
     """InnerTube で字幕トラック URL を返す。本文はブラウザ側で timedtext を取る。"""
     video_id = extract_video_id(url_or_video_id)
@@ -227,6 +312,17 @@ def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = 
             client["name"],
         )
         return payload
+
+    html_tracks = _public_tracks(_fetch_tracks_from_watch_page(video_id))
+    selected = _select_track(html_tracks, languages)
+    if selected:
+        logger.info("youtube caption tracks fetched (%s, %d tracks) via watch html", video_id, len(html_tracks))
+        return {
+            "language_code": str(selected.get("languageCode") or languages[0] or "en"),
+            "is_generated": selected.get("kind") == "asr",
+            "snippets": [],
+            "caption_tracks": html_tracks,
+        }
 
     if last_rate_limited:
         raise TranscriptRateLimited("YouTube へのリクエストが制限されています。しばらく待ってから再試行してください。")
