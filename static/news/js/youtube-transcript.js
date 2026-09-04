@@ -6,6 +6,11 @@
 
   const PROXY_BASE_URL = "https://vibe-speak-proxy.kishineseiichi.workers.dev/";
   const SAME_ORIGIN_TRANSCRIPT_URL = "/news/api/youtube-transcript";
+  // 学校などのネットワークが *.workers.dev を直接ブロックしているケース向けに、
+  // Render（同一オリジン）経由で Cloudflare Worker を代理呼び出しする中継エンドポイント。
+  // ブラウザからは常に同一オリジンにしか見えないので、Worker 自体のドメインが
+  // フィルタされていても Cloudflare 側の良好な IP 経由で字幕を取得できる。
+  const SAME_ORIGIN_WORKER_RELAY_URL = "/news/api/youtube-transcript-worker";
   const LOCAL_CACHE_PREFIX = "vibeNewsYoutubeTranscript:v1:";
   const LOCAL_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
@@ -742,6 +747,7 @@
   async function fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries) {
     const urls = [
       `${PROXY_BASE_URL}?id=${encodeURIComponent(videoId)}`,
+      `${SAME_ORIGIN_WORKER_RELAY_URL}?id=${encodeURIComponent(videoId)}`,
       `${SAME_ORIGIN_TRANSCRIPT_URL}?id=${encodeURIComponent(videoId)}`,
     ];
 
@@ -755,7 +761,8 @@
 
     for (const url of urls) {
       try {
-        const parsed = await fetchTranscriptFromUrl(url, languages, timeoutMs, url.includes("workers.dev") ? maxRetries : 1);
+        const isWorkerBacked = url.includes("workers.dev") || url.includes(SAME_ORIGIN_WORKER_RELAY_URL);
+        const parsed = await fetchTranscriptFromUrl(url, languages, timeoutMs, isWorkerBacked ? maxRetries : 1);
         if (parsed?.snippets?.length) return parsed;
         if (parsed?.captionTracks?.length) {
           if (!tracksOnly) tracksOnly = parsed;

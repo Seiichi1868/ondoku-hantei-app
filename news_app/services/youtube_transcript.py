@@ -19,6 +19,9 @@ from news_app.services.youtube import extract_video_id
 
 logger = logging.getLogger(__name__)
 
+WORKER_PROXY_URL = "https://vibe-speak-proxy.kishineseiichi.workers.dev/"
+VIDEO_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
+
 INNERTUBE_PLAYER_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
 DEFAULT_LANGUAGES = ("en", "ja")
 CACHE_DIR = DATA_DIR / "youtube_transcripts"
@@ -435,6 +438,45 @@ def fetch_timedtext_from_url(url: str) -> dict:
         "is_generated": True,
         "snippets": snippets,
     }
+
+
+def fetch_via_worker_relay(video_id: str) -> dict:
+    """学校のネットワークが *.workers.dev を直接ブロックしているケース向けに、
+    Render（同一オリジン）から Cloudflare Worker を代理で叩いて結果を返す。
+    ブラウザは常に自分のドメインにしかアクセスしないので、Worker のドメインが
+    フィルタされていても字幕データを受け取れる。
+    """
+    if not VIDEO_ID_RE.match(video_id or ""):
+        raise ValueError("有効な 11 桁の YouTube 動画 ID を指定してください。")
+    request = Request(
+        f"{WORKER_PROXY_URL}?id={video_id}",
+        headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"},
+    )
+    try:
+        with _urlopen(request, timeout=15) as response:
+            body = response.read().decode("utf-8", errors="replace")
+    except HTTPError as exc:
+        try:
+            body = exc.read().decode("utf-8", errors="replace")
+            data = json.loads(body)
+        except (OSError, json.JSONDecodeError, ValueError):
+            data = {}
+        message = str(data.get("error") or "字幕プロキシの呼び出しに失敗しました。")
+        if exc.code == 429:
+            raise TranscriptRateLimited(message) from exc
+        if exc.code == 404:
+            raise TranscriptNotFound(message) from exc
+        raise RuntimeError(message) from exc
+    except (OSError, URLError) as exc:
+        raise RuntimeError(f"字幕プロキシに接続できませんでした: {exc}") from exc
+
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("字幕プロキシのレスポンスを解析できませんでした。") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError("字幕プロキシのレスポンス形式が不正です。")
+    return data
 
 
 def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = DEFAULT_LANGUAGES) -> dict:

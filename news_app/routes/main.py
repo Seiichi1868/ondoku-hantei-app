@@ -34,6 +34,7 @@ from news_app.services.youtube_transcript import (
     TranscriptNotFound,
     TranscriptRateLimited,
     fetch_timedtext_from_url,
+    fetch_via_worker_relay,
     fetch_youtube_transcript,
 )
 
@@ -97,6 +98,28 @@ def youtube_transcript():
     except Exception:
         logger.exception("youtube transcript fallback failed")
         return jsonify({"ok": False, "error": "字幕の取得に失敗しました。"}), 502
+    return jsonify(payload)
+
+
+@main_bp.route("/api/youtube-transcript-worker")
+def youtube_transcript_worker_relay():
+    """学校ネットワークが *.workers.dev を直接ブロックしている場合向けに、
+    Render から Cloudflare Worker を代理で呼び出す同一オリジンの中継route。
+    """
+    raw_id = (request.args.get("id") or "").strip()
+    if not raw_id:
+        return jsonify({"ok": False, "error": "動画 ID を指定してください (?id=VIDEO_ID)。"}), 400
+    try:
+        payload = fetch_via_worker_relay(raw_id)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except TranscriptRateLimited as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 429
+    except TranscriptNotFound as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+    except Exception as exc:
+        logger.info("worker relay failed: %s", exc)
+        return jsonify({"ok": False, "error": "字幕プロキシの中継に失敗しました。"}), 502
     return jsonify(payload)
 
 
