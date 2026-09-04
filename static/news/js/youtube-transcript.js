@@ -644,7 +644,10 @@
       `?enablejsapi=1&rel=0&origin=${encodeURIComponent(global.location.origin)}`;
     document.body.appendChild(iframe);
 
-    const messageTracksPromise = listenForEmbedCaptionTracks(Math.min(timeoutMs, 8000));
+    // 埋め込みプレイヤーは Worker/Render の両方がブロックされたときの最後の
+    // 頼みの綱なので、他の候補より長めに待ってでも成功率を優先する。
+    const embedTimeoutMs = Math.min(Math.max(timeoutMs, 12000), 15000);
+    const messageTracksPromise = listenForEmbedCaptionTracks(embedTimeoutMs);
     const playerTracksPromise = new Promise((resolve) => {
       let finished = false;
       const done = (tracks) => {
@@ -652,13 +655,21 @@
         finished = true;
         resolve(publicTracksFromPlayerList(tracks));
       };
-      const timer = setTimeout(() => done([]), Math.min(timeoutMs, 8000));
+      const timer = setTimeout(() => done([]), embedTimeoutMs);
       try {
         const player = new global.YT.Player(iframe, {
           events: {
             onReady: () => {
               try {
                 if (typeof player.loadModule === "function") player.loadModule("captions");
+              } catch (_err) {
+                /* ignore */
+              }
+              try {
+                // captions トラック一覧は再生が始まるまで空のことが多いので、
+                // ミュートで少しだけ再生させて playerResponse を確定させる。
+                if (typeof player.mute === "function") player.mute();
+                if (typeof player.playVideo === "function") player.playVideo();
               } catch (_err) {
                 /* ignore */
               }
@@ -683,7 +694,12 @@
                 }
                 return false;
               };
-              if (!tryRead()) setTimeout(tryRead, 600);
+              // 1回で取れないことが多いので、間隔を空けながら数回リトライする。
+              const retryDelaysMs = [600, 1500, 3000, 6000, 10000];
+              retryDelaysMs.forEach((delay) => {
+                if (delay < embedTimeoutMs) setTimeout(tryRead, delay);
+              });
+              tryRead();
             },
             onApiChange: () => {
               try {
