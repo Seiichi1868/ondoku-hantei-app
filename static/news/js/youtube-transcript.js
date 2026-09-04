@@ -6,6 +6,8 @@
 
   const PROXY_BASE_URL = "https://vibe-speak-proxy.kishineseiichi.workers.dev/";
   const SAME_ORIGIN_TRANSCRIPT_URL = "/news/api/youtube-transcript";
+  const LOCAL_CACHE_PREFIX = "vibeNewsYoutubeTranscript:v1:";
+  const LOCAL_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
   const DEFAULT_LANGUAGES = ["en", "ja"];
   const DEFAULT_TIMEOUT_MS = 12000;
@@ -494,22 +496,49 @@
     return parseProxyPayload(body, "", languages);
   }
 
-  async function fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries) {
-    const workerUrl = `${PROXY_BASE_URL}?id=${encodeURIComponent(videoId)}`;
+  function readLocalTranscriptCache(videoId) {
     try {
-      return await fetchTranscriptFromUrl(workerUrl, languages, timeoutMs, maxRetries);
-    } catch (err) {
-      const fallbackUrl = `${SAME_ORIGIN_TRANSCRIPT_URL}?id=${encodeURIComponent(videoId)}`;
+      const raw = global.localStorage?.getItem(`${LOCAL_CACHE_PREFIX}${videoId}`);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data?.savedAt || Date.now() - Number(data.savedAt) > LOCAL_CACHE_TTL_MS) return null;
+      if (!Array.isArray(data.snippets) || !data.snippets.length) return null;
+      return data;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function writeLocalTranscriptCache(videoId, parsed) {
+    try {
+      global.localStorage?.setItem(
+        `${LOCAL_CACHE_PREFIX}${videoId}`,
+        JSON.stringify({
+          savedAt: Date.now(),
+          languageCode: parsed.languageCode,
+          isGenerated: parsed.isGenerated,
+          snippets: parsed.snippets,
+        })
+      );
+    } catch (_err) {
+      // quota / private mode
+    }
+  }
+
+  async function fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries) {
+    const urls = [
+      `${SAME_ORIGIN_TRANSCRIPT_URL}?id=${encodeURIComponent(videoId)}`,
+      `${PROXY_BASE_URL}?id=${encodeURIComponent(videoId)}`,
+    ];
+    let lastError = null;
+    for (const url of urls) {
       try {
-        return await fetchTranscriptFromUrl(fallbackUrl, languages, timeoutMs, 1);
-      } catch (fallbackErr) {
-        throw fallbackErr instanceof Error
-          ? fallbackErr
-          : err instanceof Error
-            ? err
-            : new Error(String(err || "字幕の取得に失敗しました。"));
+        return await fetchTranscriptFromUrl(url, languages, timeoutMs, url.includes("workers.dev") ? maxRetries : 1);
+      } catch (err) {
+        lastError = err;
       }
     }
+    throw lastError instanceof Error ? lastError : new Error(String(lastError || "字幕の取得に失敗しました。"));
   }
 
   async function fetchTranscript(videoIdOrUrl, options) {
@@ -521,12 +550,16 @@
     const endSec = opts.endSec ?? null;
 
     const videoId = extractVideoId(videoIdOrUrl);
-    let parsed = await fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries);
-    if (!parsed?.snippets?.length && parsed?.captionTracks?.length) {
-      parsed = await fetchTimedTextInBrowser(parsed.captionTracks, languages);
-    }
+    let parsed = readLocalTranscriptCache(videoId);
     if (!parsed?.snippets?.length) {
-      throw new Error("日本語・英語の字幕が見つかりませんでした。");
+      parsed = await fetchTranscriptFromProxy(videoId, languages, timeoutMs, maxRetries);
+      if (!parsed?.snippets?.length && parsed?.captionTracks?.length) {
+        parsed = await fetchTimedTextInBrowser(parsed.captionTracks, languages);
+      }
+      if (!parsed?.snippets?.length) {
+        throw new Error("日本語・英語の字幕が見つかりませんでした。");
+      }
+      writeLocalTranscriptCache(videoId, parsed);
     }
 
     const fetchedSnippets = parsed.snippets;
