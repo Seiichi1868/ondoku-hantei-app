@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import http.cookiejar
 import json
 import logging
 import re
 import ssl
+import threading
 from html import unescape
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
 
 from news_app.config import DATA_DIR
 from news_app.services.youtube import extract_video_id
@@ -19,6 +21,8 @@ logger = logging.getLogger(__name__)
 INNERTUBE_PLAYER_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
 DEFAULT_LANGUAGES = ("en", "ja")
 CACHE_DIR = DATA_DIR / "youtube_transcripts"
+YOUTUBE_HOME = "https://www.youtube.com/"
+CONSENT_COOKIE = "CONSENT=YES+; SOCS=CAI; PREF=hl=en&tz=UTC"
 
 INNERTUBE_CLIENTS = (
     {
@@ -39,10 +43,19 @@ INNERTUBE_CLIENTS = (
     },
 )
 
+BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+)
+
 _P_TAG_RE = re.compile(r'<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)</p>')
 _S_TAG_RE = re.compile(r"<s[^>]*>([^<]*)</s>")
 _TEXT_TAG_RE = re.compile(r'<text start="([^"]*)" dur="([^"]*)">([^<]*)</text>')
 _TAG_RE = re.compile(r"<[^>]+>")
+
+_opener_lock = threading.Lock()
+_opener = None
+_session_warmed = False
 
 
 class TranscriptRateLimited(Exception):
@@ -53,15 +66,58 @@ class TranscriptNotFound(Exception):
     """対象言語の字幕が見つからない。"""
 
 
+def _build_opener(*, unverified: bool = False):
+    jar = http.cookiejar.CookieJar()
+    handlers = [HTTPCookieProcessor(jar)]
+    if unverified:
+        handlers.append(HTTPSHandler(context=ssl._create_unverified_context()))
+    return build_opener(*handlers)
+
+
+def _get_opener():
+    global _opener
+    if _opener is None:
+        with _opener_lock:
+            if _opener is None:
+                _opener = _build_opener()
+    return _opener
+
+
 def _urlopen(request: Request, timeout: int = 12):
+    global _opener
+    opener = _get_opener()
     try:
-        return urlopen(request, timeout=timeout)
+        return opener.open(request, timeout=timeout)
     except ssl.SSLError:
         pass
     except URLError as exc:
         if not isinstance(exc.reason, ssl.SSLError):
             raise
-    return urlopen(request, timeout=timeout, context=ssl._create_unverified_context())
+    with _opener_lock:
+        _opener = _build_opener(unverified=True)
+    return _opener.open(request, timeout=timeout)
+
+
+def _warmup_youtube_session() -> None:
+    """VISITOR / CONSENT Cookie を付けてから InnerTube を叩く。データセンター IP ではこれがないと字幕トラックが空になる。"""
+    global _session_warmed
+    if _session_warmed:
+        return
+    request = Request(
+        YOUTUBE_HOME,
+        headers={
+            "User-Agent": BROWSER_UA,
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cookie": CONSENT_COOKIE,
+        },
+    )
+    try:
+        with _urlopen(request, timeout=10) as response:
+            response.read(2048)
+        _session_warmed = True
+        logger.info("youtube session warmed for transcript fetch")
+    except (OSError, URLError, HTTPError) as exc:
+        logger.info("youtube session warmup failed: %s", exc)
 
 
 def _round_sec(value: float) -> float:
@@ -140,6 +196,8 @@ def _read_cache(video_id: str) -> dict | None:
 
 
 def _write_cache(video_id: str, payload: dict) -> None:
+    if not payload.get("snippets"):
+        return
     try:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         _cache_path(video_id).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -172,6 +230,9 @@ def _fetch_caption_tracks(video_id: str, client: dict) -> list[dict]:
             "Content-Type": "application/json",
             "User-Agent": client["user_agent"],
             "Accept-Language": "en-US,en;q=0.9",
+            "Origin": "https://www.youtube.com",
+            "Referer": "https://www.youtube.com/",
+            "Cookie": CONSENT_COOKIE,
         },
         method="POST",
     )
@@ -203,19 +264,11 @@ def _extract_json_object(html: str, marker: str) -> dict | None:
     start = html.find("{", start)
     if start < 0:
         return None
-    depth = 0
-    for index, char in enumerate(html[start:], start=start):
-        if char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                try:
-                    data = json.loads(html[start : index + 1])
-                except json.JSONDecodeError:
-                    return None
-                return data if isinstance(data, dict) else None
-    return None
+    try:
+        data, _ = json.JSONDecoder().raw_decode(html[start:])
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def _tracks_from_player_response(data: dict | None) -> list[dict]:
@@ -231,39 +284,13 @@ def _tracks_from_player_response(data: dict | None) -> list[dict]:
 
 
 def _fetch_tracks_from_watch_page(video_id: str) -> list[dict]:
-    """CNN10 一覧と同じく watch HTML / pbj=1 は Render から通ることがある。"""
+    """CNN10 一覧と同じく watch HTML は Render から通ることがある。"""
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "User-Agent": BROWSER_UA,
         "Accept-Language": "en-US,en;q=0.9",
+        "Cookie": CONSENT_COOKIE,
+        "Referer": "https://www.youtube.com/",
     }
-    pbj_request = Request(
-        f"https://www.youtube.com/watch?v={video_id}&pbj=1&hl=en",
-        headers={
-            **headers,
-            "X-YouTube-Client-Name": "1",
-            "X-YouTube-Client-Version": "2.20260903.01.00",
-        },
-    )
-    try:
-        with _urlopen(pbj_request, timeout=12) as response:
-            raw = response.read().decode("utf-8", errors="replace")
-        payload = json.loads(raw)
-        items = payload if isinstance(payload, list) else [payload]
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            player = item.get("playerResponse") or item.get("player_response")
-            if isinstance(player, str):
-                try:
-                    player = json.loads(player)
-                except json.JSONDecodeError:
-                    player = None
-            tracks = _tracks_from_player_response(player if isinstance(player, dict) else item)
-            if tracks:
-                return tracks
-    except (OSError, URLError, json.JSONDecodeError, HTTPError) as exc:
-        logger.info("watch pbj=1 failed for %s: %s", video_id, exc)
-
     watch_request = Request(
         f"https://www.youtube.com/watch?v={video_id}&hl=en",
         headers=headers,
@@ -274,55 +301,125 @@ def _fetch_tracks_from_watch_page(video_id: str) -> list[dict]:
     except (OSError, URLError, HTTPError) as exc:
         logger.info("watch html failed for %s: %s", video_id, exc)
         return []
-    if "g-recaptcha" in html:
+    if "g-recaptcha" in html and "ytInitialPlayerResponse" not in html:
         logger.info("watch html recaptcha for %s", video_id)
         return []
     player = _extract_json_object(html, "ytInitialPlayerResponse")
     return _tracks_from_player_response(player)
 
 
+def _fetch_timedtext(base_url: str) -> list[dict]:
+    request = Request(
+        base_url,
+        headers={
+            "User-Agent": BROWSER_UA,
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cookie": CONSENT_COOKIE,
+            "Referer": "https://www.youtube.com/",
+        },
+    )
+    try:
+        with _urlopen(request, timeout=12) as response:
+            body = response.read().decode("utf-8", errors="replace")
+    except HTTPError as exc:
+        if exc.code == 429:
+            raise TranscriptRateLimited("YouTube へのリクエストが制限されています。") from exc
+        return []
+    except (OSError, URLError):
+        return []
+    return _parse_timedtext_xml(body)
+
+
+def _payload_from_tracks(
+    tracks: list[dict],
+    languages: tuple[str, ...],
+    snippets: list[dict] | None = None,
+) -> dict | None:
+    caption_tracks = _public_tracks(tracks)
+    selected = _select_track(caption_tracks, languages)
+    if not selected:
+        return None
+    return {
+        "language_code": str(selected.get("languageCode") or languages[0] or "en"),
+        "is_generated": selected.get("kind") == "asr",
+        "snippets": snippets or [],
+        "caption_tracks": caption_tracks,
+    }
+
+
 def fetch_youtube_transcript(url_or_video_id: str, languages: tuple[str, ...] = DEFAULT_LANGUAGES) -> dict:
-    """InnerTube で字幕トラック URL を返す。本文はブラウザ側で timedtext を取る。"""
+    """字幕本文を取得する。本文が空でもトラック URL があればブラウザ側フォールバック用に返す。"""
     video_id = extract_video_id(url_or_video_id)
     cached = _read_cache(video_id)
     if cached:
         return cached
 
+    _warmup_youtube_session()
+
     last_rate_limited = False
+    collected_tracks: list[dict] = []
+
     for client in INNERTUBE_CLIENTS:
         try:
             tracks = _fetch_caption_tracks(video_id, client)
         except TranscriptRateLimited:
             last_rate_limited = True
             continue
-        caption_tracks = _public_tracks(tracks)
-        selected = _select_track(caption_tracks, languages)
-        if not selected:
+        if not tracks:
             continue
-        payload = {
-            "language_code": str(selected.get("languageCode") or languages[0] or "en"),
-            "is_generated": selected.get("kind") == "asr",
-            "snippets": [],
-            "caption_tracks": caption_tracks,
-        }
-        logger.info(
-            "youtube caption tracks fetched (%s, %d tracks) via %s",
-            video_id,
-            len(caption_tracks),
-            client["name"],
-        )
-        return payload
+        collected_tracks = tracks
+        selected = _select_track(_public_tracks(tracks), languages)
+        if not selected or not selected.get("baseUrl"):
+            continue
+        try:
+            snippets = _fetch_timedtext(str(selected["baseUrl"]))
+        except TranscriptRateLimited:
+            last_rate_limited = True
+            continue
+        if snippets:
+            payload = _payload_from_tracks(tracks, languages, snippets)
+            if payload:
+                _write_cache(video_id, payload)
+                logger.info(
+                    "youtube transcript fetched (%s, %s, %d snippets) via %s",
+                    video_id,
+                    payload["language_code"],
+                    len(snippets),
+                    client["name"],
+                )
+                return payload
 
-    html_tracks = _public_tracks(_fetch_tracks_from_watch_page(video_id))
-    selected = _select_track(html_tracks, languages)
-    if selected:
-        logger.info("youtube caption tracks fetched (%s, %d tracks) via watch html", video_id, len(html_tracks))
-        return {
-            "language_code": str(selected.get("languageCode") or languages[0] or "en"),
-            "is_generated": selected.get("kind") == "asr",
-            "snippets": [],
-            "caption_tracks": html_tracks,
-        }
+    html_tracks = _fetch_tracks_from_watch_page(video_id)
+    if html_tracks:
+        collected_tracks = html_tracks or collected_tracks
+        selected = _select_track(_public_tracks(html_tracks), languages)
+        if selected and selected.get("baseUrl"):
+            try:
+                snippets = _fetch_timedtext(str(selected["baseUrl"]))
+            except TranscriptRateLimited:
+                last_rate_limited = True
+                snippets = []
+            if snippets:
+                payload = _payload_from_tracks(html_tracks, languages, snippets)
+                if payload:
+                    _write_cache(video_id, payload)
+                    logger.info(
+                        "youtube transcript fetched (%s, %s, %d snippets) via watch html",
+                        video_id,
+                        payload["language_code"],
+                        len(snippets),
+                    )
+                    return payload
+
+    if collected_tracks:
+        payload = _payload_from_tracks(collected_tracks, languages, [])
+        if payload:
+            logger.info(
+                "youtube caption tracks only (%s, %d tracks); browser will fetch timedtext",
+                video_id,
+                len(payload["caption_tracks"]),
+            )
+            return payload
 
     if last_rate_limited:
         raise TranscriptRateLimited("YouTube へのリクエストが制限されています。しばらく待ってから再試行してください。")

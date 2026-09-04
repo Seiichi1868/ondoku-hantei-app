@@ -531,13 +531,17 @@
       `${PROXY_BASE_URL}?id=${encodeURIComponent(videoId)}`,
     ];
     let lastError = null;
+    let tracksOnly = null;
     for (const url of urls) {
       try {
-        return await fetchTranscriptFromUrl(url, languages, timeoutMs, url.includes("workers.dev") ? maxRetries : 1);
+        const parsed = await fetchTranscriptFromUrl(url, languages, timeoutMs, url.includes("workers.dev") ? maxRetries : 1);
+        if (parsed?.snippets?.length) return parsed;
+        if (parsed?.captionTracks?.length && !tracksOnly) tracksOnly = parsed;
       } catch (err) {
         lastError = err;
       }
     }
+    if (tracksOnly?.captionTracks?.length) return tracksOnly;
     throw lastError instanceof Error ? lastError : new Error(String(lastError || "字幕の取得に失敗しました。"));
   }
 
